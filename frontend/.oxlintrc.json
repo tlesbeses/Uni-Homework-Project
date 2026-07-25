@@ -1,0 +1,58 @@
+{
+   "$schema": "./node_modules/oxlint/configuration_schema.json",
+   "plugins": [
+      "react",
+      "oxc"
+   ],
+   "rules": {
+      "react/rules-of-hooks": "error",
+      "react/only-export-components": [
+         "warn",
+         {
+            "allowConstantExport": true
+         }
+      ],
+      /* =====================
+       Posibles errores
+    ===================== */
+      "no-debugger": "error",
+      "no-dupe-keys": "error",
+      "no-dupe-else-if": "error",
+      "no-unreachable": "error",
+      "no-unsafe-finally": "error",
+      "no-self-compare": "error",
+      /* =====================
+       Buenas prácticas
+    ===================== */
+      "eqeqeq": "error",
+      "curly": "error",
+      "no-var": "error",
+      "prefer-const": "error",
+      "no-console": "warn",
+      /* =====================
+       Variables
+    ===================== */
+      "no-unused-vars": "warn",
+      /* =====================
+       Imports
+    ===================== */
+      "import/no-duplicates": "error",
+      /* =====================
+       React
+    ===================== */
+      "react/jsx-key": "error",
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": "warn",
+      /* =====================
+       TypeScript
+    ===================== */
+      "typescript/no-explicit-any": "warn",
+      "typescript/no-unused-vars": "warn",
+      /* =====================
+       Unicorn
+    ===================== */
+      "unicorn/prefer-array-find": "warn",
+      "unicorn/prefer-array-flat": "warn",
+      "unicorn/prefer-node-protocol": "warn"
+   }
+}
