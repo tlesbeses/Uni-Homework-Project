@@ -1,6 +1,7 @@
-from django.urls import path
+from django.urls import include, path
 from . import views
 
 urlpatterns = [
-    path("login/", views.auth_list, name="auth-list"),
+    path("", include("djoser.urls")),
+    path("", include("djoser.urls.authtoken")),
 ]
