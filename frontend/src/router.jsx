@@ -10,6 +10,7 @@ import { DashboardPage } from './pages/index.jsx';
 import { RegistrarNotaPage } from './pages/index.jsx';
 import { EstudiantesPage } from './pages/index.jsx';
 import { NotFoundPage } from './pages/index.jsx';
+import ProtectedRoute from './auth/ProtectedRoute.jsx';
 
 export const router = createBrowserRouter([
     // Ruta Pública: Landing Page
@@ -39,15 +40,15 @@ export const router = createBrowserRouter([
         children: [
             {
                 path: '/dashboard',
-                element: <DashboardPage />,
+                element: <ProtectedRoute ><DashboardPage /></ProtectedRoute>,
             },
             {
                 path: '/notas/registrar',
-                element: <RegistrarNotaPage />,
+                element: <ProtectedRoute><RegistrarNotaPage /></ProtectedRoute>,
             },
             {
                 path: '/estudiantes',
-                element: <EstudiantesPage />,
+                element: <ProtectedRoute><EstudiantesPage /></ProtectedRoute>,
             },
         ],
     },
