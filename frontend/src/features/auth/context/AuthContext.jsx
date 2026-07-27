@@ -7,7 +7,7 @@ import {
     useEffect
 } from "react";
 
-export const AuthContext = createContext(undefined);
+const AuthContext = createContext(undefined);
 
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
@@ -50,3 +50,10 @@ export function AuthProvider({ children }) {
     );
 }
 
+export function useAuth() {
+    const context = useContext(AuthContext);
+    if (context === undefined) {
+        throw new Error("useAuth must be used within an AuthProvider");
+    }
+    return context;
+}
