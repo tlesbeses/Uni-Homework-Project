@@ -4,7 +4,7 @@ import AuthLayout from './layouts/AuthLayout';
 
 // Páginas de Ejemplo (Reemplaza con tus componentes reales)
 import { LandingPage } from './pages/index.jsx';
-import { LoginPage } from './pages/index.jsx';
+import { LoginPage } from './features/auth/pages/LoginPage.jsx';
 import { RegisterPage } from './pages/index.jsx';
 import { DashboardPage } from './pages/index.jsx';
 import { RegistrarNotaPage } from './pages/index.jsx';

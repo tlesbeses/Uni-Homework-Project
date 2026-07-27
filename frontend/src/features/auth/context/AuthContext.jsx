@@ -25,15 +25,34 @@ export function AuthProvider({ children }) {
         setIsLoading(false);
     }, []);
 
-    const login = useCallback((userData) => {
-        setUser(userData);
-        localStorage.setItem("user", JSON.stringify(userData));
-    }, []);
+    const login = async (data) => {
 
-    const logout = useCallback(() => {
+        localStorage.setItem(
+            "access",
+            data.access
+        );
+
+        localStorage.setItem(
+            "refresh",
+            data.refresh
+        );
+
+
+        const userData = await getCurrentUser();
+
+
+        setUser(userData);
+
+    };
+
+    const logout = () => {
+
+        localStorage.removeItem("access");
+        localStorage.removeItem("refresh");
+
         setUser(null);
-        localStorage.removeItem("user");
-    }, []);
+
+    };
 
     const value = useMemo(() => ({
         user,
