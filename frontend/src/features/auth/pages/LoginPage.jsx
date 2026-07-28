@@ -25,6 +25,7 @@ export const LoginPage = () => {
 
         try {
             const data = await loginRequest(form);
+            console.log(data);
             await login(data);
             navigate("/dashboard", { replace: true });
         } catch (error) {
