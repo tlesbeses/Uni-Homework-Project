@@ -3,13 +3,11 @@ import AppLayout from '../layouts/AppLayout.jsx';
 import AuthLayout from '../layouts/AuthLayout.jsx';
 
 // Páginas de Ejemplo (Reemplaza con tus componentes reales)
-import { LandingPage } from '../../pages/index.jsx';
+import { LandingPage } from '../pages/LandinPage.jsx';
 import { LoginPage } from '../../features/auth/pages/LoginPage.jsx';
-import { RegisterPage } from '../../pages/index.jsx';
-import { DashboardPage } from '../../pages/index.jsx';
-import { RegistrarNotaPage } from '../../pages/index.jsx';
-import { EstudiantesPage } from '../../pages/index.jsx';
-import { NotFoundPage } from '../../pages/index.jsx';
+import { RegisterPage } from '../../features/auth/pages/RegisterPage.jsx';
+import { DashboardPage } from '../pages/DashboardPage.jsx';
+import { NotFoundPage } from '../pages/NotFoundPage.jsx';
 import ProtectedRoute from '../../features/auth/ProtectedRoute.jsx';
 
 export const router = createBrowserRouter([
@@ -41,14 +39,6 @@ export const router = createBrowserRouter([
             {
                 path: '/dashboard',
                 element: <ProtectedRoute ><DashboardPage /></ProtectedRoute>,
-            },
-            {
-                path: '/notas/registrar',
-                element: <ProtectedRoute><RegistrarNotaPage /></ProtectedRoute>,
-            },
-            {
-                path: '/estudiantes',
-                element: <ProtectedRoute><EstudiantesPage /></ProtectedRoute>,
             },
         ],
     },
