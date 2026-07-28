@@ -9,7 +9,7 @@ export default function ProtectedRoute({
     forbiddenTo = "/403",
 }) {
     const { user, isLoading } = useAuth();
-
+    console.log("ProtectedRoute user:", user);
     // Esperar a que el auth termine de hidratarse (localStorage, refresh token, etc.)
     if (isLoading) {
         return null; // o un <Spinner />

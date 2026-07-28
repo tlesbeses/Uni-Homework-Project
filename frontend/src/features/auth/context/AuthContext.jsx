@@ -6,6 +6,7 @@ import {
     useContext,
     useEffect
 } from "react";
+import { getUserProfile } from "../services/authService";
 
 const AuthContext = createContext(undefined);
 
@@ -13,17 +14,6 @@ export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    useEffect(() => {
-        const storedUser = localStorage.getItem("user");
-        if (storedUser) {
-            try {
-                setUser(JSON.parse(storedUser));
-            } catch {
-                localStorage.removeItem("user");
-            }
-        }
-        setIsLoading(false);
-    }, []);
 
     const login = async (data) => {
 
@@ -38,9 +28,7 @@ export function AuthProvider({ children }) {
         );
 
 
-        const userData = await getCurrentUser();
-
-
+        const userData = await getUserProfile();
         setUser(userData);
 
     };
@@ -58,7 +46,7 @@ export function AuthProvider({ children }) {
         user,
         isLoading,
         isAuthenticated: user !== null,
-        login,
+        contextLogin: login,
         logout
     }), [user, isLoading, login, logout]);
 
