@@ -14,8 +14,30 @@ export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
 
+    useEffect(() => {
+        const initialize = async () => {
+            const token = localStorage.getItem("access");
 
-    const login = async (data) => {
+            if (!token) {
+                setIsLoading(false);
+                return;
+            }
+
+            try {
+                const userData = await getUserProfile();
+                setUser(userData);
+            } catch {
+                logout();
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        initialize();
+    }, []);
+
+
+    const login = useCallback(async (data) => {
 
         localStorage.setItem(
             "access",
@@ -31,16 +53,16 @@ export function AuthProvider({ children }) {
         const userData = await getUserProfile();
         setUser(userData);
 
-    };
+    }, []);
 
-    const logout = () => {
+    const logout = useCallback(() => {
 
         localStorage.removeItem("access");
         localStorage.removeItem("refresh");
 
         setUser(null);
 
-    };
+    }, []);
 
     const value = useMemo(() => ({
         user,

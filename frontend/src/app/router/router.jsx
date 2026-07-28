@@ -1,16 +1,16 @@
 import { createBrowserRouter } from 'react-router-dom';
-import AppLayout from './layouts/AppLayout';
-import AuthLayout from './layouts/AuthLayout';
+import AppLayout from '../layouts/AppLayout.jsx';
+import AuthLayout from '../layouts/AuthLayout.jsx';
 
 // Páginas de Ejemplo (Reemplaza con tus componentes reales)
-import { LandingPage } from './pages/index.jsx';
-import { LoginPage } from './features/auth/pages/LoginPage.jsx';
-import { RegisterPage } from './pages/index.jsx';
-import { DashboardPage } from './pages/index.jsx';
-import { RegistrarNotaPage } from './pages/index.jsx';
-import { EstudiantesPage } from './pages/index.jsx';
-import { NotFoundPage } from './pages/index.jsx';
-import ProtectedRoute from './auth/ProtectedRoute.jsx';
+import { LandingPage } from '../../pages/index.jsx';
+import { LoginPage } from '../../features/auth/pages/LoginPage.jsx';
+import { RegisterPage } from '../../pages/index.jsx';
+import { DashboardPage } from '../../pages/index.jsx';
+import { RegistrarNotaPage } from '../../pages/index.jsx';
+import { EstudiantesPage } from '../../pages/index.jsx';
+import { NotFoundPage } from '../../pages/index.jsx';
+import ProtectedRoute from '../../features/auth/ProtectedRoute.jsx';
 
 export const router = createBrowserRouter([
     // Ruta Pública: Landing Page
