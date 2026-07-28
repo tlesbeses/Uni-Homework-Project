@@ -1,5 +1,5 @@
-from django.shortcuts import render
-from django.http import HttpResponse
+from rest_framework_simplejwt.views import TokenObtainPairView
+from .serializers import LoginSerializer
 
-def auth_list(request):
-    return HttpResponse("Hola login")
+class LoginView(TokenObtainPairView):
+    serializer_class = LoginSerializer
