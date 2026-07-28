@@ -1,14 +1,14 @@
 import { createBrowserRouter } from 'react-router-dom';
-import AppLayout from '../layouts/AppLayout.jsx';
-import AuthLayout from '../layouts/AuthLayout.jsx';
+import AppLayout from '@/app/layouts/AppLayout';
+import AuthLayout from '@/app/layouts/AuthLayout';
 
 // Páginas de Ejemplo (Reemplaza con tus componentes reales)
-import { LandingPage } from '../pages/LandinPage.jsx';
-import { LoginPage } from '../../features/auth/pages/LoginPage.jsx';
-import { RegisterPage } from '../../features/auth/pages/RegisterPage.jsx';
-import { DashboardPage } from '../pages/DashboardPage.jsx';
-import { NotFoundPage } from '../pages/NotFoundPage.jsx';
-import ProtectedRoute from '../../features/auth/ProtectedRoute.jsx';
+import { LandingPage } from '@/app/pages/LandinPage';
+import { LoginPage } from '@/features/auth/pages/LoginPage';
+import { RegisterPage } from '@/features/auth/pages/RegisterPage';
+import { DashboardPage } from '@/app/pages/DashboardPage';
+import { NotFoundPage } from '@/app/pages/NotFoundPage';
+import { ProtectedRoute } from '@/features/auth/components/ProtectedRoute';
 
 export const router = createBrowserRouter([
     // Ruta Pública: Landing Page
