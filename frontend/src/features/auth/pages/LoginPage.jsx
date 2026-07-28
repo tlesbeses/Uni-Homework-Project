@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "../context/AuthProvider.jsx";
 import { login } from "../services/authService";
+import { Link } from "react-router-dom";
 
 export const LoginPage = () => {
 
@@ -101,7 +102,7 @@ export const LoginPage = () => {
             <div className="bg-gray-50 border-t border-gray-100 px-8 py-4 text-center">
                 <p className="text-sm text-gray-600">
                     ¿Aún no tienes una cuenta?
-                    <a href="#" className="text-indigo-600 font-semibold hover:underline">Registrarme gratis</a>
+                    <Link to="/registro" className="text-indigo-600 font-semibold hover:underline">Registrarme gratis</Link>
                 </p>
             </div>
 
