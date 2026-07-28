@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useAuth } from "../context/AuthProvider.jsx";
-import { login } from "../services/authService";
-import { Link } from "react-router-dom";
+import { loginRequest } from "../services/authService";
+import { Link, useNavigate } from "react-router-dom";
 
 export const LoginPage = () => {
 
-    const { contextLogin, user } = useAuth();
+    const { login, user } = useAuth();
+    const navigate = useNavigate();
+
     const [form, setForm] = useState({
         username: '',
         password: '',
@@ -22,11 +24,9 @@ export const LoginPage = () => {
         e.preventDefault();
 
         try {
-            const data = await login(form);
-            contextLogin(data);
-            console.log("Login successful:", data);
-            console.log("User profile:", user);
-
+            const data = await loginRequest(form);
+            await login(data);
+            navigate("/dashboard", { replace: true });
         } catch (error) {
             console.error(error.response?.data);
         }

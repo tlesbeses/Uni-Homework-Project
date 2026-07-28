@@ -53,6 +53,7 @@ export function AuthProvider({ children }) {
         const userData = await getUserProfile();
         setUser(userData);
 
+        return userData;
     }, []);
 
     const logout = useCallback(() => {
@@ -68,7 +69,7 @@ export function AuthProvider({ children }) {
         user,
         isLoading,
         isAuthenticated: user !== null,
-        contextLogin: login,
+        login,
         logout
     }), [user, isLoading, login, logout]);
 
