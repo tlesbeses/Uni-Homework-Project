@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { useAuth } from "../context/AuthProvider.jsx";
-import { loginRequest } from "../services/authService";
+import { useAuth } from "@/features/auth/providers/AuthProvider";
+import { loginRequest } from "@/features/auth/services/authService";
 import { Link, useNavigate } from "react-router-dom";
 
 export const LoginPage = () => {
 
-    const { login, user } = useAuth();
+    const { login } = useAuth();
     const navigate = useNavigate();
 
     const [form, setForm] = useState({

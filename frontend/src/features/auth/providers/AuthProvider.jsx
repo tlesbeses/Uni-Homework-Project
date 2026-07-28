@@ -6,7 +6,6 @@ import {
     useContext,
     useEffect
 } from "react";
-import { getUserProfile } from "../services/authService";
 
 const AuthContext = createContext(undefined);
 

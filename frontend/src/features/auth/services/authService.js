@@ -1,4 +1,4 @@
-import api from "../../../app/api/axios";
+import api from "@/lib/axios";
 
 
 export const loginRequest = async (credentials) => {
