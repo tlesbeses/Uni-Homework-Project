@@ -15,25 +15,23 @@ export function AuthProvider({ children }) {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        const initialize = async () => {
-            const token = localStorage.getItem("access");
 
-            if (!token) {
-                setIsLoading(false);
-                return;
-            }
+        const user = localStorage.getItem("user");
 
-            try {
-                const userData = await getUserProfile();
-                setUser(userData);
-            } catch {
-                logout();
-            } finally {
-                setIsLoading(false);
-            }
-        };
+        if (!user) {
+            setIsLoading(false);
+            return;
+        }
 
-        initialize();
+        try {
+            setUser(JSON.parse(user));
+        } catch {
+            logout();
+        } finally {
+            setIsLoading(false);
+        }
+
+
     }, []);
 
 
@@ -49,11 +47,15 @@ export function AuthProvider({ children }) {
             data.refresh
         );
 
+        localStorage.setItem(
+            "user",
+            JSON.stringify(data.user)
+        );
 
-        const userData = await getUserProfile();
-        setUser(userData);
 
-        return userData;
+
+        setUser(data.user);
+
     }, []);
 
     const logout = useCallback(() => {
