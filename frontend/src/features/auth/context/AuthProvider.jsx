@@ -22,9 +22,9 @@ export function AuthProvider({ children }) {
             setIsLoading(false);
             return;
         }
-
         try {
             setUser(JSON.parse(user));
+            console.log("AuthProvider user:", JSON.parse(user));
         } catch {
             logout();
         } finally {
@@ -62,7 +62,7 @@ export function AuthProvider({ children }) {
 
         localStorage.removeItem("access");
         localStorage.removeItem("refresh");
-
+        localStorage.removeItem("user");
         setUser(null);
 
     }, []);
