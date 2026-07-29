@@ -41,10 +41,7 @@ export function AuthProvider({ children }) {
 
         tokenStorage.setRefreshToken(data.refresh);
 
-        localStorage.setItem(
-            "user",
-            JSON.stringify(data.user)
-        );
+        userStorage.setUser(JSON.stringify(data.user));
 
 
 
