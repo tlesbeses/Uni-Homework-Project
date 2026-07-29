@@ -46,10 +46,12 @@ export const LoginPage = () => {
 
 
                 <div>
-                    <label for="userName" className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
+                    <label htmlFor="userName" className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
                         Nombre de Usuario
                     </label>
                     <input
+                        type="text"
+                        id="userName"
                         name="username"
                         required
                         value={form.username}
@@ -61,10 +63,10 @@ export const LoginPage = () => {
 
                 <div>
                     <div className="flex justify-between items-center mb-2">
-                        <label for="password" className="block text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                        <label htmlFor="password" className="block text-xs font-semibold text-gray-600 uppercase tracking-wider">
                             Contraseña
                         </label>
-                        <a href="#" className="text-xs text-indigo-600 hover:underline font-medium">¿Olvidaste tu contraseña?</a>
+                        {/*<a href="#" className="text-xs text-indigo-600 hover:underline font-medium">¿Olvidaste tu contraseña?</a>*/}
                     </div>
                     <input
                         type="password"
@@ -79,14 +81,14 @@ export const LoginPage = () => {
                 </div>
 
 
-                <div className="flex items-center">
+                {/* <div className="flex items-center">
                     <input
                         type="checkbox"
                         id="remember"
                         className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded cursor-pointer"
                     />
-                    <label for="remember" className="ml-2 text-sm text-gray-600 cursor-pointer">Recordarme en este dispositivo</label>
-                </div>
+                    <label htmlFor="remember" className="ml-2 text-sm text-gray-600 cursor-pointer">Recordarme en este dispositivo</label>
+                </div> */}
 
 
                 <button
