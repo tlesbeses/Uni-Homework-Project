@@ -3,7 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { registerSchema } from "@/features/auth/schemas/authSchemas";
-import { authApi } from "@/features/auth/services/authService";
+import { registerUser } from "@/features/auth/services/authService";
 
 export const useRegister = () => {
     const navigate = useNavigate();
@@ -12,6 +12,7 @@ export const useRegister = () => {
     const {
         register,
         handleSubmit,
+        setError,
         formState: { errors, isSubmitting }
     } = useForm({
         resolver: zodResolver(registerSchema)
@@ -20,11 +21,16 @@ export const useRegister = () => {
     const onSubmit = async (data) => {
         setServerError("");
         try {
-            await authApi.register(data);
-            navigate("/login");
+            await registerUser(data);
+            // navigate("/login");response
         } catch (err) {
-            const message = err.response?.data?.message || "Error al crear la cuenta";
-            setServerError(message);
+            const data = err.response?.data;
+            Object.entries(data).forEach(([field, messages]) => {
+                setError(field, {
+                    type: "server",
+                    message: messages[0]
+                });
+            });
         }
     };
 

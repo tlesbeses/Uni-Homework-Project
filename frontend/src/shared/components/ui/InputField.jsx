@@ -1,7 +1,7 @@
-export const InputField = ({ label, error, register, name, type = "text", placeholder }) => (
+export const InputField = ({ label, name, type = "text", placeholder, register, error }) => (
     <div>
         {label && (
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
                 {label}
             </label>
         )}
@@ -9,11 +9,13 @@ export const InputField = ({ label, error, register, name, type = "text", placeh
             {...register(name)}
             type={type}
             placeholder={placeholder}
-            className={`w-full px-4 py-2 border rounded-lg outline-none focus:ring-2 ${error
-                ? "border-red-300 focus:ring-red-200"
-                : "border-gray-300 focus:ring-indigo-500"
+            className={`w-full px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm ${error
+                ? "border-red-400 focus:ring-2 focus:ring-red-200 focus:border-red-400"
+                : "border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 }`}
         />
-        {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+        {error && (
+            <p className="text-red-500 text-xs mt-1">{error}</p>
+        )}
     </div>
 );
