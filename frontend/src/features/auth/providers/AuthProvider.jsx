@@ -7,6 +7,8 @@ import {
     useEffect
 } from "react";
 
+import { tokenStorage, userStorage } from "@/shared/storage/tokenStorage";
+
 const AuthContext = createContext(undefined);
 
 export function AuthProvider({ children }) {
@@ -15,7 +17,7 @@ export function AuthProvider({ children }) {
 
     useEffect(() => {
 
-        const user = localStorage.getItem("user");
+        const user = userStorage.getUser();
 
         if (!user) {
             setIsLoading(false);
@@ -23,7 +25,6 @@ export function AuthProvider({ children }) {
         }
         try {
             setUser(JSON.parse(user));
-            console.log("AuthProvider user:", JSON.parse(user));
         } catch {
             logout();
         } finally {
@@ -36,15 +37,9 @@ export function AuthProvider({ children }) {
 
     const login = useCallback(async (data) => {
 
-        localStorage.setItem(
-            "access",
-            data.access
-        );
+        tokenStorage.setAccessToken(data.access);
 
-        localStorage.setItem(
-            "refresh",
-            data.refresh
-        );
+        tokenStorage.setRefreshToken(data.refresh);
 
         localStorage.setItem(
             "user",
@@ -59,9 +54,8 @@ export function AuthProvider({ children }) {
 
     const logout = useCallback(() => {
 
-        localStorage.removeItem("access");
-        localStorage.removeItem("refresh");
-        localStorage.removeItem("user");
+        tokenStorage.clear();
+        userStorage.clear();
         setUser(null);
 
     }, []);
