@@ -3,7 +3,7 @@ import AppLayout from '@/app/layouts/AppLayout';
 import AuthLayout from '@/app/layouts/AuthLayout';
 
 // Páginas de Ejemplo (Reemplaza con tus componentes reales)
-import { LandingPage } from '@/app/pages/LandinPage';
+import { LandingPage } from '@/app/pages/LandingPage';
 import { LoginPage } from '@/features/auth/pages/LoginPage';
 import { RegisterPage } from '@/features/auth/pages/RegisterPage';
 import { DashboardPage } from '@/app/pages/DashboardPage';

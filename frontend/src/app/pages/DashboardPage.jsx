@@ -4,8 +4,6 @@ import { getUserProfile } from "@/features/auth/services/authService";
 export function DashboardPage() {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
-    console.log("DashboardPage rendered");
-    console.log("User state:", user);
     useEffect(() => {
         const fetchUserProfile = async () => {
             try {

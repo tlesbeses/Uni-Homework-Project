@@ -22,7 +22,7 @@ export const useRegister = () => {
         setServerError("");
         try {
             await registerUser(data);
-            // navigate("/login");response
+            navigate("/login");
         } catch (err) {
             const data = err.response?.data;
             Object.entries(data).forEach(([field, messages]) => {
