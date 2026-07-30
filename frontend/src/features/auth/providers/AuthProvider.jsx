@@ -43,8 +43,6 @@ export function AuthProvider({ children }) {
 
         userStorage.setUser(JSON.stringify(data.user));
 
-
-
         setUser(data.user);
 
     }, []);

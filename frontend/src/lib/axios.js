@@ -22,10 +22,6 @@ export const api = axios.create({
     },
 });
 
-// =========================
-// REQUEST INTERCEPTOR
-// =========================
-
 api.interceptors.request.use((config) => {
     const token = tokenStorage.getAccessToken();
 
@@ -35,10 +31,6 @@ api.interceptors.request.use((config) => {
 
     return config;
 });
-
-// =========================
-// RESPONSE INTERCEPTOR
-// =========================
 
 api.interceptors.response.use(
     (response) => response,
@@ -61,7 +53,7 @@ api.interceptors.response.use(
                 failedQueue.push({ resolve, reject });
             }).then((token) => {
                 originalRequest.headers.Authorization = `Bearer ${token}`;
-                return apiClient(originalRequest);
+                return api(originalRequest);
             });
         }
 
@@ -77,7 +69,7 @@ api.interceptors.response.use(
 
             // Endpoint de SimpleJWT
             const { data } = await axios.post(
-                `${apiClient.defaults.baseURL}/auth/jwt/refresh/`,
+                `${api.defaults.baseURL}/auth/jwt/refresh/`,
                 {
                     refresh: refreshToken,
                 }
@@ -87,7 +79,7 @@ api.interceptors.response.use(
 
             tokenStorage.setAccessToken(newAccessToken);
 
-            apiClient.defaults.headers.common.Authorization =
+            api.defaults.headers.common.Authorization =
                 `Bearer ${newAccessToken}`;
 
             processQueue(null, newAccessToken);
@@ -95,13 +87,13 @@ api.interceptors.response.use(
             originalRequest.headers.Authorization =
                 `Bearer ${newAccessToken}`;
 
-            return apiClient(originalRequest);
+            return api(originalRequest);
         } catch (refreshError) {
             processQueue(refreshError);
 
             tokenStorage.clear();
 
-            delete apiClient.defaults.headers.common.Authorization;
+            delete api.defaults.headers.common.Authorization;
 
             window.location.replace("/login");
 
