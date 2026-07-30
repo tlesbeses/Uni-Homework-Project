@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/providers/AuthProvider";
 import { loginRequest } from "@/features/auth/services/authService";
 import { loginSchema } from "@/features/auth/schemas/authSchemas";
+import { toast } from "react-toastify";
 
 export const useLogin = () => {
     const { login } = useAuth();
@@ -24,11 +25,13 @@ export const useLogin = () => {
         try {
             const response = await loginRequest(data);
             await login(response);
+            toast.success("Inicio de sesión exitoso");
             navigate("/dashboard", { replace: true });
         } catch (error) {
-            const message = error.response?.data || "Usuario o contraseña incorrectos";
+            // const message = error.response?.data?.detail || "Usuario o contraseña incorrectos";
+            const message = "Usuario o contraseña incorrectos";
             setServerError(message);
-            console.error(error.response?.data);
+            toast.error(message)
         }
     };
 

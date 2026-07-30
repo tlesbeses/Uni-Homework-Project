@@ -2,15 +2,10 @@ import { InputField } from "@/shared/components/ui/InputField";
 import { useRegister } from "../hooks/useRegister";
 
 export const RegisterForm = () => {
-    const { register, handleSubmit, errors, isSubmitting, serverError, onSubmit } = useRegister();
+    const { register, handleSubmit, errors, isSubmitting, onSubmit } = useRegister();
 
     return (
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            {serverError && (
-                <div className="bg-red-100 text-red-700 p-3 rounded-lg text-sm text-center">
-                    {serverError}
-                </div>
-            )}
 
             <InputField
                 label="Nombre de usuario"

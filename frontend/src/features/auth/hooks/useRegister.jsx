@@ -22,6 +22,7 @@ export const useRegister = () => {
         setServerError("");
         try {
             await registerUser(data);
+            toast.success("Usuario registrado con éxito");
             navigate("/login");
         } catch (error) {
             const data = error.response?.data;

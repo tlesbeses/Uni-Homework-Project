@@ -2,16 +2,10 @@ import { useLogin } from "@/features/auth/hooks/useLogin";
 import { InputField } from "@/shared/components/ui/InputField";
 
 export const LoginForm = () => {
-    const { register, handleSubmit, errors, isSubmitting, serverError, onSubmit } = useLogin();
+    const { register, handleSubmit, errors, isSubmitting, onSubmit } = useLogin();
 
     return (
         <form onSubmit={handleSubmit(onSubmit)} className="p-8 space-y-5" noValidate>
-            {serverError && (
-                <div className="bg-red-100 text-red-700 p-3 rounded-lg text-sm text-center">
-                    {serverError}
-                </div>
-            )}
-
             <InputField
                 label="Nombre de Usuario"
                 name="username"
