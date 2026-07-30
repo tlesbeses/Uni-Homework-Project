@@ -9,5 +9,5 @@ User = get_user_model()
 @receiver(post_save, sender=User)
 def add_user_to_student_group(sender, instance, created, **kwargs):
     if created:
-        student_group = Group.objects.get(name="Student")
-        instance.groups.add(student_group)
+         student_group, _ = Group.objects.get_or_create(name="Student")
+         instance.groups.add(student_group)

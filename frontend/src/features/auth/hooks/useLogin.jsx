@@ -26,7 +26,7 @@ export const useLogin = () => {
             await login(response);
             navigate("/dashboard", { replace: true });
         } catch (error) {
-            const message = error.response?.data?.message || "Usuario o contraseña incorrectos";
+            const message = error.response?.data || "Usuario o contraseña incorrectos";
             setServerError(message);
             console.error(error.response?.data);
         }
