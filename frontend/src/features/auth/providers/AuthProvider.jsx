@@ -24,7 +24,7 @@ export function AuthProvider({ children }) {
             return;
         }
         try {
-            setUser(JSON.parse(user));
+            setUser(user);
         } catch {
             logout();
         } finally {
