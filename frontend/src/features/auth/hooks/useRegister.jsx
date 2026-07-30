@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { registerSchema } from "@/features/auth/schemas/authSchemas";
 import { registerUser } from "@/features/auth/services/authService";
+import { toast } from "react-toastify";
 
 export const useRegister = () => {
     const navigate = useNavigate();
@@ -25,13 +26,18 @@ export const useRegister = () => {
             toast.success("Usuario registrado con éxito");
             navigate("/login");
         } catch (error) {
-            const data = error.response?.data;
-            Object.entries(data).forEach(([field, messages]) => {
-                setError(field, {
-                    type: "server",
-                    message: messages[0]
+            const serverData = error.response?.data;
+            if (serverData && typeof serverData === 'object') {
+                Object.entries(serverData).forEach(([field, messages]) => {
+                    setError(field, {
+                        type: "server",
+                        message: Array.isArray(messages) ? messages[0] : messages
+                    });
                 });
-            });
+            } else {
+                toast.error("Error inesperado del servidor");
+            }
+
         }
     };
 
