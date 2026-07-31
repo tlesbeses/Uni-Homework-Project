@@ -16,6 +16,22 @@ export const RegisterForm = () => {
             />
 
             <InputField
+                label="Nombre"
+                name="first_name"
+                register={register}
+                error={errors.first_name?.message}
+                placeholder="Tu nombre"
+            />
+
+            <InputField
+                label="Apellido"
+                name="last_name"
+                register={register}
+                error={errors.last_name?.message}
+                placeholder="Tu apellido"
+            />
+
+            <InputField
                 label="Correo electrónico"
                 name="email"
                 type="email"
