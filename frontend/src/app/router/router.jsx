@@ -9,6 +9,8 @@ import { RegisterPage } from '@/features/auth/pages/RegisterPage';
 import { DashboardPage } from '@/app/pages/DashboardPage';
 import { NotFoundPage } from '@/app/pages/NotFoundPage';
 import { ProtectedRoute } from '@/features/auth/components/ProtectedRoute';
+import { EditProfilePage } from '@/features/auth/pages/EditProfile';
+import { ChangePasswordProfilePage } from '@/features/auth/pages/ChangePasswordProfile';
 
 export const router = createBrowserRouter([
     // Ruta Pública: Landing Page
@@ -26,9 +28,17 @@ export const router = createBrowserRouter([
                 element: <LoginPage />,
             },
             {
-                path: '/registro',
+                path: '/signup',
                 element: <RegisterPage />,
             },
+            {
+                path: 'settings/profile',
+                element: <EditProfilePage />,
+            },
+            {
+                path: 'settings/password',
+                element: <ChangePasswordProfilePage />,
+            }
         ],
     },
 
