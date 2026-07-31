@@ -3,12 +3,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/providers/AuthProvider";
-import { loginRequest } from "@/features/auth/services/authService";
 import { loginSchema } from "@/features/auth/schemas/authSchemas";
 import { toast } from "react-toastify";
 
 export const useLogin = () => {
-    const { login } = useAuth();
+    const { login } = useAuth(); // Nuestra única fuente de verdad para la autenticación
     const navigate = useNavigate();
     const [serverError, setServerError] = useState("");
 
@@ -23,15 +22,16 @@ export const useLogin = () => {
     const onSubmit = async (data) => {
         setServerError("");
         try {
-            const response = await loginRequest(data);
-            await login(response);
+
+            await login(data);
+
             toast.success("Inicio de sesión exitoso");
             navigate("/dashboard", { replace: true });
         } catch (error) {
-            // const message = error.response?.data?.detail || "Usuario o contraseña incorrectos";
+            // Si el contexto falló al llamar a la API, capturamos el error aquí para la interfaz
             const message = "Usuario o contraseña incorrectos";
             setServerError(message);
-            toast.error(message)
+            toast.error(message);
         }
     };
 
