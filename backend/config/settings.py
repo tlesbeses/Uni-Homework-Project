@@ -11,7 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
-
+from datetime import timedelta
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -30,10 +30,17 @@ ALLOWED_HOSTS = []
 AUTH_USER_MODEL = "authentication.User"
 # Application definition
 
-ROTATE_REFRESH_TOKENS: True
+SIMPLE_JWT = {
+   
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
 
-BLACKLIST_AFTER_ROTATION: True
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
 
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    
+    'AUTH_HEADER_TYPES': ('Bearer',),
+}
 
 INSTALLED_APPS = [
     'django.contrib.admin',
