@@ -5,6 +5,7 @@ def create_groups(apps, schema_editor):
 
     Group.objects.get_or_create(name="Student")
     Group.objects.get_or_create(name="Teacher")
+    Group.objects.get_or_create(name="Admin")
 
 
 class Migration(migrations.Migration):
