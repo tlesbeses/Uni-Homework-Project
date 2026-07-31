@@ -80,6 +80,9 @@ api.interceptors.response.use(
             );
 
             const newAccessToken = data.access;
+            const newRefreshToken = data.refresh;
+
+            tokenStorage.setRefreshToken(newRefreshToken);
 
             tokenStorage.setAccessToken(newAccessToken);
 

@@ -30,6 +30,11 @@ ALLOWED_HOSTS = []
 AUTH_USER_MODEL = "authentication.User"
 # Application definition
 
+ROTATE_REFRESH_TOKENS: True
+
+BLACKLIST_AFTER_ROTATION: True
+
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -40,6 +45,7 @@ INSTALLED_APPS = [
     'authentication',
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'djoser',
     "django_filters",
     "corsheaders",

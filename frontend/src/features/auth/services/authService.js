@@ -19,6 +19,15 @@ export const registerUser = async (userData) => {
     return response.data;
 };
 
+export const logoutRequest = async (tokens) => {
+    const response = await api.post(
+        "auth/jwt/blacklist/",
+        tokens
+    );
+
+    return response.data;
+};
+
 export const getUserProfile = async () => {
     const response = await api.get(
         "auth/users/me/"
