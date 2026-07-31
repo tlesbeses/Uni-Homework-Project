@@ -19,7 +19,7 @@ export const tokenStorage = {
 };
 
 export const userStorage = {
-    setUser: (user) => localStorage.setItem("user", user),
+    setUser: (user) => localStorage.setItem("user", JSON.stringify(user)),
 
     getUser: () => {
         const user = localStorage.getItem("user");

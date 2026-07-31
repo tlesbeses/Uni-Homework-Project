@@ -7,7 +7,7 @@ import { loginSchema } from "@/features/auth/schemas/authSchemas";
 import { toast } from "react-toastify";
 
 export const useLogin = () => {
-    const { login } = useAuth(); // Nuestra única fuente de verdad para la autenticación
+    const { login } = useAuth();
     const navigate = useNavigate();
     const [serverError, setServerError] = useState("");
 
@@ -27,8 +27,7 @@ export const useLogin = () => {
 
             toast.success("Inicio de sesión exitoso");
             navigate("/dashboard", { replace: true });
-        } catch (error) {
-            // Si el contexto falló al llamar a la API, capturamos el error aquí para la interfaz
+        } catch {
             const message = "Usuario o contraseña incorrectos";
             setServerError(message);
             toast.error(message);

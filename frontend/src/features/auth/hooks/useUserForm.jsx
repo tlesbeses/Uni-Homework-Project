@@ -3,7 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { toast } from "react-toastify";
 import { userSchema } from "@/features/auth/schemas/userSchemas";
-import { updateUserProfile } from "@/features/auth/services/userService";
+import { updateUserProfile } from "@/features/auth/services/authService";
 
 export const useUserForm = () => {
     const [serverError, setServerError] = useState("");

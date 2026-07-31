@@ -8,6 +8,7 @@ import {
 } from "react";
 
 import { tokenStorage, userStorage } from "@/shared/storage/tokenStorage";
+import { loginUser, logoutUser } from "@/features/auth/services/authService";
 
 const AuthContext = createContext(undefined);
 
@@ -16,22 +17,13 @@ export function AuthProvider({ children }) {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
+        const storedUser = userStorage.getUser();
 
-        const user = userStorage.getUser();
-
-        if (!user) {
-            setIsLoading(false);
-            return;
-        }
-        try {
-            setUser(user);
-        } catch {
-            logout();
-        } finally {
-            setIsLoading(false);
+        if (storedUser) {
+            setUser(storedUser);
         }
 
-
+        setIsLoading(false);
     }, []);
 
 
@@ -46,8 +38,6 @@ export function AuthProvider({ children }) {
             setUser(data.user);
 
             return data;
-        } catch (error) {
-            throw error;
         } finally {
             setIsLoading(false);
         }
@@ -70,7 +60,7 @@ export function AuthProvider({ children }) {
             setIsLoading(false);
             window.location.href = "/login";
         }
-    }, []);;
+    }, []);
 
     const value = useMemo(() => ({
         user,
