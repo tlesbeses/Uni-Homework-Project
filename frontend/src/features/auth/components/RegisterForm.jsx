@@ -5,7 +5,7 @@ export const RegisterForm = () => {
     const { register, handleSubmit, errors, isSubmitting, onSubmit } = useRegister();
 
     return (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
 
             <InputField
                 label="Nombre de usuario"

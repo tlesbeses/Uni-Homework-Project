@@ -5,7 +5,7 @@ export const UserForm = () => {
     const { register, handleSubmit, errors, isSubmitting, serverError, onSubmit } = useUserForm();
 
     return (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="p-8 space-y-3" noValidate>
 
             <InputField
                 label="Nombre de usuario"

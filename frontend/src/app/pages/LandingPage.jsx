@@ -19,7 +19,7 @@ export const LandingPage = () => (
             </Link>
 
             <Link
-                to="/registro"
+                to="/signup"
                 className="bg-gray-200 text-gray-800 px-4 py-2 rounded"
             >
                 Registrarme

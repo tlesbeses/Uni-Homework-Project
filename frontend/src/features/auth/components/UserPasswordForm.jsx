@@ -5,7 +5,7 @@ export const UserPasswordForm = () => {
     const { register, handleSubmit, errors, isSubmitting, serverError, onSubmit } = useUserPasswordForm();
 
     return (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="p-8 space-y-5" noValidate>
 
             <InputField
                 label="Contraseña actual"
