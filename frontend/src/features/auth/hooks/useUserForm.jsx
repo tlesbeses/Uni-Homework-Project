@@ -4,17 +4,23 @@ import { useState } from "react";
 import { toast } from "react-toastify";
 import { userSchema } from "@/features/auth/schemas/userSchemas";
 import { updateUserProfile } from "@/features/auth/services/authService";
-
+import { useAuth } from "@/features/auth/providers/AuthProvider";
 export const useUserForm = () => {
     const [serverError, setServerError] = useState("");
-
+    const { user } = useAuth();
     const {
         register,
         handleSubmit,
         setError,
         formState: { errors, isSubmitting }
     } = useForm({
-        resolver: zodResolver(userSchema)
+        resolver: zodResolver(userSchema),
+        defaultValues: {
+            username: user?.username || "",
+            first_name: user?.first_name || "",
+            last_name: user?.last_name || "",
+            email: user?.email || ""
+        }
     });
 
     const onSubmit = async (data) => {
