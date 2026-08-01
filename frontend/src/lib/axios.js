@@ -1,5 +1,5 @@
 import axios from "axios";
-import { tokenStorage } from "@/shared/storage/tokenStorage";
+import { tokenStorage, userStorage } from "@/shared/storage/tokenStorage";
 let isRefreshing = false;
 let failedQueue = [];
 
@@ -99,6 +99,7 @@ api.interceptors.response.use(
             processQueue(refreshError);
 
             tokenStorage.clear();
+            userStorage.clear();
 
             delete api.defaults.headers.common.Authorization;
 

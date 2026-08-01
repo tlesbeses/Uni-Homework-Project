@@ -1,3 +1,41 @@
 from django.contrib import admin
 
-# Register your models here.
+from .models import Course, Enrollment, CourseSettings
+
+
+@admin.register(Course)
+class CourseAdmin(admin.ModelAdmin):
+    list_display = (
+        "title",
+        "teacher",
+        "join_code",
+        "is_active",
+        "created_at",
+    )
+
+    search_fields = (
+        "title",
+        "teacher__email",
+    )
+
+
+@admin.register(Enrollment)
+class EnrollmentAdmin(admin.ModelAdmin):
+    list_display = (
+        "course",
+        "student",
+        "status",
+        "created_at",
+    )
+
+    list_filter = (
+        "status",
+    )
+
+
+@admin.register(CourseSettings)
+class CourseSettingsAdmin(admin.ModelAdmin):
+    list_display = (
+        "course",
+        "auto_accept_students",
+    )
