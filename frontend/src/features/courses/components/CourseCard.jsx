@@ -29,7 +29,7 @@ export const CourseCard = ({ course, isTeacher, onDelete, deleting }) => {
                 {course.enrollments_count} alumnos
             </p>
 
-            {isTeacher && course.join_code && (
+            {course.join_code && (
                 <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 text-sm">
                     <span className="text-gray-500">Código:</span>
                     <span className="font-mono font-semibold tracking-widest text-indigo-600">
