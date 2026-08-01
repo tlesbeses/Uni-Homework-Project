@@ -11,6 +11,8 @@ import { NotFoundPage } from '@/app/pages/NotFoundPage';
 import { ProtectedRoute } from '@/features/auth/components/ProtectedRoute';
 import { EditProfilePage } from '@/features/auth/pages/EditProfile';
 import { ChangePasswordProfilePage } from '@/features/auth/pages/ChangePasswordProfile';
+import { CoursesPage } from '@/features/courses/pages/CoursesPage';
+import { CourseDetailPage } from '@/features/courses/pages/CourseDetailPage';
 
 export const router = createBrowserRouter([
     // Ruta Pública: Landing Page
@@ -49,6 +51,14 @@ export const router = createBrowserRouter([
             {
                 path: '/dashboard',
                 element: <ProtectedRoute><DashboardPage /></ProtectedRoute>,
+            },
+            {
+                path: '/courses',
+                element: <ProtectedRoute><CoursesPage /></ProtectedRoute>,
+            },
+            {
+                path: '/courses/:id',
+                element: <ProtectedRoute><CourseDetailPage /></ProtectedRoute>,
             },
         ],
     },

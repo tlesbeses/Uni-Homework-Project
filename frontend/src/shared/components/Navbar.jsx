@@ -27,6 +27,13 @@ export function Navbar() {
                             Inicio
                         </Link>
 
+                        <Link
+                            to="/courses"
+                            className="hover:text-indigo-200 transition"
+                        >
+                            Cursos
+                        </Link>
+
                     </nav>
                 </div>
 
