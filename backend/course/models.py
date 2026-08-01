@@ -1,19 +1,18 @@
-import random
+import secrets
 import string
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 
 from common.models import TimeStampedModel
 
 
 def generate_join_code(length=8):
-    return "".join(
-        random.choices(
-            string.ascii_uppercase + string.digits,
-            k=length,
-        )
-    )
+    alphabet = string.ascii_uppercase + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(length))
+
 
 class Course(TimeStampedModel):
     class Visibility(models.TextChoices):
@@ -38,6 +37,7 @@ class Course(TimeStampedModel):
         max_length=8,
         unique=True,
         editable=False,
+        default=generate_join_code,
     )
 
     visibility = models.CharField(
@@ -53,22 +53,11 @@ class Course(TimeStampedModel):
     class Meta:
         ordering = ["-created_at"]
 
-    def save(self, *args, **kwargs):
-        if not self.join_code:
-            code = generate_join_code()
-
-            while Course.objects.filter(join_code=code).exists():
-                code = generate_join_code()
-
-            self.join_code = code
-
-        super().save(*args, **kwargs)
-
     def __str__(self):
         return self.title
-    
-class Enrollment(TimeStampedModel):
 
+
+class Enrollment(TimeStampedModel):
     class Status(models.TextChoices):
         PENDING = "PENDING", "Pending"
         APPROVED = "APPROVED", "Approved"
@@ -98,6 +87,7 @@ class Enrollment(TimeStampedModel):
     )
 
     class Meta:
+        ordering = ["-created_at"]
         constraints = [
             models.UniqueConstraint(
                 fields=["course", "student"],
@@ -105,8 +95,20 @@ class Enrollment(TimeStampedModel):
             )
         ]
 
+    def clean(self):
+        if self.student_id and self.course_id and self.student == self.course.teacher:
+            raise ValidationError(
+                {"student": "A teacher cannot enroll in their own course."}
+            )
+
+    def save(self, *args, **kwargs):
+        if self.status == self.Status.APPROVED and not self.approved_at:
+            self.approved_at = timezone.now()
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.student} - {self.course}"
+
 
 class CourseSettings(TimeStampedModel):
     course = models.OneToOneField(
@@ -120,4 +122,5 @@ class CourseSettings(TimeStampedModel):
         help_text="Approve student enrollment requests automatically.",
     )
 
-    
+    def __str__(self):
+        return f"Settings for {self.course}"

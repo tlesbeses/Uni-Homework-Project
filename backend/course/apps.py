@@ -2,4 +2,7 @@ from django.apps import AppConfig
 
 
 class CourseConfig(AppConfig):
-    name = 'course'
+    name = "course"
+
+    def ready(self):
+        import course.signals  # noqa: F401
