@@ -58,7 +58,7 @@ export function AuthProvider({ children }) {
             userStorage.clear();
             setUser(null);
             setIsLoading(false);
-            window.location.assign = "/login";
+            window.location.assign("/login");
         }
     }, []);
 
