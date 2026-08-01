@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import {
     approveEnrollment,
+    enrollInCourse,
     getCourse,
     getEnrollments,
     rejectEnrollment,
@@ -15,6 +16,7 @@ export const useCourseDetail = (courseId) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [updatingEnrollmentId, setUpdatingEnrollmentId] = useState(null);
+    const [enrolling, setEnrolling] = useState(false);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -63,6 +65,19 @@ export const useCourseDetail = (courseId) => {
         [load]
     );
 
+    const handleEnroll = useCallback(async () => {
+        setEnrolling(true);
+        try {
+            await enrollInCourse(courseId);
+            toast.success("Solicitud de inscripción enviada");
+            await load();
+        } catch (err) {
+            toast.error(getErrorMessage(err));
+        } finally {
+            setEnrolling(false);
+        }
+    }, [courseId, load]);
+
     const toggleAutoAccept = useCallback(
         async (checked) => {
             if (!course) {
@@ -93,6 +108,8 @@ export const useCourseDetail = (courseId) => {
         reload: load,
         handleEnrollmentStatus,
         updatingEnrollmentId,
+        handleEnroll,
+        enrolling,
         toggleAutoAccept,
     };
 };

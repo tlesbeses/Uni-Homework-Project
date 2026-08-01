@@ -16,6 +16,8 @@ export const CourseDetailPage = () => {
         error,
         handleEnrollmentStatus,
         updatingEnrollmentId,
+        handleEnroll,
+        enrolling,
         toggleAutoAccept,
     } = useCourseDetail(id);
 
@@ -121,10 +123,23 @@ export const CourseDetailPage = () => {
                         )}
                     </div>
                 ) : !teacher ? (
-                    <p className="text-sm text-gray-500">
-                        No estás inscrito en este curso. Úsalo desde la
-                        sección de cursos con su código de inscripción.
-                    </p>
+                    <div className="flex flex-wrap items-center gap-3">
+                        <p className="text-sm text-gray-500">
+                            No estás inscrito en este curso.
+                        </p>
+                        {course.visibility === "PUBLIC" && (
+                            <button
+                                type="button"
+                                onClick={handleEnroll}
+                                disabled={enrolling}
+                                className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg shadow transition"
+                            >
+                                {enrolling
+                                    ? "Inscribiéndose..."
+                                    : "Inscribirme"}
+                            </button>
+                        )}
+                    </div>
                 ) : (
                     <EnrollmentList
                         enrollments={enrollments}

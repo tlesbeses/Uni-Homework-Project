@@ -25,6 +25,11 @@ export const joinCourseByCode = async (joinCode) => {
     return response.data;
 };
 
+export const enrollInCourse = async (courseId) => {
+    const response = await api.post(`api/courses/${courseId}/enroll/`);
+    return response.data;
+};
+
 export const updateCourseSettings = async (courseId, settings) => {
     const response = await api.patch(
         `api/courses/${courseId}/course_settings/`,

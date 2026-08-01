@@ -113,6 +113,49 @@ class CourseViewSet(viewsets.ModelViewSet):
         )
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+    @action(detail=True, methods=["post"])
+    def enroll(self, request, pk=None):
+        try:
+            course = Course.objects.get(pk=pk)
+        except Course.DoesNotExist:
+            return Response(
+                {"detail": "Course not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if not course.is_active:
+            raise PermissionDenied("This course is not active.")
+        if course.visibility != Course.Visibility.PUBLIC:
+            raise PermissionDenied(
+                "Only public courses can be joined directly."
+            )
+        if course.teacher == request.user:
+            return Response(
+                {"detail": "You cannot enroll in your own course."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        enrollment, created = Enrollment.objects.get_or_create(
+            course=course,
+            student=request.user,
+        )
+
+        if not created:
+            return Response(
+                {"detail": "You already requested to join this course."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if course.settings.auto_accept_students:
+            enrollment.status = Enrollment.Status.APPROVED
+            enrollment.save()
+
+        serializer = EnrollmentSerializer(
+            enrollment,
+            context=self.get_serializer_context(),
+        )
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
     @action(detail=True, methods=["get", "patch"])
     def course_settings(self, request, pk=None):
         course = self.get_object()

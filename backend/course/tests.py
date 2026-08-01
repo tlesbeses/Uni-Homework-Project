@@ -145,6 +145,41 @@ class EnrollmentTests(BaseCourseTestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["status"], Enrollment.Status.APPROVED)
 
+    def test_student_can_enroll_directly_in_public_course(self):
+        self.client.force_authenticate(self.student)
+        response = self.client.post(f"/api/courses/{self.course.id}/enroll/")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["status"], Enrollment.Status.PENDING)
+
+    def test_duplicate_enroll_rejected(self):
+        Enrollment.objects.create(course=self.course, student=self.student)
+        self.client.force_authenticate(self.student)
+        response = self.client.post(f"/api/courses/{self.course.id}/enroll/")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_cannot_enroll_in_private_course(self):
+        private_course = Course.objects.create(
+            title="Private 101",
+            teacher=self.teacher,
+            visibility=Course.Visibility.PRIVATE,
+        )
+        self.client.force_authenticate(self.student)
+        response = self.client.post(f"/api/courses/{private_course.id}/enroll/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_teacher_cannot_enroll_in_own_course(self):
+        self.client.force_authenticate(self.teacher)
+        response = self.client.post(f"/api/courses/{self.course.id}/enroll/")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_enroll_respects_auto_accept(self):
+        self.course.settings.auto_accept_students = True
+        self.course.settings.save()
+        self.client.force_authenticate(self.student)
+        response = self.client.post(f"/api/courses/{self.course.id}/enroll/")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["status"], Enrollment.Status.APPROVED)
+
 
 class CourseSettingsTests(BaseCourseTestCase):
     def test_teacher_can_update_settings(self):
