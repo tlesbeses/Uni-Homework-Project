@@ -24,6 +24,7 @@ export const useUserPasswordForm = () => {
             await changeUserPassword(passwordData);
             toast.success("Contraseña actualizada con éxito");
             reset();
+            navigate("/");
         } catch (error) {
             const serverData = error.response?.data;
             if (serverData && typeof serverData === 'object') {

@@ -35,30 +35,30 @@ export const router = createBrowserRouter([
             },
             {
                 path: 'settings/profile',
-                element: <EditProfilePage />,
+                element: <ProtectedRoute><EditProfilePage /></ProtectedRoute>,
             },
             {
                 path: 'settings/password',
-                element: <ChangePasswordProfilePage />,
+                element: <ProtectedRoute><ChangePasswordProfilePage /></ProtectedRoute>,
             }
         ],
     },
 
     // Rutas Privadas / Panel de Control
     {
-        element: <AppLayout />,
+        element: <ProtectedRoute><AppLayout /></ProtectedRoute>,
         children: [
             {
                 path: '/dashboard',
-                element: <ProtectedRoute><DashboardPage /></ProtectedRoute>,
+                element: <DashboardPage />,
             },
             {
                 path: '/courses',
-                element: <ProtectedRoute><CoursesPage /></ProtectedRoute>,
+                element: <CoursesPage />,
             },
             {
                 path: '/courses/:id',
-                element: <ProtectedRoute><CourseDetailPage /></ProtectedRoute>,
+                element: <CourseDetailPage />,
             },
         ],
     },
