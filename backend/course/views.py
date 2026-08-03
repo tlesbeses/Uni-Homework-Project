@@ -5,7 +5,7 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
 
-from course.models import Course, CourseSettings, Enrollment
+from course.models import Course, CourseSettings, Enrollment, Status, Visibility
 from course.serializers import (
     CourseSerializer,
     CourseSettingsSerializer,
@@ -36,7 +36,7 @@ class CourseViewSet(viewsets.ModelViewSet):
         queryset = Course.objects.annotate(
             enrollments_count=Count(
                 "enrollments",
-                filter=Q(enrollments__status=Enrollment.Status.APPROVED),
+                filter=Q(enrollments__status=Status.APPROVED),
             )
         ).order_by("-created_at")
         if user.is_superuser:
@@ -50,7 +50,7 @@ class CourseViewSet(viewsets.ModelViewSet):
             )
         )
         return queryset.filter(
-            Q(visibility=Course.Visibility.PUBLIC, is_active=True)
+            Q(visibility=Visibility.PUBLIC, is_active=True)
             | Q(is_enrolled)
         )
 
@@ -104,7 +104,7 @@ class CourseViewSet(viewsets.ModelViewSet):
             )
 
         if course.settings.auto_accept_students:
-            enrollment.status = Enrollment.Status.APPROVED
+            enrollment.status = Status.APPROVED
             enrollment.save()
 
         serializer = EnrollmentSerializer(
@@ -125,7 +125,7 @@ class CourseViewSet(viewsets.ModelViewSet):
 
         if not course.is_active:
             raise PermissionDenied("This course is not active.")
-        if course.visibility != Course.Visibility.PUBLIC:
+        if course.visibility != Visibility.PUBLIC:
             raise PermissionDenied(
                 "Only public courses can be joined directly."
             )
@@ -147,7 +147,7 @@ class CourseViewSet(viewsets.ModelViewSet):
             )
 
         if course.settings.auto_accept_students:
-            enrollment.status = Enrollment.Status.APPROVED
+            enrollment.status = Status.APPROVED
             enrollment.save()
 
         serializer = EnrollmentSerializer(
@@ -210,20 +210,20 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         enrollment = serializer.save(student=self.request.user)
 
         if course.settings.auto_accept_students:
-            enrollment.status = Enrollment.Status.APPROVED
+            enrollment.status = Status.APPROVED
             enrollment.save()
 
     @action(detail=True, methods=["post"])
     def approve(self, request, pk=None):
         enrollment = self.get_object()
 
-        if enrollment.status == Enrollment.Status.APPROVED:
+        if enrollment.status == Status.APPROVED:
             return Response(
                 {"detail": "Enrollment is already approved."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        enrollment.status = Enrollment.Status.APPROVED
+        enrollment.status = Status.APPROVED
         enrollment.save()
 
         serializer = EnrollmentSerializer(
@@ -236,13 +236,13 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
     def reject(self, request, pk=None):
         enrollment = self.get_object()
 
-        if enrollment.status == Enrollment.Status.REJECTED:
+        if enrollment.status == Status.REJECTED:
             return Response(
                 {"detail": "Enrollment is already rejected."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        enrollment.status = Enrollment.Status.REJECTED
+        enrollment.status = Status.REJECTED
         enrollment.approved_at = None
         enrollment.save()
 

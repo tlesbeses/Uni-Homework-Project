@@ -3,7 +3,7 @@ from django.contrib.auth.models import Group
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from course.models import Course, CourseSettings, Enrollment
+from course.models import Course, CourseSettings, Enrollment, Status, Visibility
 
 User = get_user_model()
 
@@ -37,7 +37,7 @@ class BaseCourseTestCase(APITestCase):
         self.course = Course.objects.create(
             title="Math 101",
             teacher=self.teacher,
-            visibility=Course.Visibility.PUBLIC,
+            visibility=Visibility.PUBLIC,
         )
 
 
@@ -82,7 +82,7 @@ class EnrollmentTests(BaseCourseTestCase):
             {"join_code": self.course.join_code},
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data["status"], Enrollment.Status.PENDING)
+        self.assertEqual(response.data["status"], Status.PENDING)
 
     def test_duplicate_join_rejected(self):
         Enrollment.objects.create(course=self.course, student=self.student)
@@ -114,7 +114,7 @@ class EnrollmentTests(BaseCourseTestCase):
         self.client.force_authenticate(self.teacher)
         response = self.client.post(f"/api/enrollments/{enrollment.id}/approve/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["status"], Enrollment.Status.APPROVED)
+        self.assertEqual(response.data["status"], Status.APPROVED)
         self.assertIsNotNone(response.data["approved_at"])
 
     def test_student_cannot_approve_enrollment(self):
@@ -143,13 +143,13 @@ class EnrollmentTests(BaseCourseTestCase):
             {"join_code": self.course.join_code},
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data["status"], Enrollment.Status.APPROVED)
+        self.assertEqual(response.data["status"], Status.APPROVED)
 
     def test_student_can_enroll_directly_in_public_course(self):
         self.client.force_authenticate(self.student)
         response = self.client.post(f"/api/courses/{self.course.id}/enroll/")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data["status"], Enrollment.Status.PENDING)
+        self.assertEqual(response.data["status"], Status.PENDING)
 
     def test_duplicate_enroll_rejected(self):
         Enrollment.objects.create(course=self.course, student=self.student)
@@ -161,7 +161,7 @@ class EnrollmentTests(BaseCourseTestCase):
         private_course = Course.objects.create(
             title="Private 101",
             teacher=self.teacher,
-            visibility=Course.Visibility.PRIVATE,
+            visibility=Visibility.PRIVATE,
         )
         self.client.force_authenticate(self.student)
         response = self.client.post(f"/api/courses/{private_course.id}/enroll/")
@@ -178,7 +178,7 @@ class EnrollmentTests(BaseCourseTestCase):
         self.client.force_authenticate(self.student)
         response = self.client.post(f"/api/courses/{self.course.id}/enroll/")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data["status"], Enrollment.Status.APPROVED)
+        self.assertEqual(response.data["status"], Status.APPROVED)
 
 
 class CourseSettingsTests(BaseCourseTestCase):
