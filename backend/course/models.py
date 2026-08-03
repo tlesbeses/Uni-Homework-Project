@@ -5,6 +5,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
+from django.db.models import Q
 
 from common.models import TimeStampedModel
 
@@ -13,12 +14,12 @@ def generate_join_code(length=8):
     alphabet = string.ascii_uppercase + string.digits
     return "".join(secrets.choice(alphabet) for _ in range(length))
 
-
-class Course(TimeStampedModel):
-    class Visibility(models.TextChoices):
+class Visibility(models.TextChoices):
         PRIVATE = "PRIVATE", "Private"
         PUBLIC = "PUBLIC", "Public"
 
+class Course(TimeStampedModel):
+    
     title = models.CharField(
         max_length=150,
     )
@@ -52,7 +53,23 @@ class Course(TimeStampedModel):
 
     class Meta:
         ordering = ["-created_at"]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(visibility__in= Visibility.values),
+                name="course_valid_visibility",
+            ),
+        ]
 
+    def clean(self):
+        super().clean()
+        if not self.teacher.groups.filter(name="Teacher").exists():
+            raise ValidationError(
+                {
+                    "teacher": (
+                        "The course owner must belong to the Teacher group."
+                    )
+                }
+            )
     def __str__(self):
         return self.title
 
