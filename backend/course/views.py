@@ -11,21 +11,7 @@ from course.serializers import (
     CourseSettingsSerializer,
     EnrollmentSerializer,
 )
-
-
-class IsTeacher(BasePermission):
-    def has_permission(self, request, view):
-        return request.user.is_superuser or request.user.groups.filter(
-            name="Teacher"
-        ).exists()
-
-
-class IsStudent(BasePermission):
-    def has_permission(self, request, view):
-        return request.user.is_superuser or request.user.groups.filter(
-            name="Student"
-        ).exists()
-
+from .permissions import IsTeacher, IsStudent
 
 class CourseViewSet(viewsets.ModelViewSet):
     serializer_class = CourseSerializer
@@ -48,7 +34,7 @@ class CourseViewSet(viewsets.ModelViewSet):
                 course=OuterRef("pk"),
                 student=user,
             )
-        )
+        )       
         return queryset.filter(
             Q(visibility=Visibility.PUBLIC, is_active=True)
             | Q(is_enrolled)
@@ -60,6 +46,8 @@ class CourseViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
     @staticmethod
+    #poisble refactorizacion si el proyecto crece y ageregar esta funcion como un helper
+    #asi no se repite el mismo codigo en varios lugares
     def is_teacher(user):
         return user.groups.filter(name="Teacher").exists()
 
@@ -86,7 +74,7 @@ class CourseViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        if course.teacher == request.user:
+            
             return Response(
                 {"detail": "You cannot join your own course."},
                 status=status.HTTP_400_BAD_REQUEST,
