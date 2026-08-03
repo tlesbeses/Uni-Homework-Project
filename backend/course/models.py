@@ -23,6 +23,7 @@ class Visibility(models.TextChoices):
 class Course(TimeStampedModel):
     title = models.CharField(
         max_length=150,
+        db_index=True,
     )
 
     description = models.TextField(
@@ -46,14 +47,22 @@ class Course(TimeStampedModel):
         max_length=10,
         choices=Visibility.choices,
         default=Visibility.PRIVATE,
+        db_index=True,
     )
 
     is_active = models.BooleanField(
         default=True,
+        db_index=True,
     )
 
     class Meta:
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["teacher", "is_active"]),
+            models.Index(fields=["visibility", "is_active"]),
+            models.Index(fields=["title"]),
+        ]
+
         constraints = [
             models.CheckConstraint(
                 condition=Q(visibility__in=Visibility.values),
@@ -81,7 +90,13 @@ class Status(models.TextChoices):
     REJECTED = "REJECTED", "Rejected"
 
 
-class Enrollment(TimeStampedModel):
+class Status(models.TextChoices):
+    PENDING = "PENDING", "Pending"
+    APPROVED = "APPROVED", "Approved"
+    REJECTED = "REJECTED", "Rejected"
+
+
+class Enrollment(TimeStampedModel): 
     course = models.ForeignKey(
         Course,
         on_delete=models.CASCADE,
@@ -98,6 +113,7 @@ class Enrollment(TimeStampedModel):
         max_length=10,
         choices=Status.choices,
         default=Status.PENDING,
+        db_index=True,
     )
 
     approved_at = models.DateTimeField(
@@ -107,6 +123,13 @@ class Enrollment(TimeStampedModel):
 
     class Meta:
         ordering = ["-created_at"]
+
+        indexes = [
+            models.Index(fields=["course", "status"]),
+            models.Index(fields=["student", "status"]),
+            models.Index(fields=["course", "student"]),
+        ]
+
         constraints = [
             models.UniqueConstraint(
                 fields=["course", "student"],
@@ -120,16 +143,23 @@ class Enrollment(TimeStampedModel):
 
     def clean(self):
         super().clean()
-        if self.student_id and self.course_id and self.student == self.course.teacher:
-            raise ValidationError(
-                {"student": "A teacher cannot enroll in their own course."}
-            )
+
+        if self.student_id and self.course_id:
+            if self.student == self.course.teacher:
+                raise ValidationError(
+                    {
+                        "student": (
+                            "A teacher cannot enroll in their own course."
+                        )
+                    }
+                )
 
     def save(self, *args, **kwargs):
         if self.status == Status.APPROVED and not self.approved_at:
             self.approved_at = timezone.now()
         elif self.status != Status.APPROVED:
             self.approved_at = None
+
         super().save(*args, **kwargs)
 
     def __str__(self):
