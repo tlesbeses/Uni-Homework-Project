@@ -13,6 +13,8 @@ import { EditProfilePage } from '@/features/auth/pages/EditProfile';
 import { ChangePasswordProfilePage } from '@/features/auth/pages/ChangePasswordProfile';
 import { CoursesPage } from '@/features/courses/pages/CoursesPage';
 import { CourseDetailPage } from '@/features/courses/pages/CourseDetailPage';
+import { TeamsPage } from '@/features/teams/pages/TeamsPage';
+import { TeamDetailPage } from '@/features/teams/pages/TeamDetailPage';
 
 export const router = createBrowserRouter([
     // Ruta Pública: Landing Page
@@ -59,6 +61,14 @@ export const router = createBrowserRouter([
             {
                 path: '/courses/:id',
                 element: <CourseDetailPage />,
+            },
+            {
+                path: '/teams',
+                element: <TeamsPage />,
+            },
+            {
+                path: '/teams/:id',
+                element: <TeamDetailPage />,
             },
         ],
     },

@@ -34,6 +34,13 @@ export function Navbar() {
                             Cursos
                         </Link>
 
+                        <Link
+                            to="/teams"
+                            className="hover:text-indigo-200 transition"
+                        >
+                            Equipos
+                        </Link>
+
                     </nav>
                 </div>
 
