@@ -74,7 +74,7 @@ class CourseViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-            
+        if course.teacher == request.user:
             return Response(
                 {"detail": "You cannot join your own course."},
                 status=status.HTTP_400_BAD_REQUEST,
