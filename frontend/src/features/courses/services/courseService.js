@@ -15,6 +15,11 @@ export const createCourse = async (courseData) => {
     return response.data;
 };
 
+export const updateCourse = async (courseId, courseData) => {
+    const response = await api.patch(`api/courses/${courseId}/`, courseData);
+    return response.data;
+};
+
 export const deleteCourse = async (courseId) => {
     const response = await api.delete(`api/courses/${courseId}/`);
     return response.data;

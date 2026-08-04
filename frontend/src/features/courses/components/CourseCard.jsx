@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 
-export const CourseCard = ({ course, isTeacher, onDelete, deleting }) => {
+export const CourseCard = ({ course, isTeacher, onDelete, onEdit, deleting }) => {
     const teacherName = course.teacher?.username ?? "Desconocido";
 
     return (
@@ -47,14 +47,23 @@ export const CourseCard = ({ course, isTeacher, onDelete, deleting }) => {
                 </Link>
 
                 {isTeacher && (
-                    <button
-                        type="button"
-                        onClick={() => onDelete(course.id)}
-                        disabled={deleting}
-                        className="text-sm font-medium text-red-600 hover:text-red-800 disabled:opacity-50"
-                    >
-                        Eliminar
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button
+                            type="button"
+                            onClick={() => onEdit(course)}
+                            className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
+                        >
+                            Editar
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => onDelete(course.id)}
+                            disabled={deleting}
+                            className="text-sm font-medium text-red-600 hover:text-red-800 disabled:opacity-50"
+                        >
+                            Eliminar
+                        </button>
+                    </div>
                 )}
             </div>
         </div>

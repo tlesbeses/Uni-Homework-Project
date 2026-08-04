@@ -4,6 +4,7 @@ import { useAuth } from "@/features/auth/providers/AuthProvider";
 import { useCourses } from "@/features/courses/hooks/useCourses";
 import { CourseCard } from "@/features/courses/components/CourseCard";
 import { CreateCourseModal } from "@/features/courses/components/CreateCourseModal";
+import { EditCourseModal } from "@/features/courses/components/EditCourseModal";
 import { JoinCourseForm } from "@/features/courses/components/JoinCourseForm";
 import { deleteCourse } from "@/features/courses/services/courseService";
 import { isTeacher } from "@/shared/untils/roles";
@@ -15,6 +16,7 @@ export const CoursesPage = () => {
     const { courses, loading, error, loadCourses } = useCourses();
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [deletingId, setDeletingId] = useState(null);
+    const [editingCourse, setEditingCourse] = useState(null);
 
     const handleDelete = async (courseId) => {
         if (!window.confirm("¿Eliminar este curso y todas sus inscripciones?")) {
@@ -75,6 +77,7 @@ export const CoursesPage = () => {
                         course={course}
                         isTeacher={teacher}
                         onDelete={handleDelete}
+                        onEdit={setEditingCourse}
                         deleting={deletingId === course.id}
                     />
                 ))}
@@ -86,6 +89,16 @@ export const CoursesPage = () => {
                 onCreated={async () => {
                     await loadCourses();
                     setIsCreateOpen(false);
+                }}
+            />
+
+            <EditCourseModal
+                course={editingCourse}
+                open={Boolean(editingCourse)}
+                onClose={() => setEditingCourse(null)}
+                onSaved={async () => {
+                    await loadCourses();
+                    setEditingCourse(null);
                 }}
             />
         </div>
