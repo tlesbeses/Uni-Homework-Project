@@ -107,15 +107,40 @@ class TeamCRUDTests(TeamAPITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
-    def test_student_cannot_create_team(self):
+    def test_student_can_create_team_and_becomes_leader(self):
         self.authenticate(self.student)
         response = self.client.post(
             reverse("team-list"),
-            {"name": "Alpha", "course_id": self.course.id, "leader_id": self.student.id},
+            {"name": "Alpha", "course_id": self.course.id},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        team = Team.objects.get(pk=response.data["id"])
+        self.assertEqual(team.leader, self.student)
+        self.assertTrue(team.members.filter(student=self.student).exists())
+
+    def test_student_cannot_create_team_in_course_not_approved(self):
+        hidden_course = Course.objects.create(title="Hidden", teacher=self.teacher)
+        self.authenticate(self.student)
+        response = self.client.post(
+            reverse("team-list"),
+            {"name": "Alpha", "course_id": hidden_course.id},
             format="json",
         )
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_student_in_another_team_cannot_create_team(self):
+        self.create_team(name="Beta", leader=self.student_two)
+        self.authenticate(self.student_two)
+        response = self.client.post(
+            reverse("team-list"),
+            {"name": "Alpha", "course_id": self.course.id},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_teacher_cannot_create_team_for_someone_elses_course(self):
         other_teacher = self.create_user("other_teacher")
@@ -224,15 +249,29 @@ class TeamMemberTests(TeamAPITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_student_cannot_add_or_remove_members(self):
+    def test_leader_can_add_and_remove_members(self):
         self.authenticate(self.student)
         add_response = self.client.post(
             reverse("team-members", args=[self.team.id]),
             {"student": self.student_two.id},
             format="json",
         )
+        self.assertEqual(add_response.status_code, status.HTTP_201_CREATED)
+
         remove_response = self.client.delete(
             reverse("team-remove-member", args=[self.team.id, self.student_two.id])
+        )
+        self.assertEqual(remove_response.status_code, status.HTTP_204_NO_CONTENT)
+
+    def test_non_leader_student_cannot_add_or_remove_members(self):
+        self.authenticate(self.student_two)
+        add_response = self.client.post(
+            reverse("team-members", args=[self.team.id]),
+            {"student": self.other_student.id},
+            format="json",
+        )
+        remove_response = self.client.delete(
+            reverse("team-remove-member", args=[self.team.id, self.other_student.id])
         )
 
         self.assertEqual(add_response.status_code, status.HTTP_403_FORBIDDEN)
@@ -279,6 +318,62 @@ class TeamLeaderTests(TeamAPITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_leader_can_change_leader(self):
+        team = self.create_team(name="Alpha", leader=self.student)
+        self.authenticate(self.student)
+
+        response = self.client.post(
+            reverse("team-change-leader", args=[team.id]),
+            {"leader": self.student_two.id},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        team.refresh_from_db()
+        self.assertEqual(team.leader, self.student_two)
+
+    def test_non_leader_student_cannot_change_leader(self):
+        team = self.create_team(name="Alpha", leader=self.student)
+        self.authenticate(self.student_two)
+
+        response = self.client.post(
+            reverse("team-change-leader", args=[team.id]),
+            {"leader": self.other_student.id},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class TeamLeaderManagementTests(TeamAPITestCase):
+    def test_leader_can_edit_and_delete_their_team(self):
+        team = self.create_team(name="Alpha", leader=self.student)
+        self.authenticate(self.student)
+
+        patch_response = self.client.patch(
+            reverse("team-detail", args=[team.id]),
+            {"name": "Alpha Renamed"},
+            format="json",
+        )
+        self.assertEqual(patch_response.status_code, status.HTTP_200_OK)
+
+        delete_response = self.client.delete(reverse("team-detail", args=[team.id]))
+        self.assertEqual(delete_response.status_code, status.HTTP_204_NO_CONTENT)
+
+    def test_non_leader_student_cannot_edit_or_delete_team(self):
+        team = self.create_team(name="Alpha", leader=self.student)
+        self.authenticate(self.student_two)
+
+        patch_response = self.client.patch(
+            reverse("team-detail", args=[team.id]),
+            {"name": "Hacked"},
+            format="json",
+        )
+        self.assertEqual(patch_response.status_code, status.HTTP_403_FORBIDDEN)
+
+        delete_response = self.client.delete(reverse("team-detail", args=[team.id]))
+        self.assertEqual(delete_response.status_code, status.HTTP_403_FORBIDDEN)
 
 
 class CascadeTests(TeamAPITestCase):

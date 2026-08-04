@@ -25,9 +25,6 @@ export const TeamsPage = () => {
     const [enrollments, setEnrollments] = useState([]);
 
     useEffect(() => {
-        if (!teacher) {
-            return;
-        }
         let active = true;
         (async () => {
             try {
@@ -47,7 +44,7 @@ export const TeamsPage = () => {
         return () => {
             active = false;
         };
-    }, [teacher]);
+    }, []);
 
     const courseOptions = useMemo(() => {
         const map = new Map();
@@ -83,19 +80,17 @@ export const TeamsPage = () => {
                     <p className="text-sm text-gray-500">
                         {teacher
                             ? "Gestiona los equipos de tus cursos."
-                            : "Consulta los equipos de tus cursos."}
+                            : "Crea o consulta los equipos de tus cursos."}
                     </p>
                 </div>
 
-                {teacher && (
-                    <button
-                        type="button"
-                        onClick={() => setIsCreateOpen(true)}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-lg shadow transition"
-                    >
-                        + Nuevo equipo
-                    </button>
-                )}
+                <button
+                    type="button"
+                    onClick={() => setIsCreateOpen(true)}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-lg shadow transition"
+                >
+                    + Nuevo equipo
+                </button>
             </div>
 
             {courseOptions.length > 0 && (
@@ -130,7 +125,7 @@ export const TeamsPage = () => {
                     <TeamCard
                         key={team.id}
                         team={team}
-                        isTeacher={teacher}
+                        canManage={teacher || team.leader?.id === user?.id}
                         onDelete={handleDelete}
                         onEdit={setEditingTeam}
                         deleting={deletingId === team.id}
@@ -148,6 +143,7 @@ export const TeamsPage = () => {
                 courses={courses}
                 enrollments={enrollments}
                 teams={teams}
+                isTeacher={teacher}
             />
 
             <EditTeamModal

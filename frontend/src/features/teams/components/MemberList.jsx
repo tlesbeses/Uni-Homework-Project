@@ -3,7 +3,7 @@ import { formatUser } from "@/features/teams/utils/formatUser";
 export const MemberList = ({
     members,
     leaderId,
-    isTeacher,
+    canManage,
     onRemove,
     onMakeLeader,
     removingId,
@@ -38,7 +38,7 @@ export const MemberList = ({
                             )}
                         </div>
 
-                        {isTeacher && !isLeader && (
+                        {canManage && !isLeader && (
                             <div className="flex items-center gap-2">
                                 <button
                                     type="button"

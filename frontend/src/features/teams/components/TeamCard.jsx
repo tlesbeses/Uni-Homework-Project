@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { formatUser } from "@/features/teams/utils/formatUser";
 
-export const TeamCard = ({ team, isTeacher, onDelete, onEdit, deleting }) => {
+export const TeamCard = ({ team, canManage, onDelete, onEdit, deleting }) => {
     const memberCount = team.members?.length ?? 0;
 
     return (
@@ -30,7 +30,7 @@ export const TeamCard = ({ team, isTeacher, onDelete, onEdit, deleting }) => {
                     Ver detalles
                 </Link>
 
-                {isTeacher && (
+                {canManage && (
                     <div className="flex items-center gap-3">
                         <button
                             type="button"

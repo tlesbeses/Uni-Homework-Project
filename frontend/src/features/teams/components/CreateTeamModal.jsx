@@ -10,20 +10,32 @@ export const CreateTeamModal = ({
     courses,
     enrollments,
     teams,
+    isTeacher,
 }) => {
     const { register, handleSubmit, errors, isSubmitting, onSubmit, watch, setValue } =
-        useCreateTeamForm({ onSuccess: onCreated });
+        useCreateTeamForm({ onSuccess: onCreated, isTeacher });
 
     const selectedCourseId = watch("course_id");
 
     useEffect(() => {
-        setValue("leader_id", "");
-    }, [selectedCourseId, setValue]);
+        if (isTeacher) {
+            setValue("leader_id", "");
+        }
+    }, [selectedCourseId, isTeacher, setValue]);
 
     if (!open) {
         return null;
     }
 
+    const approvedCourses = isTeacher
+        ? courses
+        : courses.filter((course) =>
+              enrollments.some(
+                  (enrollment) =>
+                      enrollment.course.id === course.id &&
+                      enrollment.status === "APPROVED"
+              )
+          );
     const courseId = Number(selectedCourseId);
     const courseEnrollments = enrollments.filter(
         (enrollment) =>
@@ -77,7 +89,7 @@ export const CreateTeamModal = ({
                             className="w-full px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                         >
                             <option value="">Selecciona un curso...</option>
-                            {courses.map((course) => (
+                            {approvedCourses.map((course) => (
                                 <option key={course.id} value={course.id}>
                                     {course.title}
                                 </option>
@@ -88,41 +100,48 @@ export const CreateTeamModal = ({
                                 {errors.course_id.message}
                             </p>
                         )}
+                        {!isTeacher && approvedCourses.length === 0 && (
+                            <p className="text-gray-500 text-xs mt-1">
+                                Aún no estás aprobado en ningún curso.
+                            </p>
+                        )}
                     </div>
 
-                    <div>
-                        <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                            Líder
-                        </label>
-                        <select
-                            {...register("leader_id")}
-                            className="w-full px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                        >
-                            <option value="">
-                                {selectedCourseId
-                                    ? "Selecciona un líder..."
-                                    : "Primero selecciona un curso"}
-                            </option>
-                            {leaders.map((enrollment) => (
-                                <option
-                                    key={enrollment.student.id}
-                                    value={enrollment.student.id}
-                                >
-                                    {formatUser(enrollment.student)}
+                    {isTeacher && (
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
+                                Líder
+                            </label>
+                            <select
+                                {...register("leader_id")}
+                                className="w-full px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            >
+                                <option value="">
+                                    {selectedCourseId
+                                        ? "Selecciona un líder..."
+                                        : "Primero selecciona un curso"}
                                 </option>
-                            ))}
-                        </select>
-                        {errors.leader_id && (
-                            <p className="text-red-500 text-xs mt-1">
-                                {errors.leader_id.message}
-                            </p>
-                        )}
-                        {selectedCourseId && leaders.length === 0 && (
-                            <p className="text-gray-500 text-xs mt-1">
-                                No hay estudiantes disponibles para ser líder.
-                            </p>
-                        )}
-                    </div>
+                                {leaders.map((enrollment) => (
+                                    <option
+                                        key={enrollment.student.id}
+                                        value={enrollment.student.id}
+                                    >
+                                        {formatUser(enrollment.student)}
+                                    </option>
+                                ))}
+                            </select>
+                            {errors.leader_id && (
+                                <p className="text-red-500 text-xs mt-1">
+                                    {errors.leader_id.message}
+                                </p>
+                            )}
+                            {selectedCourseId && leaders.length === 0 && (
+                                <p className="text-gray-500 text-xs mt-1">
+                                    No hay estudiantes disponibles para ser líder.
+                                </p>
+                            )}
+                        </div>
+                    )}
 
                     <div className="flex justify-end gap-3 pt-2">
                         <button

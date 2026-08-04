@@ -13,9 +13,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from course.models import Course, Enrollment, Status
-from course.permissions import IsTeacher
 from teams.models import Team, TeamMember
-from teams.permissions import IsCourseTeacher
+from teams.permissions import IsTeamManagerOrTeacher
 from teams.serializers import (
     AddMemberSerializer,
     ChangeLeaderSerializer,
@@ -54,26 +53,37 @@ class TeamViewSet(viewsets.ModelViewSet):
         return queryset.filter(course_id__in=enrolled_courses)
 
     def get_permissions(self):
-        """Require the course teacher for every write operation."""
-        write_actions = {
-            "create",
+        """Require the course teacher or the team leader for write operations.
+
+        Team creation is open to teachers (of their own courses) and to
+        students (approved members of the course); the specific eligibility
+        is enforced inside ``create``.
+        """
+        manager_actions = {
             "update",
             "partial_update",
             "destroy",
             "remove_member",
             "change_leader",
         }
-        if self.action in write_actions:
-            return [IsAuthenticated(), IsTeacher(), IsCourseTeacher()]
+        if self.action in manager_actions:
+            return [IsAuthenticated(), IsTeamManagerOrTeacher()]
         if self.action == "members" and self.request.method == "POST":
-            return [IsAuthenticated(), IsTeacher(), IsCourseTeacher()]
+            return [IsAuthenticated(), IsTeamManagerOrTeacher()]
         return [IsAuthenticated()]
 
-    def create(self, request, *args, **kwargs):
-        """Only allow creating teams in courses owned by the current user.
+    @staticmethod
+    def is_teacher(user) -> bool:
+        return user.groups.filter(name="Teacher").exists()
 
-        The ownership check runs before serialization so that teachers
-        receive a 403 (permission) instead of a misleading validation error.
+    def create(self, request, *args, **kwargs):
+        """Restrict team creation to teachers and approved course students.
+
+        Teachers can only create teams in their own courses. Students must be
+        approved members of the course and automatically become the leader of
+        the team they create. The eligibility check runs before serialization
+        so callers receive a 403 (permission) instead of a misleading
+        validation error.
         """
         course_id = request.data.get("course_id") or request.data.get("course")
         if course_id is not None:
@@ -81,11 +91,35 @@ class TeamViewSet(viewsets.ModelViewSet):
                 course = Course.objects.get(pk=course_id)
             except Course.DoesNotExist:
                 raise NotFound("Course not found.")
-            if not request.user.is_superuser and course.teacher_id != request.user.id:
+            user = request.user
+            if not user.is_superuser and self.is_teacher(user):
+                if course.teacher_id != user.id:
+                    raise PermissionDenied(
+                        "You can only create teams in your own courses."
+                    )
+            elif not user.is_superuser and not Enrollment.objects.filter(
+                course=course,
+                student=user,
+                status=Status.APPROVED,
+            ).exists():
                 raise PermissionDenied(
-                    "You can only create teams in your own courses."
+                    "You must be an approved member of the course to create a team."
                 )
-        return super().create(request, *args, **kwargs)
+
+        data = request.data.copy()
+        if not (request.user.is_superuser or self.is_teacher(request.user)):
+            # A student becomes the leader of the team they create.
+            data["leader_id"] = request.user.id
+
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(
+            serializer.data,
+            status=status.HTTP_201_CREATED,
+            headers=headers,
+        )
 
     @action(detail=True, methods=["get", "post"], url_path="members")
     def members(self, request, pk=None):

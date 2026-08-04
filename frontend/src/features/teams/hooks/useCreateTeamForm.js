@@ -1,11 +1,15 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "react-toastify";
-import { createTeamSchema } from "@/features/teams/schemas/teamSchemas";
+import {
+    createTeamSchema,
+    studentCreateTeamSchema,
+} from "@/features/teams/schemas/teamSchemas";
 import { createTeam } from "@/features/teams/services/teamService";
 import { getErrorMessage } from "@/shared/untils/getErrorMessage";
 
-export const useCreateTeamForm = ({ onSuccess } = {}) => {
+export const useCreateTeamForm = ({ onSuccess, isTeacher } = {}) => {
+    const schema = isTeacher ? createTeamSchema : studentCreateTeamSchema;
     const {
         register,
         handleSubmit,
@@ -14,7 +18,7 @@ export const useCreateTeamForm = ({ onSuccess } = {}) => {
         setValue,
         formState: { errors, isSubmitting },
     } = useForm({
-        resolver: zodResolver(createTeamSchema),
+        resolver: zodResolver(schema),
         defaultValues: {
             name: "",
             course_id: "",
@@ -24,7 +28,10 @@ export const useCreateTeamForm = ({ onSuccess } = {}) => {
 
     const onSubmit = async (data) => {
         try {
-            await createTeam(data);
+            const payload = isTeacher
+                ? data
+                : { name: data.name, course_id: data.course_id };
+            await createTeam(payload);
             toast.success("Equipo creado con éxito");
             reset();
             onSuccess?.();

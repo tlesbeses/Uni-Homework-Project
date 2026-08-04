@@ -4,6 +4,7 @@ import { useAuth } from "@/features/auth/providers/AuthProvider";
 import { useTeamDetail } from "@/features/teams/hooks/useTeamDetail";
 import { MemberList } from "@/features/teams/components/MemberList";
 import { AddMemberModal } from "@/features/teams/components/AddMemberModal";
+import { EditTeamModal } from "@/features/teams/components/EditTeamModal";
 import { formatUser } from "@/features/teams/utils/formatUser";
 import { isTeacher } from "@/shared/untils/roles";
 
@@ -12,6 +13,7 @@ export const TeamDetailPage = () => {
     const { user } = useAuth();
     const teacher = isTeacher(user);
     const [isAddOpen, setIsAddOpen] = useState(false);
+    const [isEditOpen, setIsEditOpen] = useState(false);
     const {
         team,
         enrollments,
@@ -35,6 +37,8 @@ export const TeamDetailPage = () => {
         return <p className="text-gray-500">Equipo no encontrado.</p>;
     }
 
+    const canManage = teacher || team.leader?.id === user?.id;
+
     return (
         <div className="space-y-6 max-w-4xl">
             <Link
@@ -54,9 +58,20 @@ export const TeamDetailPage = () => {
                             Curso: {team.course?.title}
                         </p>
                     </div>
-                    <span className="text-xs font-medium uppercase tracking-wide px-2 py-1 rounded-full bg-indigo-50 text-indigo-600">
-                        Líder: {formatUser(team.leader)}
-                    </span>
+                    <div className="flex flex-wrap items-center gap-3">
+                        <span className="text-xs font-medium uppercase tracking-wide px-2 py-1 rounded-full bg-indigo-50 text-indigo-600">
+                            Líder: {formatUser(team.leader)}
+                        </span>
+                        {canManage && (
+                            <button
+                                type="button"
+                                onClick={() => setIsEditOpen(true)}
+                                className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
+                            >
+                                Editar
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -65,7 +80,7 @@ export const TeamDetailPage = () => {
                     <h2 className="text-lg font-semibold text-gray-800">
                         Miembros
                     </h2>
-                    {teacher && (
+                    {canManage && (
                         <button
                             type="button"
                             onClick={() => setIsAddOpen(true)}
@@ -79,7 +94,7 @@ export const TeamDetailPage = () => {
                 <MemberList
                     members={team.members}
                     leaderId={team.leader?.id}
-                    isTeacher={teacher}
+                    canManage={canManage}
                     onRemove={handleRemoveMember}
                     onMakeLeader={handleChangeLeader}
                     removingId={removingId}
@@ -95,6 +110,16 @@ export const TeamDetailPage = () => {
                 onAdded={async () => {
                     await reload();
                     setIsAddOpen(false);
+                }}
+            />
+
+            <EditTeamModal
+                team={team}
+                open={isEditOpen}
+                onClose={() => setIsEditOpen(false)}
+                onSaved={async () => {
+                    await reload();
+                    setIsEditOpen(false);
                 }}
             />
         </div>
