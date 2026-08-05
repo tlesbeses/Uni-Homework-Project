@@ -14,6 +14,7 @@ export const useAsyncData = (fetcher) => {
             setData(result);
         } catch (err) {
             setError(getErrorMessage(err));
+            console.error("Error fetching data:", err);
         } finally {
             setLoading(false);
         }

@@ -11,6 +11,8 @@ from course.serializers import (
     CourseSettingsSerializer,
     EnrollmentSerializer,
 )
+from django_filters.rest_framework import DjangoFilterBackend
+from .filters import EnrollmentFilter
 from .permissions import IsTeacher, IsStudent
 
 class CourseViewSet(viewsets.ModelViewSet):
@@ -177,12 +179,16 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         queryset = Enrollment.objects.all()
+        
+        filter_backends = [DjangoFilterBackend]
+        filterset_class = EnrollmentFilter
+        
         if user.is_superuser:
             return queryset
         if user.groups.filter(name="Teacher").exists():
             return queryset.filter(course__teacher=user)
         return queryset.filter(student=user)
-
+    
     def get_permissions(self):
         if self.action in ("approve", "reject"):
             return [IsAuthenticated(), IsTeacher()]

@@ -12,11 +12,8 @@ export const useCourseEnrollments = (courseId) => {
     const [updatingEnrollmentId, setUpdatingEnrollmentId] = useState(null);
 
     const fetchEnrollments = useCallback(async () => {
-        const data = await getEnrollments();
-        const items = data.results ?? data;
-        return items.filter(
-            (enrollment) => enrollment.course.id === Number(courseId)
-        );
+        const data = await getEnrollments(courseId);
+        return data.results ?? data;
     }, [courseId]);
 
     const { data, loading, error, reload } = useAsyncData(fetchEnrollments);

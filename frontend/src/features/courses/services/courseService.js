@@ -43,8 +43,10 @@ export const updateCourseSettings = async (courseId, settings) => {
     return response.data;
 };
 
-export const getEnrollments = async () => {
-    const response = await api.get("api/enrollments/");
+export const getEnrollments = async (courseId) => {
+    const response = await api.get("api/enrollments/", {
+        params: courseId ? { course: courseId } : {},
+    });
     return response.data;
 };
 
