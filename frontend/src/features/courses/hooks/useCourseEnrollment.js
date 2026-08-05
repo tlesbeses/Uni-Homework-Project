@@ -3,7 +3,7 @@ import { toast } from "react-toastify";
 import { enrollInCourse } from "@/features/courses/services/courseService";
 import { getErrorMessage } from "@/shared/untils/getErrorMessage";
 
-export const useCourseEnrollment = (courseId, { onSuccess } = {}) => {
+export const useCourseEnrollment = (courseId) => {
     const [enrolling, setEnrolling] = useState(false);
 
     const enroll = useCallback(async () => {
@@ -11,13 +11,14 @@ export const useCourseEnrollment = (courseId, { onSuccess } = {}) => {
         try {
             await enrollInCourse(courseId);
             toast.success("Solicitud de inscripción enviada");
-            await onSuccess?.();
+            return true;
         } catch (err) {
             toast.error(getErrorMessage(err));
+            return false;
         } finally {
             setEnrolling(false);
         }
-    }, [courseId, onSuccess]);
+    }, [courseId]);
 
     return { enroll, enrolling };
 };
