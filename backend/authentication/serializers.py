@@ -26,7 +26,6 @@ class LoginUserSerializer(serializers.ModelSerializer):
     def get_permissions(self, obj):
         return list(obj.get_all_permissions())
 
-
 class LoginSerializer(TokenObtainPairSerializer):
 
     @classmethod
