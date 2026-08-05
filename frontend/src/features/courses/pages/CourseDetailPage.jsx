@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAuth } from "@/features/auth/providers/AuthProvider";
 import { useCourseDetail } from "@/features/courses/hooks/useCourseDetail";
@@ -17,13 +17,22 @@ export const CourseDetailPage = () => {
         enrollments,
         loading,
         error,
-        handleEnrollmentStatus,
+        approveEnrollment,
+        rejectEnrollment,
         updatingEnrollmentId,
-        handleEnroll,
+        enroll,
         enrolling,
         toggleAutoAccept,
         reload,
     } = useCourseDetail(id);
+
+    const handleEnrollmentStatus = useCallback(
+        (enrollmentId, action) =>
+            action === "approve"
+                ? approveEnrollment(enrollmentId)
+                : rejectEnrollment(enrollmentId),
+        [approveEnrollment, rejectEnrollment]
+    );
 
     if (loading) {
         return <p className="text-gray-500">Cargando curso...</p>;
@@ -146,7 +155,7 @@ export const CourseDetailPage = () => {
                         {course.visibility === "PUBLIC" && (
                             <button
                                 type="button"
-                                onClick={handleEnroll}
+                                onClick={enroll}
                                 disabled={enrolling}
                                 className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg shadow transition"
                             >

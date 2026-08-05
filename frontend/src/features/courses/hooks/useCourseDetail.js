@@ -1,114 +1,51 @@
-import { useCallback, useEffect, useState } from "react";
-import { toast } from "react-toastify";
-import {
-    approveEnrollment,
-    enrollInCourse,
-    getCourse,
-    getEnrollments,
-    rejectEnrollment,
-    updateCourseSettings,
-} from "@/features/courses/services/courseService";
-import { getErrorMessage } from "@/shared/untils/getErrorMessage";
+import { useCallback } from "react";
+import { useCourse } from "@/features/courses/hooks/useCourse";
+import { useCourseEnrollment } from "@/features/courses/hooks/useCourseEnrollment";
+import { useCourseEnrollments } from "@/features/courses/hooks/useCourseEnrollments";
+import { useCourseSettings } from "@/features/courses/hooks/useCourseSettings";
 
 export const useCourseDetail = (courseId) => {
-    const [course, setCourse] = useState(null);
-    const [enrollments, setEnrollments] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
-    const [updatingEnrollmentId, setUpdatingEnrollmentId] = useState(null);
-    const [enrolling, setEnrolling] = useState(false);
+    const {
+        course,
+        loading: courseLoading,
+        error: courseError,
+        reload: reloadCourse,
+        updateCourse,
+    } = useCourse(courseId);
 
-    const load = useCallback(async () => {
-        setLoading(true);
-        setError("");
-        try {
-            const [courseData, enrollmentsData] = await Promise.all([
-                getCourse(courseId),
-                getEnrollments(),
-            ]);
-            const items = enrollmentsData.results ?? enrollmentsData;
-            setCourse(courseData);
-            setEnrollments(
-                items.filter(
-                    (enrollment) => enrollment.course.id === Number(courseId)
-                )
-            );
-        } catch (err) {
-            setError(getErrorMessage(err));
-        } finally {
-            setLoading(false);
-        }
-    }, [courseId]);
+    const {
+        enrollments,
+        loading: enrollmentsLoading,
+        error: enrollmentsError,
+        reload: reloadEnrollments,
+        approveEnrollment,
+        rejectEnrollment,
+        updatingEnrollmentId,
+    } = useCourseEnrollments(courseId);
 
-    useEffect(() => {
-        load();
-    }, [load]);
+    const { toggleAutoAccept } = useCourseSettings(courseId, {
+        course,
+        updateCourse,
+    });
 
-    const handleEnrollmentStatus = useCallback(
-        async (enrollmentId, action) => {
-            setUpdatingEnrollmentId(enrollmentId);
-            try {
-                if (action === "approve") {
-                    await approveEnrollment(enrollmentId);
-                    toast.success("Inscripción aprobada");
-                } else {
-                    await rejectEnrollment(enrollmentId);
-                    toast.success("Inscripción rechazada");
-                }
-                await load();
-            } catch (err) {
-                toast.error(getErrorMessage(err));
-            } finally {
-                setUpdatingEnrollmentId(null);
-            }
-        },
-        [load]
-    );
+    const reload = useCallback(async () => {
+        await Promise.all([reloadCourse(), reloadEnrollments()]);
+    }, [reloadCourse, reloadEnrollments]);
 
-    const handleEnroll = useCallback(async () => {
-        setEnrolling(true);
-        try {
-            await enrollInCourse(courseId);
-            toast.success("Solicitud de inscripción enviada");
-            await load();
-        } catch (err) {
-            toast.error(getErrorMessage(err));
-        } finally {
-            setEnrolling(false);
-        }
-    }, [courseId, load]);
-
-    const toggleAutoAccept = useCallback(
-        async (checked) => {
-            if (!course) {
-                return;
-            }
-            try {
-                const updated = await updateCourseSettings(course.id, {
-                    auto_accept_students: checked,
-                });
-                setCourse((prev) =>
-                    prev
-                        ? { ...prev, settings: { ...prev.settings, ...updated } }
-                        : prev
-                );
-                toast.success("Ajustes del curso actualizados");
-            } catch (err) {
-                toast.error(getErrorMessage(err));
-            }
-        },
-        [course]
-    );
+    const { enroll, enrolling } = useCourseEnrollment(courseId, {
+        onSuccess: reload,
+    });
 
     return {
         course,
         enrollments,
-        loading,
-        error,
-        reload: load,
-        handleEnrollmentStatus,
+        loading: courseLoading || enrollmentsLoading,
+        error: courseError || enrollmentsError,
+        reload,
+        approveEnrollment,
+        rejectEnrollment,
         updatingEnrollmentId,
-        handleEnroll,
+        enroll,
         enrolling,
         toggleAutoAccept,
     };
