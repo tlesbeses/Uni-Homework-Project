@@ -10,12 +10,10 @@ import {
     getCourses,
     getEnrollments,
 } from "@/features/courses/services/courseService";
-import { isTeacher } from "@/shared/untils/roles";
-import { getErrorMessage } from "@/shared/untils/getErrorMessage";
+import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 
 export const TeamsPage = () => {
-    const { user } = useAuth();
-    const teacher = isTeacher(user);
+    const { user, isTeacher } = useAuth();
     const { teams, loading, error, loadTeams } = useTeams();
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [deletingId, setDeletingId] = useState(null);

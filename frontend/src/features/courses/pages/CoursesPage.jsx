@@ -7,12 +7,10 @@ import { CreateCourseModal } from "@/features/courses/components/CreateCourseMod
 import { EditCourseModal } from "@/features/courses/components/EditCourseModal";
 import { JoinCourseForm } from "@/features/courses/components/JoinCourseForm";
 import { deleteCourse } from "@/features/courses/services/courseService";
-import { isTeacher } from "@/shared/untils/roles";
-import { getErrorMessage } from "@/shared/untils/getErrorMessage";
+import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 
 export const CoursesPage = () => {
-    const { user } = useAuth();
-    const teacher = isTeacher(user);
+    const { isTeacher } = useAuth();
     const { courses, loading, error, loadCourses } = useCourses();
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [deletingId, setDeletingId] = useState(null);
@@ -40,13 +38,13 @@ export const CoursesPage = () => {
                 <div>
                     <h1 className="text-2xl font-bold text-gray-800">Cursos</h1>
                     <p className="text-sm text-gray-500">
-                        {teacher
+                        {isTeacher
                             ? "Gestiona tus cursos y códigos de inscripción."
                             : "Explora cursos públicos o únete con un código."}
                     </p>
                 </div>
 
-                {teacher && (
+                {isTeacher && (
                     <button
                         type="button"
                         onClick={() => setIsCreateOpen(true)}
@@ -57,7 +55,7 @@ export const CoursesPage = () => {
                 )}
             </div>
 
-            {!teacher && (
+            {!isTeacher && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
                     <JoinCourseForm onJoined={loadCourses} />
                 </div>
@@ -75,7 +73,7 @@ export const CoursesPage = () => {
                     <CourseCard
                         key={course.id}
                         course={course}
-                        isTeacher={teacher}
+                        isTeacher={isTeacher}
                         onDelete={handleDelete}
                         onEdit={setEditingCourse}
                         deleting={deletingId === course.id}
