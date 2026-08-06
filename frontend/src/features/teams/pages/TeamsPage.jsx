@@ -76,7 +76,7 @@ export const TeamsPage = () => {
                 <div>
                     <h1 className="text-2xl font-bold text-gray-800">Equipos</h1>
                     <p className="text-sm text-gray-500">
-                        {teacher
+                        {isTeacher
                             ? "Gestiona los equipos de tus cursos."
                             : "Crea o consulta los equipos de tus cursos."}
                     </p>
@@ -123,7 +123,7 @@ export const TeamsPage = () => {
                     <TeamCard
                         key={team.id}
                         team={team}
-                        canManage={teacher || team.leader?.id === user?.id}
+                        canManage={isTeacher || team.leader?.id === user?.id}
                         onDelete={handleDelete}
                         onEdit={setEditingTeam}
                         deleting={deletingId === team.id}
@@ -141,7 +141,7 @@ export const TeamsPage = () => {
                 courses={courses}
                 enrollments={enrollments}
                 teams={teams}
-                isTeacher={teacher}
+                isTeacher={isTeacher}
             />
 
             <EditTeamModal

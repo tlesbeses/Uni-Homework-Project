@@ -6,12 +6,10 @@ import { MemberList } from "@/features/teams/components/MemberList";
 import { AddMemberModal } from "@/features/teams/components/AddMemberModal";
 import { EditTeamModal } from "@/features/teams/components/EditTeamModal";
 import { formatUser } from "@/features/teams/utils/formatUser";
-import { isTeacher } from "@/shared/untils/roles";
 
 export const TeamDetailPage = () => {
     const { id } = useParams();
-    const { user } = useAuth();
-    const teacher = isTeacher(user);
+    const { user, isTeacher } = useAuth();
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
     const {
@@ -37,7 +35,7 @@ export const TeamDetailPage = () => {
         return <p className="text-gray-500">Equipo no encontrado.</p>;
     }
 
-    const canManage = teacher || team.leader?.id === user?.id;
+    const canManage = isTeacher || team.leader?.id === user?.id;
 
     return (
         <div className="space-y-6 max-w-4xl">
