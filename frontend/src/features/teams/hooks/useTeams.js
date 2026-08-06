@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { getTeams } from "@/features/teams/services/teamService";
-import { getErrorMessage } from "@/shared/untils/getErrorMessage";
+import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 
 export const useTeams = () => {
     const [teams, setTeams] = useState([]);

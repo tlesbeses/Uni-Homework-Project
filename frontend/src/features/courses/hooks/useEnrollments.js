@@ -6,7 +6,7 @@ import {
     rejectEnrollment as rejectEnrollmentRequest,
 } from "@/features/courses/services/courseService";
 import { useAsyncData } from "@/features/courses/hooks/useAsyncData";
-import { getErrorMessage } from "@/shared/untils/getErrorMessage";
+import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 
 export const useEnrollments = (courseId) => {
     const [updatingEnrollmentId, setUpdatingEnrollmentId] = useState(null);

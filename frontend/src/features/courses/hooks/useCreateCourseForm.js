@@ -3,7 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "react-toastify";
 import { createCourseSchema } from "@/features/courses/schemas/courseSchemas";
 import { createCourse } from "@/features/courses/services/courseService";
-import { getErrorMessage } from "@/shared/untils/getErrorMessage";
+import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 
 export const useCreateCourseForm = ({ onSuccess } = {}) => {
     const {

@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "react-toastify";
 import { editTeamSchema } from "@/features/teams/schemas/teamSchemas";
 import { updateTeam } from "@/features/teams/services/teamService";
-import { getErrorMessage } from "@/shared/untils/getErrorMessage";
+import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 
 export const useEditTeamForm = ({ team, onSuccess } = {}) => {
     const {

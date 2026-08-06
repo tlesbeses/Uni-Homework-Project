@@ -9,6 +9,10 @@ import {
 
 import { tokenStorage, userStorage } from "@/shared/storage/tokenStorage";
 import { loginUser, logoutUser } from "@/features/auth/services/authService";
+import {
+    isStudent as hasStudentRole,
+    isTeacher as hasTeacherRole,
+} from "@/shared/utils/roles";
 
 const AuthContext = createContext(undefined);
 
@@ -66,6 +70,8 @@ export function AuthProvider({ children }) {
         user,
         isLoading,
         isAuthenticated: user !== null,
+        isTeacher: hasTeacherRole(user),
+        isStudent: hasStudentRole(user),
         login,
         logout
     }), [user, isLoading, login, logout]);

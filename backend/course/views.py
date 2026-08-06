@@ -176,12 +176,14 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
     serializer_class = EnrollmentSerializer
     permission_classes = [IsAuthenticated]
 
+ 
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = EnrollmentFilter
+        
     def get_queryset(self):
         user = self.request.user
         queryset = Enrollment.objects.all()
-        
-        filter_backends = [DjangoFilterBackend]
-        filterset_class = EnrollmentFilter
+       
         
         if user.is_superuser:
             return queryset

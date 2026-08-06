@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { toast } from "react-toastify";
 import { enrollInCourse } from "@/features/courses/services/courseService";
-import { getErrorMessage } from "@/shared/untils/getErrorMessage";
+import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 
 export const useEnrollment = (courseId) => {
     const [enrolling, setEnrolling] = useState(false);

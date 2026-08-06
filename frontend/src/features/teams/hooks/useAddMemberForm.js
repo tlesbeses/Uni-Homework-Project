@@ -3,7 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "react-toastify";
 import { addMemberSchema } from "@/features/teams/schemas/teamSchemas";
 import { addTeamMember } from "@/features/teams/services/teamService";
-import { getErrorMessage } from "@/shared/untils/getErrorMessage";
+import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 
 export const useAddMemberForm = ({ teamId, onSuccess } = {}) => {
     const {

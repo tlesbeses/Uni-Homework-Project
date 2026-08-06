@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { toast } from "react-toastify";
 import { updateCourseSettings } from "@/features/courses/services/courseService";
-import { getErrorMessage } from "@/shared/untils/getErrorMessage";
+import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 
 export const useCourseSettings = ({ course, updateCourse } = {}) => {
     const toggleAutoAccept = useCallback(

@@ -6,7 +6,7 @@ import {
     getTeam,
     removeTeamMember,
 } from "@/features/teams/services/teamService";
-import { getErrorMessage } from "@/shared/untils/getErrorMessage";
+import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 
 export const useTeamDetail = (teamId) => {
     const [team, setTeam] = useState(null);
