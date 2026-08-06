@@ -1,8 +1,8 @@
 import { useCallback } from "react";
 import { EnrollmentList } from "@/features/courses/components/EnrollmentList";
 import { StatusBadge } from "@/features/courses/components/StatusBadge";
-import { useCourseEnrollment } from "@/features/courses/hooks/useCourseEnrollment";
-import { useCourseEnrollments } from "@/features/courses/hooks/useCourseEnrollments";
+import { useEnrollment } from "@/features/courses/hooks/useEnrollment";
+import { useEnrollments } from "@/features/courses/hooks/useEnrollments";
 
 export const EnrollmentSection = ({
     courseId,
@@ -18,9 +18,9 @@ export const EnrollmentSection = ({
         approveEnrollment,
         rejectEnrollment,
         updatingEnrollmentId,
-    } = useCourseEnrollments(courseId);
+    } = useEnrollments(courseId);
 
-    const { enroll: submitEnrollment, enrolling } = useCourseEnrollment(courseId);
+    const { enroll: submitEnrollment, enrolling } = useEnrollment(courseId);
 
     const enroll = useCallback(async () => {
         const submitted = await submitEnrollment();

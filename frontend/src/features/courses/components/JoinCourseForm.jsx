@@ -1,4 +1,4 @@
-import { useJoinCourseForm } from "@/features/courses/hooks/useJoinCourseForm";
+import { useJoinCourseForm } from "@/features/courses/hooks/useJoinEnrollments";
 import { InputField } from "@/shared/components/ui/InputField";
 
 export const JoinCourseForm = ({ onJoined }) => {

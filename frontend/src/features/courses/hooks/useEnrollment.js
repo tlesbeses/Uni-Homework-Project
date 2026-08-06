@@ -3,7 +3,7 @@ import { toast } from "react-toastify";
 import { enrollInCourse } from "@/features/courses/services/courseService";
 import { getErrorMessage } from "@/shared/untils/getErrorMessage";
 
-export const useCourseEnrollment = (courseId) => {
+export const useEnrollment = (courseId) => {
     const [enrolling, setEnrolling] = useState(false);
 
     const enroll = useCallback(async () => {

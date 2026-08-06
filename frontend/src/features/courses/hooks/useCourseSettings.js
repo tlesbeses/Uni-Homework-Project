@@ -3,7 +3,7 @@ import { toast } from "react-toastify";
 import { updateCourseSettings } from "@/features/courses/services/courseService";
 import { getErrorMessage } from "@/shared/untils/getErrorMessage";
 
-export const useCourseSettings = (courseId, { course, updateCourse } = {}) => {
+export const useCourseSettings = ({ course, updateCourse } = {}) => {
     const toggleAutoAccept = useCallback(
         async (checked) => {
             if (!course) {

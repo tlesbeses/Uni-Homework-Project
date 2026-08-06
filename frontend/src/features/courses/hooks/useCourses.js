@@ -1,28 +1,14 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import { getCourses } from "@/features/courses/services/courseService";
-import { getErrorMessage } from "@/shared/untils/getErrorMessage";
+import { useAsyncData } from "@/features/courses/hooks/useAsyncData";
 
 export const useCourses = () => {
-    const [courses, setCourses] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
-
-    const loadCourses = useCallback(async () => {
-        setLoading(true);
-        setError("");
-        try {
-            const data = await getCourses();
-            setCourses(data.results ?? data);
-        } catch (err) {
-            setError(getErrorMessage(err));
-        } finally {
-            setLoading(false);
-        }
+    const fetchCourses = useCallback(async () => {
+        const data = await getCourses();
+        return data.results ?? data;
     }, []);
 
-    useEffect(() => {
-        loadCourses();
-    }, [loadCourses]);
+    const { data, loading, error, reload } = useAsyncData(fetchCourses);
 
-    return { courses, loading, error, loadCourses };
+    return { courses: data ?? [], loading, error, loadCourses: reload };
 };

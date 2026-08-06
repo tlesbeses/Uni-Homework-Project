@@ -40,6 +40,7 @@ export const updateCourseSettings = async (courseId, settings) => {
         `api/courses/${courseId}/course_settings/`,
         settings
     );
+    console.log("updateCourseSettings response:", response.data);
     return response.data;
 };
 
