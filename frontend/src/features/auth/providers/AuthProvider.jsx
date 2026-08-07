@@ -30,6 +30,13 @@ export function AuthProvider({ children }) {
         setIsLoading(false);
     }, []);
 
+    const isTeacher = user?.roles?.some(
+        (role) => role === "Teacher"
+    ) ?? false;
+
+    const isStudent = user?.roles?.some(
+        (role) => role === "Student"
+    ) ?? false;
 
     const login = useCallback(async (credentials) => {
         setIsLoading(true);
@@ -70,8 +77,8 @@ export function AuthProvider({ children }) {
         user,
         isLoading,
         isAuthenticated: user !== null,
-        isTeacher: hasTeacherRole(user),
-        isStudent: hasStudentRole(user),
+        isTeacher,
+        isStudent,
         login,
         logout
     }), [user, isLoading, login, logout]);
