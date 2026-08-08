@@ -30,8 +30,7 @@ export const CourseDetailPage = () => {
 
     const autoAccept = Boolean(course.settings?.auto_accept_students);
     const isOwner = isTeacher && course.teacher?.id === user?.id;
-    console.log("isTeacher:", isTeacher);
- 
+     
     return (
         <div className="space-y-6 max-w-4xl">
             <Link

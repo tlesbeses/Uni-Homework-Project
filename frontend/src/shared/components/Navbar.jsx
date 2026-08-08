@@ -6,6 +6,7 @@ export function Navbar() {
     const navigate = useNavigate();
     const { logout } = useAuth();
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const { isTeacher } = useAuth(); 
 
     return (
         <header className="bg-indigo-600 text-white shadow-md">
@@ -34,12 +35,16 @@ export function Navbar() {
                             Cursos
                         </Link>
 
-                        <Link
-                            to="/teams"
-                            className="hover:text-indigo-200 transition"
-                        >
-                            Equipos
-                        </Link>
+                        {
+                            isTeacher && (
+                                <Link
+                                    to="/teams"
+                                    className="hover:text-indigo-200 transition"
+                                >
+                                    Equipos
+                                </Link>
+                            )
+                        }
 
                     </nav>
                 </div>

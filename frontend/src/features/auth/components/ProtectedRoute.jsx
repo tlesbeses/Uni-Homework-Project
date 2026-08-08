@@ -17,9 +17,9 @@ export function ProtectedRoute({
         return <Navigate to={redirectTo} replace />;
     }
 
-    if (roles.length > 0 && !roles.includes(user?.role)) {
-        return <Navigate to={forbiddenTo} replace />;
-    }
+    if (roles.length > 0 && !user?.roles?.some(role => roles.includes(role))) {
+    return <Navigate to={forbiddenTo} replace />;
+}
 
     if (
         permissions.length > 0 &&

@@ -40,7 +40,6 @@ export const updateCourseSettings = async (courseId, settings) => {
         `api/courses/${courseId}/course_settings/`,
         settings
     );
-    console.log("updateCourseSettings response:", response.data);
     return response.data;
 };
 
@@ -48,9 +47,7 @@ export const getEnrollments = async (courseId) => {
     const response = await api.get("api/enrollments/", {
         params: courseId ? { course: courseId } : {},
     });
-    console.log("getEnrollments response:", response);
-    console.log(courseId);
-    console.log("getEnrollments response:", response.data);
+    console.log(response)
     return response.data;
 };
 

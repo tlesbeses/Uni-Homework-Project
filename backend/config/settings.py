@@ -154,8 +154,8 @@ REST_FRAMEWORK = {
     ],
 
     "DEFAULT_THROTTLE_RATES": {
-        "anon": "10/minute",
-        "user": "30/minute",
+        "anon": "50/minute",
+        "user": "50/minute",
     },
     
     "DEFAULT_PAGINATION_CLASS":
