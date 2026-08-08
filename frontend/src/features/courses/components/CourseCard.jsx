@@ -1,7 +1,33 @@
 import { Link } from "react-router-dom";
+import { KebabMenu } from "@/shared/components/ui/KebabMenu";
 
-export const CourseCard = ({ course, isTeacher, onDelete, onEdit, deleting }) => {
+export const CourseCard = ({ course, isTeacher, isStudent, onDelete, onEdit, onEnroll, deleting }) => {
     const teacherName = course.teacher?.username ?? "Desconocido";
+
+    const menuItems = [
+        ...(isStudent
+            ? [{
+                label: "Crear Equipo",
+                onClick: () => onEnroll?.(course.id),
+                className: "text-green-600 hover:text-green-800",
+            }]
+            : []),
+        ...(isTeacher
+            ? [
+                {
+                    label: "Editar",
+                    onClick: () => onEdit(course),
+                    className: "text-indigo-600 hover:text-indigo-800",
+                },
+                {
+                    label: "Eliminar",
+                    onClick: () => onDelete(course.id),
+                    disabled: deleting,
+                    className: "text-red-600 hover:text-red-800",
+                },
+            ]
+            : []),
+    ];
 
     return (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex flex-col gap-3">
@@ -46,25 +72,7 @@ export const CourseCard = ({ course, isTeacher, onDelete, onEdit, deleting }) =>
                     Ver detalles
                 </Link>
 
-                {isTeacher && (
-                    <div className="flex items-center gap-3">
-                        <button
-                            type="button"
-                            onClick={() => onEdit(course)}
-                            className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
-                        >
-                            Editar
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => onDelete(course.id)}
-                            disabled={deleting}
-                            className="text-sm font-medium text-red-600 hover:text-red-800 disabled:opacity-50"
-                        >
-                            Eliminar
-                        </button>
-                    </div>
-                )}
+                {(isTeacher || isStudent) && <KebabMenu items={menuItems} />}
             </div>
         </div>
     );

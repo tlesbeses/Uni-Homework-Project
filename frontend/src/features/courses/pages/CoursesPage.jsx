@@ -10,7 +10,7 @@ import { deleteCourse } from "@/features/courses/services/courseService";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 
 export const CoursesPage = () => {
-    const { isTeacher } = useAuth();
+    const { isTeacher, isStudent } = useAuth();
     const { courses, loading, error, loadCourses } = useCourses();
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [deletingId, setDeletingId] = useState(null);
@@ -74,6 +74,7 @@ export const CoursesPage = () => {
                         key={course.id}
                         course={course}
                         isTeacher={isTeacher}
+                        isStudent={isStudent}
                         onDelete={handleDelete}
                         onEdit={setEditingCourse}
                         deleting={deletingId === course.id}
