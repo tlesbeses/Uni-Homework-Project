@@ -24,7 +24,7 @@ export const JoinCourseForm = ({ onJoined }) => {
             <button
                 type="submit"
                 disabled={isSubmitting}
-                className="sm:self-center bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-5 py-3 rounded-lg transition disabled:opacity-60"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-5 py-3 rounded-lg transition disabled:opacity-60"
             >
                 {isSubmitting ? "Uniendo..." : "Unirse al curso"}
             </button>
