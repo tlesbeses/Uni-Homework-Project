@@ -1,10 +1,3 @@
-"""Model definitions for the teams application.
-
-The teams app is responsible only for managing student teams inside a course.
-It knows nothing about assignments, grades, submissions, or scoring; those
-concerns belong to other applications.
-"""
-
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -14,8 +7,6 @@ from course.models import Course, Enrollment, Status
 
 
 class Team(TimeStampedModel):
-    """A group of students that work together inside a single course."""
-
     name = models.CharField(
         max_length=100,
         help_text="Display name of the team, unique per course.",
@@ -55,7 +46,6 @@ class Team(TimeStampedModel):
         ]
 
     def clean(self) -> None:
-        """Validate the team-level business rules."""
         super().clean()
 
         if self.leader_id and self.course_id:
@@ -78,11 +68,6 @@ class Team(TimeStampedModel):
                 )
 
     def save(self, *args, **kwargs) -> None:
-        """Persist the team, keeping the leader-membership invariant in sync.
-
-        The leader is always added as a member of the team so the
-        "leader must belong to the team" rule holds in every code path.
-        """
         super().save(*args, **kwargs)
         if self.leader_id:
             self.members.get_or_create(student_id=self.leader_id)
@@ -92,8 +77,6 @@ class Team(TimeStampedModel):
 
 
 class TeamMember(models.Model):
-    """The membership of a student in a team."""
-
     team = models.ForeignKey(
         Team,
         on_delete=models.CASCADE,
@@ -149,7 +132,6 @@ class TeamMember(models.Model):
 
     @staticmethod
     def is_enrolled_in_course(student, course) -> bool:
-        """Return True when the student has an approved enrollment in the course."""
         return Enrollment.objects.filter(
             course=course,
             student=student,
@@ -157,7 +139,6 @@ class TeamMember(models.Model):
         ).exists()
 
     def clean(self) -> None:
-        """Validate the membership-level business rules."""
         super().clean()
 
         if self.team_id and not self.course_id:
@@ -181,7 +162,6 @@ class TeamMember(models.Model):
                 )
 
     def save(self, *args, **kwargs) -> None:
-        """Persist the membership, keeping the denormalized course in sync."""
         if self.team_id and not self.course_id:
             self.course_id = self.team.course_id
         super().save(*args, **kwargs)
