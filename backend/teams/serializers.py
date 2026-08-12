@@ -24,16 +24,12 @@ class UserBriefSerializer(serializers.ModelSerializer):
 
 
 class CourseBriefSerializer(serializers.ModelSerializer):
-    """Compact course representation used inside team payloads."""
-
     class Meta:
         model = Course
         fields = ["id", "title"]
 
 
 class TeamMemberSerializer(serializers.ModelSerializer):
-    """Read representation of a team membership."""
-
     student = UserBriefSerializer(read_only=True)
 
     class Meta:
@@ -43,14 +39,13 @@ class TeamMemberSerializer(serializers.ModelSerializer):
 
 
 class AddMemberSerializer(serializers.Serializer):
-    """Validate the payload used to add a student to a team."""
 
     student = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.all(),
+        queryset=User.objects.filter(groups__name='Student'),
         error_messages={"does_not_exist": "Student not found."},
     )
 
-    def validate_student(self, student) -> User:
+    def validate_student(self, student) -> User:    
         """Enforce the membership business rules for the target team."""
         team = self.context["team"]
 
@@ -83,7 +78,7 @@ class ChangeLeaderSerializer(serializers.Serializer):
     """Validate the payload used to change a team leader."""
 
     leader = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.all(),
+        queryset=User.objects.filter(groups__name='Student'),
         error_messages={"does_not_exist": "Student not found."},
     )
 

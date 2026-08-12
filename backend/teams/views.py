@@ -50,6 +50,7 @@ class TeamViewSet(viewsets.ModelViewSet):
             student=user,
             status=Status.APPROVED,
         ).values("course_id")
+        
         return queryset.filter(course_id__in=enrolled_courses)
 
     def get_permissions(self):
@@ -107,6 +108,7 @@ class TeamViewSet(viewsets.ModelViewSet):
                 )
 
         data = request.data.copy()
+        
         if not (request.user.is_superuser or self.is_teacher(request.user)):
             # A student becomes the leader of the team they create.
             data["leader_id"] = request.user.id
