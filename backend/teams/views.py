@@ -51,8 +51,8 @@ class TeamViewSet(viewsets.ModelViewSet):
             status=Status.APPROVED,
         ).values("course_id")
         
-        return queryset.filter(course_id__in=enrolled_courses)
-
+        return queryset.filter(members__student=user, course_id__in=enrolled_courses,).distinct()
+    
     def get_permissions(self):
         """Require the course teacher or the team leader for write operations.
 
