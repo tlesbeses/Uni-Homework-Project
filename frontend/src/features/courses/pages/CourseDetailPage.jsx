@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { AssignmentSection } from "@/features/assignments/components/AssignmentSection";
 import { useAuth } from "@/features/auth/providers/AuthProvider";
 import { AutoAcceptToggle } from "@/features/courses/components/AutoAcceptToggle";
 import { CourseDetailHeader } from "@/features/courses/components/CourseDetailHeader";
@@ -59,6 +60,12 @@ export const CourseDetailPage = () => {
                 teacher={isTeacher}
                 course={course}
                 reloadCourse={reload}
+            />
+
+            <AssignmentSection
+                courseId={id}
+                isTeacher={isTeacher}
+                isOwner={isOwner}
             />
 
             <EditCourseModal
