@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import { getEnrollments } from "@/features/courses/services/courseService";
 import {
     changeTeamLeader,
+    getAvailableStudents,
     getTeam,
     removeTeamMember,
 } from "@/features/teams/services/teamService";
@@ -23,8 +23,8 @@ export const useTeamDetail = (teamId) => {
             setTeam(teamData);
 
             if (teamData.course?.id) {
-                const enrollmentsData = await getEnrollments();
-                const items = enrollmentsData.results ?? enrollmentsData;
+                const availableData = await getAvailableStudents(teamId);
+                const items = availableData.results ?? availableData;
                 setEnrollments(
                     items.filter(
                         (enrollment) =>

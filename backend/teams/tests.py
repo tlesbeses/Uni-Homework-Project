@@ -278,6 +278,68 @@ class TeamMemberTests(TeamAPITestCase):
         self.assertEqual(remove_response.status_code, status.HTTP_403_FORBIDDEN)
 
 
+class TeamAvailableStudentsTests(TeamAPITestCase):
+    def setUp(self):
+        super().setUp()
+        self.team = self.create_team(name="Alpha", leader=self.student)
+
+    def test_teacher_can_list_available_students(self):
+        self.authenticate(self.teacher)
+
+        response = self.client.get(
+            reverse("team-available-students", args=[self.team.id])
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        usernames = {item["student"]["username"] for item in response.data}
+        self.assertEqual(
+            usernames,
+            {"student", "student_two", "other_student"},
+        )
+
+    def test_team_leader_can_list_available_students(self):
+        self.authenticate(self.student)
+
+        response = self.client.get(
+            reverse("team-available-students", args=[self.team.id])
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        usernames = {item["student"]["username"] for item in response.data}
+        self.assertEqual(
+            usernames,
+            {"student", "student_two", "other_student"},
+        )
+
+    def test_non_leader_student_cannot_list_available_students(self):
+        TeamMember.objects.create(team=self.team, student=self.student_two)
+        self.authenticate(self.student_two)
+
+        response = self.client.get(
+            reverse("team-available-students", args=[self.team.id])
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_only_approved_students_of_the_team_course_are_returned(self):
+        Enrollment.objects.create(
+            course=self.course,
+            student=self.create_user("pending_student"),
+            status=Status.PENDING,
+        )
+        self.enroll(self.create_user("another_course_student"), self.other_course)
+        self.authenticate(self.teacher)
+
+        response = self.client.get(
+            reverse("team-available-students", args=[self.team.id])
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        usernames = {item["student"]["username"] for item in response.data}
+        self.assertNotIn("pending_student", usernames)
+        self.assertNotIn("another_course_student", usernames)
+
+
 class TeamLeaderTests(TeamAPITestCase):
     def test_change_leader_promotes_new_leader_to_member(self):
         team = self.create_team(name="Alpha", leader=self.student)

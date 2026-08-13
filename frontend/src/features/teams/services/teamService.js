@@ -10,6 +10,11 @@ export const getTeam = async (teamId) => {
     return response.data;
 };
 
+export const getAvailableStudents = async (teamId) => {
+    const response = await api.get(`api/teams/${teamId}/available-students/`);
+    return response.data;
+};
+
 export const createTeam = async (teamData) => {
     const response = await api.post("api/teams/", teamData);
     return response.data;

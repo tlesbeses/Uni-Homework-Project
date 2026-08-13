@@ -13,6 +13,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from course.models import Course, Enrollment, Status
+from course.serializers import EnrollmentSerializer
 from teams.models import Team, TeamMember
 from teams.permissions import IsTeamManagerOrTeacher
 from teams.serializers import (
@@ -66,6 +67,7 @@ class TeamViewSet(viewsets.ModelViewSet):
             "destroy",
             "remove_member",
             "change_leader",
+            "available_students",
         }
         if self.action in manager_actions:
             return [IsAuthenticated(), IsTeamManagerOrTeacher()]
@@ -149,6 +151,25 @@ class TeamViewSet(viewsets.ModelViewSet):
         return Response(
             TeamMemberSerializer(team.members.all(), many=True).data
         )
+
+    @action(detail=True, methods=["get"], url_path="available-students")
+    def available_students(self, request, pk=None):
+        """List approved enrollments of the team's course for member selection."""
+        team = self.get_object()
+        enrollments = (
+            Enrollment.objects.filter(
+                course=team.course,
+                status=Status.APPROVED,
+            )
+            .select_related("student")
+            .order_by("student__first_name", "student__last_name", "student__username")
+        )
+        serializer = EnrollmentSerializer(
+            enrollments,
+            many=True,
+            context=self.get_serializer_context(),
+        )
+        return Response(serializer.data)
 
     @action(detail=True, methods=["delete"], url_path=r"members/(?P<student_id>[^/.]+)")
     def remove_member(self, request, pk=None, student_id=None):
