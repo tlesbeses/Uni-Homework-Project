@@ -47,7 +47,6 @@ export const getEnrollments = async (courseId) => {
     const response = await api.get("api/enrollments/", {
         params: courseId ? { course: courseId } : {},
     });
-    console.log(response)
     return response.data;
 };
 
