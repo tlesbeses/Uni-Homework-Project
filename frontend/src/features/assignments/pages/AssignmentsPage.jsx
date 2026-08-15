@@ -16,13 +16,20 @@ import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 
 export const AssignmentsPage = () => {
     const { isTeacher } = useAuth();
-    const { assignments, loading, error, hasMore, reload, loadMore } =
-        useAllAssignments();
+    const { assignments, loading, error, reload } = useAllAssignments();
     const { courses } = useCourses();
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [editingAssignment, setEditingAssignment] = useState(null);
     const [deletingId, setDeletingId] = useState(null);
     const [togglingId, setTogglingId] = useState(null);
+    const [courseFilter, setCourseFilter] = useState("");
+
+    const filteredAssignments = courseFilter
+        ? assignments.filter(
+              (assignment) =>
+                  String(assignment.course.id) === String(courseFilter)
+          )
+        : assignments;
 
     const handleDelete = async (assignment) => {
         if (!window.confirm(`¿Eliminar "${assignment.title}"?`)) {
@@ -82,6 +89,26 @@ export const AssignmentsPage = () => {
                 )}
             </div>
 
+            {courses.length > 0 && (
+                <div className="flex flex-wrap items-center gap-3">
+                    <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                        Curso
+                    </label>
+                    <select
+                        value={courseFilter}
+                        onChange={(e) => setCourseFilter(e.target.value)}
+                        className="px-3 py-2 rounded-lg border text-sm text-gray-700 border-gray-300 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    >
+                        <option value="">Todos los cursos</option>
+                        {courses.map((course) => (
+                            <option key={course.id} value={course.id}>
+                                {course.title}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            )}
+
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                 {loading && (
                     <p className="text-sm text-gray-500">
@@ -90,15 +117,15 @@ export const AssignmentsPage = () => {
                 )}
                 {error && <p className="text-sm text-red-500">{error}</p>}
 
-                {!loading && !error && assignments.length === 0 && (
+                {!loading && !error && filteredAssignments.length === 0 && (
                     <p className="text-sm text-gray-500">
                         No hay asignaciones disponibles.
                     </p>
                 )}
 
-                {!loading && !error && assignments.length > 0 && (
+                {!loading && !error && filteredAssignments.length > 0 && (
                     <ul className="divide-y divide-gray-100">
-                        {assignments.map((assignment) => {
+                        {filteredAssignments.map((assignment) => {
                             const busy =
                                 deletingId === assignment.id ||
                                 togglingId === assignment.id;
@@ -188,18 +215,6 @@ export const AssignmentsPage = () => {
                             );
                         })}
                     </ul>
-                )}
-
-                {hasMore && (
-                    <div className="mt-4 text-center">
-                        <button
-                            type="button"
-                            onClick={loadMore}
-                            className="px-4 py-2 text-sm font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition"
-                        >
-                            Cargar más
-                        </button>
-                    </div>
                 )}
             </div>
 

@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { toast } from "react-toastify";
 import { useAllAssignments } from "@/features/assignments/hooks/useAllAssignments";
 import { getEnrollments } from "@/features/courses/services/courseService";
+import { useAllData } from "@/features/courses/hooks/useAllData";
+import { useCourses } from "@/features/courses/hooks/useCourses";
 import { GradeOriginBadge } from "@/features/grades/components/GradeOriginBadge";
 import { useAssignmentGrades } from "@/features/grades/hooks/useAssignmentGrades";
 import { gradeStudent, gradeTeam } from "@/features/grades/services/gradeService";
@@ -10,9 +12,9 @@ import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 
 export const TeacherGradingPanel = () => {
     const { assignments, loading: assignmentsLoading } = useAllAssignments();
+    const { courses } = useCourses();
+    const [courseFilter, setCourseFilter] = useState("");
     const [selectedAssignmentId, setSelectedAssignmentId] = useState("");
-    const [teams, setTeams] = useState([]);
-    const [students, setStudents] = useState([]);
     const [teamId, setTeamId] = useState("");
     const [studentId, setStudentId] = useState("");
     const [teamScore, setTeamScore] = useState("");
@@ -20,50 +22,59 @@ export const TeacherGradingPanel = () => {
     const [submittingTeam, setSubmittingTeam] = useState(false);
     const [submittingStudent, setSubmittingStudent] = useState(false);
 
+    const selectedAssignment = assignments.find(
+        (item) => String(item.id) === String(selectedAssignmentId)
+    );
+    const courseId = selectedAssignment?.course?.id ?? null;
+
+    const filteredAssignments = courseFilter
+        ? assignments.filter(
+              (assignment) =>
+                  String(assignment.course.id) === String(courseFilter)
+          )
+        : assignments;
+
+    const { data: teams, loading: teamsLoading } = useAllData(
+        useCallback(
+            (params) =>
+                courseId
+                    ? getTeams({ course: courseId, ...params })
+                    : Promise.resolve([]),
+            [courseId]
+        )
+    );
+
+    const { data: enrollments, loading: studentsLoading } = useAllData(
+        useCallback(
+            (params) =>
+                courseId ? getEnrollments(courseId, params) : Promise.resolve([]),
+            [courseId]
+        )
+    );
+
+    const students = (enrollments ?? []).filter(
+        (enrollment) => enrollment.status === "APPROVED"
+    );
+
     const { grades, loading: gradesLoading, reload: reloadGrades } =
         useAssignmentGrades(selectedAssignmentId);
 
-    useEffect(() => {
-        const assignment = assignments.find(
-            (item) => String(item.id) === String(selectedAssignmentId)
-        );
-        if (!assignment) {
-            setTeams([]);
-            setStudents([]);
-            return;
-        }
-
-        let active = true;
-        const load = async () => {
-            try {
-                const [teamData, enrollmentData] = await Promise.all([
-                    getTeams({ course: assignment.course.id }),
-                    getEnrollments(assignment.course.id),
-                ]);
-                if (!active) {
-                    return;
-                }
-                setTeams(teamData.results ?? teamData);
-                setStudents(
-                    (enrollmentData.results ?? enrollmentData).filter(
-                        (enrollment) => enrollment.status === "APPROVED"
-                    )
-                );
-            } catch (err) {
-                if (active) {
-                    toast.error(getErrorMessage(err));
-                }
-            }
-        };
-
+    const handleSelectCourse = (e) => {
+        setCourseFilter(e.target.value);
+        setSelectedAssignmentId("");
         setTeamId("");
         setStudentId("");
-        load();
+        setTeamScore("");
+        setStudentScore("");
+    };
 
-        return () => {
-            active = false;
-        };
-    }, [selectedAssignmentId, assignments]);
+    const handleSelectAssignment = (e) => {
+        setSelectedAssignmentId(e.target.value);
+        setTeamId("");
+        setStudentId("");
+        setTeamScore("");
+        setStudentScore("");
+    };
 
     const handleGradeTeam = async (e) => {
         e.preventDefault();
@@ -113,23 +124,48 @@ export const TeacherGradingPanel = () => {
 
     return (
         <div className="space-y-6">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                    Asignación
-                </label>
-                <select
-                    value={selectedAssignmentId}
-                    onChange={(e) => setSelectedAssignmentId(e.target.value)}
-                    className="w-full px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                >
-                    <option value="">Selecciona una asignación...</option>
-                    {assignments.map((assignment) => (
-                        <option key={assignment.id} value={assignment.id}>
-                            {assignment.course.title} — {assignment.title}{" "}
-                            (máx. {assignment.max_score})
-                        </option>
-                    ))}
-                </select>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
+                <div>
+                    <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
+                        Curso
+                    </label>
+                    <select
+                        value={courseFilter}
+                        onChange={handleSelectCourse}
+                        className="w-full px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    >
+                        <option value="">Todos los cursos</option>
+                        {courses.map((course) => (
+                            <option key={course.id} value={course.id}>
+                                {course.title}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+                <div>
+                    <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
+                        Asignación
+                    </label>
+                    {filteredAssignments.length === 0 ? (
+                        <p className="text-sm text-gray-500">
+                            Este curso no tiene asignaciones.
+                        </p>
+                    ) : (
+                        <select
+                            value={selectedAssignmentId}
+                            onChange={handleSelectAssignment}
+                            className="w-full px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        >
+                            <option value="">Selecciona una asignación...</option>
+                            {filteredAssignments.map((assignment) => (
+                                <option key={assignment.id} value={assignment.id}>
+                                    {assignment.course.title} — {assignment.title}{" "}
+                                    (máx. {assignment.max_score})
+                                </option>
+                            ))}
+                        </select>
+                    )}
+                </div>
             </div>
 
             {selectedAssignmentId && (
@@ -139,7 +175,11 @@ export const TeacherGradingPanel = () => {
                             <h2 className="text-lg font-semibold text-gray-800 mb-4">
                                 Calificar equipo
                             </h2>
-                            {teams.length === 0 ? (
+                            {teamsLoading ? (
+                                <p className="text-sm text-gray-500">
+                                    Cargando equipos...
+                                </p>
+                            ) : teams.length === 0 ? (
                                 <p className="text-sm text-gray-500">
                                     Este curso no tiene equipos.
                                 </p>
@@ -194,7 +234,11 @@ export const TeacherGradingPanel = () => {
                             <h2 className="text-lg font-semibold text-gray-800 mb-4">
                                 Calificar individualmente
                             </h2>
-                            {students.length === 0 ? (
+                            {studentsLoading ? (
+                                <p className="text-sm text-gray-500">
+                                    Cargando estudiantes...
+                                </p>
+                            ) : students.length === 0 ? (
                                 <p className="text-sm text-gray-500">
                                     Este curso no tiene estudiantes aprobados.
                                 </p>

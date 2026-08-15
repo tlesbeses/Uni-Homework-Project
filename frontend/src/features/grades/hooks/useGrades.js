@@ -1,14 +1,11 @@
 import { useCallback } from "react";
-import { useAsyncData } from "@/features/courses/hooks/useAsyncData";
+import { useAllData } from "@/features/courses/hooks/useAllData";
 import { getGrades } from "@/features/grades/services/gradeService";
 
 export const useGrades = () => {
-    const fetchGrades = useCallback(async () => {
-        const data = await getGrades();
-        return data.results ?? data;
-    }, []);
+    const fetchAll = useCallback((params) => getGrades(params), []);
 
-    const { data, loading, error, reload } = useAsyncData(fetchGrades);
+    const { data, loading, error, reload } = useAllData(fetchAll);
 
     return {
         grades: data ?? [],
