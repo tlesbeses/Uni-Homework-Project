@@ -13,6 +13,8 @@ import { EditProfilePage } from "@/features/auth/pages/EditProfile";
 import { ChangePasswordProfilePage } from "@/features/auth/pages/ChangePasswordProfile";
 import { CoursesPage } from "@/features/courses/pages/CoursesPage";
 import { CourseDetailPage } from "@/features/courses/pages/CourseDetailPage";
+import { AssignmentsPage } from "@/features/assignments/pages/AssignmentsPage";
+import { GradesPage } from "@/features/grades/pages/GradesPage";
 import { TeamsPage } from "@/features/teams/pages/TeamsPage";
 import { TeamDetailPage } from "@/features/teams/pages/TeamDetailPage";
 
@@ -81,6 +83,14 @@ export const router = createBrowserRouter([
       {
         path: "/teams/:id",
         element: <TeamDetailPage />,
+      },
+      {
+        path: "/assignments",
+        element: <AssignmentsPage />,
+      },
+      {
+        path: "/grades",
+        element: <GradesPage />,
       },
     ],
   },

@@ -25,6 +25,14 @@ export function Navbar() {
               Cursos
             </Link>
 
+            <Link to="/assignments" className="hover:text-indigo-200 transition">
+              Asignaciones
+            </Link>
+
+            <Link to="/grades" className="hover:text-indigo-200 transition">
+              Calificaciones
+            </Link>
+
             <Link to="/teams" className="hover:text-indigo-200 transition">
               Equipos
             </Link>

@@ -1,9 +1,19 @@
+import { useState } from "react";
 import { useCreateAssignmentForm } from "@/features/assignments/hooks/useCreateAssignmentForm";
 import { InputField } from "@/shared/components/ui/InputField";
 
-export const CreateAssignmentModal = ({ courseId, open, onClose, onCreated }) => {
+export const CreateAssignmentModal = ({
+    courseId,
+    courses,
+    open,
+    onClose,
+    onCreated,
+}) => {
+    const [selectedCourse, setSelectedCourse] = useState(
+        courseId ?? courses?.[0]?.id ?? ""
+    );
     const { register, handleSubmit, errors, isSubmitting, onSubmit } =
-        useCreateAssignmentForm({ courseId, onSuccess: onCreated });
+        useCreateAssignmentForm({ courseId: selectedCourse, onSuccess: onCreated });
 
     if (!open) {
         return null;
@@ -31,6 +41,27 @@ export const CreateAssignmentModal = ({ courseId, open, onClose, onCreated }) =>
                     className="p-6 space-y-4"
                     noValidate
                 >
+                    {courses && courses.length > 0 && (
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
+                                Curso
+                            </label>
+                            <select
+                                value={selectedCourse}
+                                onChange={(e) =>
+                                    setSelectedCourse(e.target.value)
+                                }
+                                className="w-full px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            >
+                                {courses.map((course) => (
+                                    <option key={course.id} value={course.id}>
+                                        {course.title}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+
                     <InputField
                         label="Título"
                         name="title"
@@ -97,7 +128,7 @@ export const CreateAssignmentModal = ({ courseId, open, onClose, onCreated }) =>
                         </button>
                         <button
                             type="submit"
-                            disabled={isSubmitting}
+                            disabled={isSubmitting || !selectedCourse}
                             className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition disabled:opacity-60"
                         >
                             {isSubmitting ? "Creando..." : "Crear"}
