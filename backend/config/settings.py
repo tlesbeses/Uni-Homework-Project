@@ -188,3 +188,12 @@ DJOSER = {
         'current_user': 'authentication.serializers.UserSerializer',
     },
 }
+
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
