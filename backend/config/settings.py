@@ -28,7 +28,11 @@ SECRET_KEY = 'django-insecure-xgmt83d4e8&b2u^9xmexd^*994x&ne^!9-o4#8mqm+)rcwdf6&
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    "uni-homework-project.onrender.com",
+    "localhost",
+    "127.0.0.1",
+    ]
 
 AUTH_USER_MODEL = "authentication.User"
 # Application definition
