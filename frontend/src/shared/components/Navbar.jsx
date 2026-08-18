@@ -6,6 +6,7 @@ export function Navbar() {
   const navigate = useNavigate();
   const { logout } = useAuth();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { isTeacher } = useAuth();
 
   return (
@@ -20,19 +21,15 @@ export function Navbar() {
             <Link to="/dashboard" className="hover:text-indigo-200 transition">
               Inicio
             </Link>
-
             <Link to="/courses" className="hover:text-indigo-200 transition">
               Cursos
             </Link>
-
             <Link to="/assignments" className="hover:text-indigo-200 transition">
               Asignaciones
             </Link>
-
             <Link to="/grades" className="hover:text-indigo-200 transition">
               Calificaciones
             </Link>
-
             <Link to="/teams" className="hover:text-indigo-200 transition">
               Equipos
             </Link>
@@ -40,13 +37,6 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center space-x-4">
-          <button
-            onClick={() => navigate("/notas/registrar")}
-            className="bg-white text-indigo-600 hover:bg-indigo-50 font-semibold px-4 py-2 rounded-lg text-sm shadow transition"
-          >
-            + Registrar Nota
-          </button>
-
           <div className="relative">
             <button
               onClick={() => setIsSettingsOpen(!isSettingsOpen)}
@@ -102,8 +92,76 @@ export function Navbar() {
               </div>
             )}
           </div>
+
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="md:hidden text-indigo-200 hover:text-white p-2 rounded-lg transition"
+            aria-label="Menú"
+          >
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+            >
+              {isMobileMenuOpen ? (
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              ) : (
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
+                />
+              )}
+            </svg>
+          </button>
         </div>
       </div>
+
+      {isMobileMenuOpen && (
+        <nav className="md:hidden border-t border-indigo-500 px-4 py-3 space-y-2 text-sm font-medium">
+          <Link
+            to="/dashboard"
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="block hover:text-indigo-200 transition"
+          >
+            Inicio
+          </Link>
+          <Link
+            to="/courses"
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="block hover:text-indigo-200 transition"
+          >
+            Cursos
+          </Link>
+          <Link
+            to="/assignments"
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="block hover:text-indigo-200 transition"
+          >
+            Asignaciones
+          </Link>
+          <Link
+            to="/grades"
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="block hover:text-indigo-200 transition"
+          >
+            Calificaciones
+          </Link>
+          <Link
+            to="/teams"
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="block hover:text-indigo-200 transition"
+          >
+            Equipos
+          </Link>
+        </nav>
+      )}
     </header>
   );
 }

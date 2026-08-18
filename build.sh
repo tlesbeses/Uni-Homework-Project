@@ -16,6 +16,9 @@ pip install -r requirements.txt
 echo "==> Running migrations"
 python manage.py migrate
 
+echo "==> Creating admin superuser"
+python manage.py createadmin
+
 echo "==> Collecting static files"
 python manage.py collectstatic --no-input
 
