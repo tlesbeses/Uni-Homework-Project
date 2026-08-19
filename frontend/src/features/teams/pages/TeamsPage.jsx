@@ -33,8 +33,8 @@ export const TeamsPage = () => {
                 if (!active) {
                     return;
                 }
-                setCourses(coursesData.results ?? coursesData);
-                setEnrollments(enrollmentsData.results ?? enrollmentsData);
+                setCourses(Array.isArray(coursesData.results) ? coursesData.results : Array.isArray(coursesData) ? coursesData : []);
+                setEnrollments(Array.isArray(enrollmentsData.results) ? enrollmentsData.results : Array.isArray(enrollmentsData) ? enrollmentsData : []);
             } catch {
                 // Las opciones del modal simplemente quedarán vacías.
             }

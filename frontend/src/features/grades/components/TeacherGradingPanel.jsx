@@ -34,7 +34,7 @@ export const TeacherGradingPanel = () => {
           )
         : assignments;
 
-    const { data: teams, loading: teamsLoading } = useAllData(
+    const { data: rawTeams, loading: teamsLoading } = useAllData(
         useCallback(
             (params) =>
                 courseId
@@ -44,7 +44,7 @@ export const TeacherGradingPanel = () => {
         )
     );
 
-    const { data: enrollments, loading: studentsLoading } = useAllData(
+    const { data: rawEnrollments, loading: studentsLoading } = useAllData(
         useCallback(
             (params) =>
                 courseId ? getEnrollments(courseId, params) : Promise.resolve([]),
@@ -52,7 +52,10 @@ export const TeacherGradingPanel = () => {
         )
     );
 
-    const students = (enrollments ?? []).filter(
+    const teams = rawTeams ?? [];
+    const enrollments = rawEnrollments ?? [];
+
+    const students = enrollments.filter(
         (enrollment) => enrollment.status === "APPROVED"
     );
 

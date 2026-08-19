@@ -13,7 +13,7 @@ export const useEnrollments = (courseId) => {
 
     const fetchEnrollments = useCallback(async () => {
         const data = await getEnrollments(courseId);
-        return data.results ?? data;
+        return Array.isArray(data.results) ? data.results : Array.isArray(data) ? data : [];
     }, [courseId]);
 
     const { data, loading, error, reload } = useAsyncData(fetchEnrollments);

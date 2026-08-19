@@ -24,7 +24,7 @@ export const useTeamDetail = (teamId) => {
 
             if (teamData.course?.id) {
                 const availableData = await getAvailableStudents(teamId);
-                const items = availableData.results ?? availableData;
+                const items = Array.isArray(availableData.results) ? availableData.results : Array.isArray(availableData) ? availableData : [];
                 setEnrollments(
                     items.filter(
                         (enrollment) =>

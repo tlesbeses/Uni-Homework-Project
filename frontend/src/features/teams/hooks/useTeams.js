@@ -12,7 +12,7 @@ export const useTeams = () => {
         setError("");
         try {
             const data = await getTeams();
-            setTeams(data.results ?? data);
+            setTeams(Array.isArray(data.results) ? data.results : Array.isArray(data) ? data : []);
         } catch (err) {
             setError(getErrorMessage(err));
         } finally {
