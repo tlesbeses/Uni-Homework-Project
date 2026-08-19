@@ -10,7 +10,7 @@ export const AssignmentList = ({
     deletingId,
     togglingId,
 }) => {
-    if (assignments.length === 0) {
+    if ((assignments ?? []).length === 0) {
         return (
             <p className="text-sm text-gray-500">
                 Aún no hay asignaciones para este curso.
@@ -20,7 +20,7 @@ export const AssignmentList = ({
 
     return (
         <ul className="divide-y divide-gray-100">
-            {assignments.map((assignment) => {
+            {(assignments ?? []).map((assignment) => {
                 const busy =
                     deletingId === assignment.id ||
                     togglingId === assignment.id;

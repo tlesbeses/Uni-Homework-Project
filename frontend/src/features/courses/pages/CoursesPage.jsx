@@ -64,12 +64,12 @@ export const CoursesPage = () => {
             {loading && <p className="text-gray-500">Cargando cursos...</p>}
             {error && <p className="text-red-500">{error}</p>}
 
-            {!loading && !error && courses.length === 0 && (
+            {!loading && !error && (courses ?? []).length === 0 && (
                 <p className="text-gray-500">No hay cursos disponibles.</p>
             )}
 
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {courses.map((course) => (
+                {(courses ?? []).map((course) => (
                     <CourseCard
                         key={course.id}
                         course={course}

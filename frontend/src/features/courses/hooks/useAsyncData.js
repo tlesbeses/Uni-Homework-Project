@@ -11,7 +11,7 @@ export const useAsyncData = (fetcher) => {
         setError("");
         try {
             const result = await fetcher();
-            setData(result);
+            setData(Array.isArray(result) ? result : Array.isArray(result?.results) ? result.results : result);
         } catch (err) {
             setError(getErrorMessage(err));
             console.error("Error fetching data:", err);

@@ -89,7 +89,7 @@ export const AssignmentsPage = () => {
                 )}
             </div>
 
-            {courses.length > 0 && (
+            {(courses ?? []).length > 0 && (
                 <div className="flex flex-wrap items-center gap-3">
                     <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
                         Curso
@@ -100,7 +100,7 @@ export const AssignmentsPage = () => {
                         className="px-3 py-2 rounded-lg border text-sm text-gray-700 border-gray-300 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     >
                         <option value="">Todos los cursos</option>
-                        {courses.map((course) => (
+                        {(courses ?? []).map((course) => (
                             <option key={course.id} value={course.id}>
                                 {course.title}
                             </option>
@@ -125,7 +125,7 @@ export const AssignmentsPage = () => {
 
                 {!loading && !error && filteredAssignments.length > 0 && (
                     <ul className="divide-y divide-gray-100">
-                        {filteredAssignments.map((assignment) => {
+                        {(filteredAssignments ?? []).map((assignment) => {
                             const busy =
                                 deletingId === assignment.id ||
                                 togglingId === assignment.id;

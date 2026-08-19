@@ -12,15 +12,15 @@ export const StudentGradesList = () => {
             )}
             {error && <p className="text-sm text-red-500">{error}</p>}
 
-            {!loading && !error && grades.length === 0 && (
+            {!loading && !error && (grades ?? []).length === 0 && (
                 <p className="text-sm text-gray-500">
                     Aún no tienes calificaciones.
                 </p>
             )}
 
-            {!loading && !error && grades.length > 0 && (
+            {!loading && !error && (grades ?? []).length > 0 && (
                 <ul className="divide-y divide-gray-100">
-                    {grades.map((grade) => (
+                    {(grades ?? []).map((grade) => (
                         <li
                             key={grade.id}
                             className="py-4 flex items-start justify-between gap-3"

@@ -49,7 +49,7 @@ export const KebabMenu = ({ items }) => {
 
             {open && (
                 <div className="absolute right-0 z-10 mt-1 w-44 rounded-lg bg-white shadow-lg border border-gray-100 py-1">
-                    {items.map((item) => (
+                    {(items ?? []).map((item) => (
                         <button
                             key={item.label}
                             type="button"

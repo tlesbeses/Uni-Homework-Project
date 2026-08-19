@@ -138,7 +138,7 @@ export const TeacherGradingPanel = () => {
                         className="w-full px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     >
                         <option value="">Todos los cursos</option>
-                        {courses.map((course) => (
+                        {(courses ?? []).map((course) => (
                             <option key={course.id} value={course.id}>
                                 {course.title}
                             </option>
@@ -160,7 +160,7 @@ export const TeacherGradingPanel = () => {
                             className="w-full px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                         >
                             <option value="">Selecciona una asignación...</option>
-                            {filteredAssignments.map((assignment) => (
+                            {(filteredAssignments ?? []).map((assignment) => (
                                 <option key={assignment.id} value={assignment.id}>
                                     {assignment.course.title} — {assignment.title}{" "}
                                     (máx. {assignment.max_score})
@@ -198,10 +198,10 @@ export const TeacherGradingPanel = () => {
                                             className="w-full px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                         >
                                             <option value="">Selecciona un equipo...</option>
-                                            {teams.map((team) => (
+                                                {(teams ?? []).map((team) => (
                                                 <option key={team.id} value={team.id}>
                                                     {team.name} (
-                                                    {team.members
+                                                    {(team.members ?? [])
                                                         .map((m) => m.student.first_name || m.student.username)
                                                         .join(", ")})
                                                 </option>
@@ -260,7 +260,7 @@ export const TeacherGradingPanel = () => {
                                             className="w-full px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                         >
                                             <option value="">Selecciona un estudiante...</option>
-                                            {students.map((enrollment) => (
+                                            {(students ?? []).map((enrollment) => (
                                                 <option
                                                     key={enrollment.id}
                                                     value={enrollment.student.id}
@@ -314,7 +314,7 @@ export const TeacherGradingPanel = () => {
                             </p>
                         ) : (
                             <ul className="divide-y divide-gray-100">
-                                {grades.map((grade) => (
+                                {(grades ?? []).map((grade) => (
                                     <li
                                         key={grade.id}
                                         className="py-3 flex items-center justify-between gap-3"

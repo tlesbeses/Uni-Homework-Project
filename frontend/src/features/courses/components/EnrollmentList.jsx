@@ -6,13 +6,13 @@ export const EnrollmentList = ({
     onAction,
     updatingId,
 }) => {
-    if (enrollments.length === 0) {
+    if ((enrollments ?? []).length === 0) {
         return <p className="text-sm text-gray-500">Aún no hay inscripciones.</p>;
     }
 
     return (
         <ul className="divide-y divide-gray-100">
-            {enrollments.map((enrollment) => {
+            {(enrollments ?? []).map((enrollment) => {
                 const studentName = enrollment.student?.username ?? "Desconocido";
                 const pending = enrollment.status === "PENDING";
                 const busy = updatingId === enrollment.id;

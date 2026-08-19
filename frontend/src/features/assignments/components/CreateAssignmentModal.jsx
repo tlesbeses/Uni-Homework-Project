@@ -41,7 +41,7 @@ export const CreateAssignmentModal = ({
                     className="p-6 space-y-4"
                     noValidate
                 >
-                    {courses && courses.length > 0 && (
+                    {courses && (courses ?? []).length > 0 && (
                         <div>
                             <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
                                 Curso
@@ -53,7 +53,7 @@ export const CreateAssignmentModal = ({
                                 }
                                 className="w-full px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                             >
-                                {courses.map((course) => (
+                                {(courses ?? []).map((course) => (
                                     <option key={course.id} value={course.id}>
                                         {course.title}
                                     </option>

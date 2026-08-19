@@ -28,23 +28,23 @@ export const CreateTeamModal = ({
     }
 
     const approvedCourses = isTeacher
-        ? courses
-        : courses.filter((course) =>
-              enrollments.some(
+        ? (courses ?? [])
+        : (courses ?? []).filter((course) =>
+              (enrollments ?? []).some(
                   (enrollment) =>
                       enrollment.course.id === course.id &&
                       enrollment.status === "APPROVED"
               )
           );
     const courseId = Number(selectedCourseId);
-    const courseEnrollments = enrollments.filter(
+    const courseEnrollments = (enrollments ?? []).filter(
         (enrollment) =>
             enrollment.course.id === courseId && enrollment.status === "APPROVED"
     );
     const takenStudentIds = new Set(
-        teams
+        (teams ?? [])
             .filter((team) => team.course.id === courseId)
-            .flatMap((team) => team.members.map((member) => member.student.id))
+            .flatMap((team) => (team.members ?? []).map((member) => member.student.id))
     );
     const leaders = courseEnrollments.filter(
         (enrollment) => !takenStudentIds.has(enrollment.student.id)
@@ -89,7 +89,7 @@ export const CreateTeamModal = ({
                             className="w-full px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                         >
                             <option value="">Selecciona un curso...</option>
-                            {approvedCourses.map((course) => (
+                            {(approvedCourses ?? []).map((course) => (
                                 <option key={course.id} value={course.id}>
                                     {course.title}
                                 </option>
@@ -121,7 +121,7 @@ export const CreateTeamModal = ({
                                         ? "Selecciona un líder..."
                                         : "Primero selecciona un curso"}
                                 </option>
-                                {leaders.map((enrollment) => (
+                                {(leaders ?? []).map((enrollment) => (
                                     <option
                                         key={enrollment.student.id}
                                         value={enrollment.student.id}

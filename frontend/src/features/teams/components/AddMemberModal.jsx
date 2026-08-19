@@ -9,7 +9,7 @@ export const AddMemberModal = ({ team, enrollments, open, onClose, onAdded }) =>
         return null;
     }
 
-    const memberIds = new Set(team.members.map((member) => member.student.id));
+    const memberIds = new Set((team.members ?? []).map((member) => member.student.id));
     const candidates = enrollments.filter(
         (enrollment) =>
             enrollment.status === "APPROVED" &&
@@ -47,7 +47,7 @@ export const AddMemberModal = ({ team, enrollments, open, onClose, onAdded }) =>
                             className="w-full px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                         >
                             <option value="">Selecciona un estudiante...</option>
-                            {candidates.map((enrollment) => (
+                            {(candidates ?? []).map((enrollment) => (
                                 <option
                                     key={enrollment.student.id}
                                     value={enrollment.student.id}

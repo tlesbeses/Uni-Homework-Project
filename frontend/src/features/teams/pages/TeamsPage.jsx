@@ -102,7 +102,7 @@ export const TeamsPage = () => {
                         className="w-full max-w-md px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     >
                         <option value="">Todos los cursos</option>
-                        {courseOptions.map((course) => (
+                        {(courseOptions ?? []).map((course) => (
                             <option key={course.id} value={course.id}>
                                 {course.title}
                             </option>
@@ -119,7 +119,7 @@ export const TeamsPage = () => {
             )}
 
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {visibleTeams.map((team) => (
+                {(visibleTeams ?? []).map((team) => (
                     <TeamCard
                         key={team.id}
                         team={team}

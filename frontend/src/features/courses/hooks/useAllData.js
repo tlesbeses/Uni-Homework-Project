@@ -19,7 +19,7 @@ export const useAllData = (fetcher) => {
                     all.push(...result);
                     hasMore = false;
                 } else {
-                    const items = result.results ?? [];
+                    const items = Array.isArray(result.results) ? result.results : [];
                     all.push(...items);
                     hasMore = Boolean(result.next) && items.length > 0;
                     page += 1;

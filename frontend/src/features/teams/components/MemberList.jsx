@@ -8,7 +8,7 @@ export const MemberList = ({
     onMakeLeader,
     removingId,
 }) => {
-    if (members.length === 0) {
+    if ((members ?? []).length === 0) {
         return (
             <p className="text-sm text-gray-500">
                 Aún no hay miembros en este equipo.
@@ -18,7 +18,7 @@ export const MemberList = ({
 
     return (
         <ul className="divide-y divide-gray-100">
-            {members.map((member) => {
+            {(members ?? []).map((member) => {
                 const isLeader = member.student.id === leaderId;
                 const busy = removingId === member.student.id;
 
