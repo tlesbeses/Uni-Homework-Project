@@ -44,12 +44,14 @@ export const updateCourseSettings = async (courseId, settings) => {
 };
 
 export const getEnrollments = async (courseId, params) => {
-    const response = await api.get("api/enrollments/", {
-        params: courseId ? { course: courseId, ...(params ?? {}) } : { ...(params ?? {}) },
+    const response = await api.get("/api/enrollments/", {
+        params: courseId
+            ? { course: courseId, ...(params ?? {}) }
+            : { ...(params ?? {}) },
     });
+
     return response.data;
 };
-
 export const approveEnrollment = async (enrollmentId) => {
     const response = await api.post(`api/enrollments/${enrollmentId}/approve/`);
     return response.data;
