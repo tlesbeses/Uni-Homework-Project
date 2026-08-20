@@ -1,7 +1,15 @@
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
+import { useAuth } from '@/features/auth/providers/AuthProvider';
 
-export const LandingPage = () => (
-    <div className="p-8 text-center">
+export const LandingPage = () => {
+    const { isAuthenticated } = useAuth();
+
+    if (isAuthenticated) {
+        return <Navigate to="/dashboard" replace />;
+    }
+
+    return (
+        <div className="p-8 text-center">
         <h1 className="text-4xl font-bold text-gray-800 mb-4">
             Bienvenido a EduNotas
         </h1>
@@ -25,5 +33,6 @@ export const LandingPage = () => (
                 Registrarme
             </Link>
         </div>
-    </div>
-);
+        </div>
+    );
+};
