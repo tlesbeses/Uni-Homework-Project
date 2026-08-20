@@ -45,7 +45,7 @@ export const removeTeamMember = async (teamId, studentId) => {
 };
 
 export const changeTeamLeader = async (teamId, leaderId) => {
-    const response = await api.post(`api/teams/${teamId}/change-leader/`, {
+    const response = await api.post(`/api/teams/${teamId}/change-leader/`, {
         leader: leaderId,
     });
     return response.data;
