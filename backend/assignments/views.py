@@ -15,7 +15,8 @@ def get_assignments_for_user(user):
     """Scope assignments to the courses the current user can see.
 
     Teachers only see their own courses; students only see published
-    assignments of courses where their enrollment is approved.
+    assignments of courses where their enrollment (in any of the course's
+    sections) is approved.
     """
     queryset = Assignment.objects.select_related("course__teacher")
     if user.is_superuser:
@@ -23,8 +24,8 @@ def get_assignments_for_user(user):
     if user.groups.filter(name="Teacher").exists():
         return queryset.filter(course__teacher=user)
     return queryset.filter(
-        course__enrollments__student=user,
-        course__enrollments__status=Status.APPROVED,
+        course__sections__enrollments__student=user,
+        course__sections__enrollments__status=Status.APPROVED,
         is_published=True,
     ).distinct()
 

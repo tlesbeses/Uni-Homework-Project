@@ -13,7 +13,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from assignments.models import Assignment
-from course.models import Course, Enrollment, Status
+from course.models import Course, Enrollment, Section, Status
 from grading.models import Grade
 from teams.models import Team, TeamMember
 
@@ -71,9 +71,15 @@ class GradingAPITestCase(APITestCase):
         )
 
     @staticmethod
-    def enroll(student, course) -> Enrollment:
+    def get_section(course) -> Section:
+        """Return the default section of a course, creating it if needed."""
+        section, _ = Section.objects.get_or_create(course=course, name="Default")
+        return section
+
+    @classmethod
+    def enroll(cls, student, course) -> Enrollment:
         return Enrollment.objects.create(
-            course=course,
+            section=cls.get_section(course),
             student=student,
             status=Status.APPROVED,
         )
@@ -81,7 +87,11 @@ class GradingAPITestCase(APITestCase):
     def create_team(self, name, members, course=None, leader=None):
         course = course or self.course
         leader = leader or members[0]
-        team = Team.objects.create(name=name, course=course, leader=leader)
+        team = Team.objects.create(
+            name=name,
+            section=self.get_section(course),
+            leader=leader,
+        )
         for member in members:
             if member != leader:
                 TeamMember.objects.create(team=team, student=member)

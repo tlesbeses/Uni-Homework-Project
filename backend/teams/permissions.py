@@ -16,6 +16,6 @@ class IsTeamManagerOrTeacher(BasePermission):
         """Return True for the course teacher or the team leader."""
         if request.user.is_superuser:
             return True
-        course = getattr(obj, "course", None)
+        course = getattr(obj.section, "course", None)
         is_teacher = bool(course and course.teacher_id == request.user.id)
         return is_teacher or obj.leader_id == request.user.id
