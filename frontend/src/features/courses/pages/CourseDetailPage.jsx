@@ -56,7 +56,7 @@ export const CourseDetailPage = () => {
               course={course}
               savingField={savingField}
               onToggleAutoAccept={toggleAutoAccept}
-              onToggleActive={toggleActive}
+              onToggleVisibility={toggleVisibility}
             />
             <AssignmentSection
               courseId={id}
