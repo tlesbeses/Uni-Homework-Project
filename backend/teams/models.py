@@ -3,20 +3,23 @@ from django.core.exceptions import ValidationError
 from django.db import models
 
 from common.models import TimeStampedModel
-from course.models import Course, Enrollment, Status
+from course.models import Enrollment, Section, Status
 
 
 class Team(TimeStampedModel):
     name = models.CharField(
         max_length=100,
-        help_text="Display name of the team, unique per course.",
+        help_text="Display name of the team, unique per section.",
     )
 
-    course = models.ForeignKey(
-        Course,
+    section = models.ForeignKey(
+        Section,
         on_delete=models.CASCADE,
         related_name="teams",
-        help_text="The course the team belongs to.",
+        help_text=(
+            "The section the team belongs to. The course is reached "
+            "through Team -> Section -> Course."
+        ),
     )
 
     leader = models.ForeignKey(
@@ -31,30 +34,30 @@ class Team(TimeStampedModel):
 
         constraints = [
             models.UniqueConstraint(
-                fields=["course", "name"],
-                name="teams_team_unique_name_per_course",
+                fields=["section", "name"],
+                name="teams_team_unique_name_per_section",
                 violation_error_message=(
-                    "A team with this name already exists in this course."
+                    "A team with this name already exists in this section."
                 ),
             ),
         ]
 
         indexes = [
-            models.Index(fields=["course", "name"]),
-            models.Index(fields=["course", "leader"]),
+            models.Index(fields=["section", "name"]),
+            models.Index(fields=["section", "leader"]),
             models.Index(fields=["leader"]),
         ]
 
     def clean(self) -> None:
         super().clean()
 
-        if self.leader_id and self.course_id:
-            if not TeamMember.is_enrolled_in_course(self.leader, self.course):
+        if self.leader_id and self.section_id:
+            if not self.is_enrolled_in_section(self.leader, self.section):
                 raise ValidationError(
                     {
                         "leader": (
                             "The team leader must be an approved member of "
-                            "the course."
+                            "the section."
                         )
                     }
                 )
@@ -67,13 +70,21 @@ class Team(TimeStampedModel):
                     }
                 )
 
+    @staticmethod
+    def is_enrolled_in_section(student, section) -> bool:
+        return Enrollment.objects.filter(
+            section=section,
+            student=student,
+            status=Status.APPROVED,
+        ).exists()
+
     def save(self, *args, **kwargs) -> None:
         super().save(*args, **kwargs)
         if self.leader_id:
             self.members.get_or_create(student_id=self.leader_id)
 
     def __str__(self) -> str:
-        return f"{self.name} ({self.course_id})"
+        return f"{self.name} ({self.section_id})"
 
 
 class TeamMember(models.Model):
@@ -92,13 +103,13 @@ class TeamMember(models.Model):
     )
 
     course = models.ForeignKey(
-        Course,
+        "course.Course",
         on_delete=models.CASCADE,
         related_name="+",
         editable=False,
         help_text=(
-            "Denormalized copy of the team course used to enforce the "
-            "'one team per student per course' rule at the database level."
+            "Denormalized copy of the team's section course used to enforce "
+            "the 'one team per student per course' rule at the database level."
         ),
     )
 
@@ -130,32 +141,23 @@ class TeamMember(models.Model):
             models.Index(fields=["course"]),
         ]
 
-    @staticmethod
-    def is_enrolled_in_course(student, course) -> bool:
-        return Enrollment.objects.filter(
-            course=course,
-            student=student,
-            status=Status.APPROVED,
-        ).exists()
-
     def clean(self) -> None:
         super().clean()
 
         if self.team_id and not self.course_id:
-            self.course_id = self.team.course_id
+            self.course_id = self.team.section.course_id
 
-        if self.team_id and self.course_id and self.course_id != self.team.course_id:
+        if self.team_id and self.course_id and self.course_id != self.team.section.course_id:
             raise ValidationError(
                 {"course": "A member's course must match the team's course."}
             )
 
         if self.team_id and self.student_id:
-            course = self.team.course
-            if not self.is_enrolled_in_course(self.student, course):
+            if not self.is_enrolled_in_section(self.student, self.team.section):
                 raise ValidationError(
                     {
                         "student": (
-                            "A student must be an approved member of the course "
+                            "A student must be an approved member of the section "
                             "to join a team."
                         )
                     }
@@ -163,7 +165,7 @@ class TeamMember(models.Model):
 
     def save(self, *args, **kwargs) -> None:
         if self.team_id and not self.course_id:
-            self.course_id = self.team.course_id
+            self.course_id = self.team.section.course_id
         super().save(*args, **kwargs)
 
     def __str__(self) -> str:

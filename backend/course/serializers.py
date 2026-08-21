@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-from course.models import Course, CourseSettings, Enrollment
+from course.models import Course, CourseSettings, Enrollment, Section
 
 User = get_user_model()
 
@@ -42,11 +42,75 @@ class CourseSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "join_code", "created_at", "updated_at"]
 
 
-class EnrollmentSerializer(serializers.ModelSerializer):
+class SectionBriefSerializer(serializers.ModelSerializer):
+    """Compact section representation used inside other payloads."""
+
+    course = CourseSerializer(read_only=True)
+
+    class Meta:
+        model = Section
+        fields = ["id", "name", "course"]
+        read_only_fields = fields
+
+
+class SectionSerializer(serializers.ModelSerializer):
+    """CRUD serializer for the sections of a course.
+
+    The course is only set on creation through ``course_id``; moving a
+    section to another course is not supported.
+    """
+
     course = CourseSerializer(read_only=True)
     course_id = serializers.PrimaryKeyRelatedField(
         queryset=Course.objects.all(),
         source="course",
+        write_only=True,
+    )
+    enrollments_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = Section
+        fields = [
+            "id",
+            "name",
+            "course",
+            "course_id",
+            "enrollments_count",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+    def get_fields(self):
+        fields = super().get_fields()
+        if self.instance is not None:
+            fields["course_id"].read_only = True
+        return fields
+
+    def validate(self, attrs):
+        """Enforce name uniqueness within the same course."""
+        attrs = super().validate(attrs)
+
+        course = attrs.get("course") or getattr(self.instance, "course", None)
+        name = attrs.get("name") or getattr(self.instance, "name", None)
+
+        if course is not None and name:
+            duplicates = Section.objects.filter(course=course, name=name)
+            if self.instance is not None:
+                duplicates = duplicates.exclude(pk=self.instance.pk)
+            if duplicates.exists():
+                raise serializers.ValidationError(
+                    {"name": "A section with this name already exists in this course."}
+                )
+
+        return attrs
+
+
+class EnrollmentSerializer(serializers.ModelSerializer):
+    section = SectionBriefSerializer(read_only=True)
+    section_id = serializers.PrimaryKeyRelatedField(
+        queryset=Section.objects.all(),
+        source="section",
         write_only=True,
     )
     student = UserBriefSerializer(read_only=True)
@@ -55,11 +119,42 @@ class EnrollmentSerializer(serializers.ModelSerializer):
         model = Enrollment
         fields = [
             "id",
-            "course",
-            "course_id",
+            "section",
+            "section_id",
             "student",
             "status",
             "approved_at",
             "created_at",
         ]
         read_only_fields = ["id", "status", "approved_at", "created_at"]
+
+    def validate_section(self, section):
+        request = self.context.get("request")
+        if request is not None and section.course.teacher_id == request.user.id:
+            raise serializers.ValidationError(
+                "A teacher cannot enroll in their own course."
+            )
+        return section
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+
+        section = attrs.get("section") or getattr(self.instance, "section", None)
+        request = self.context.get("request")
+
+        if section is not None and request is not None and self.instance is None:
+            duplicates = Enrollment.objects.filter(
+                section__course_id=section.course_id,
+                student=request.user,
+            )
+            if duplicates.exists():
+                raise serializers.ValidationError(
+                    {
+                        "section": (
+                            "You already have an enrollment request for "
+                            "this course."
+                        )
+                    }
+                )
+
+        return attrs

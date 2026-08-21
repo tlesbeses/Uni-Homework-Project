@@ -7,7 +7,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from assignments.models import Assignment
-from course.models import Course, Enrollment, Status
+from course.models import Course, Enrollment, Section, Status
 
 User = get_user_model()
 
@@ -54,9 +54,15 @@ class AssignmentAPITestCase(APITestCase):
         )
 
     @staticmethod
-    def enroll_approved(student, course) -> Enrollment:
+    def get_section(course) -> Section:
+        """Return the default section of a course, creating it if needed."""
+        section, _ = Section.objects.get_or_create(course=course, name="Default")
+        return section
+
+    @classmethod
+    def enroll_approved(cls, student, course) -> Enrollment:
         return Enrollment.objects.create(
-            course=course,
+            section=cls.get_section(course),
             student=student,
             status=Status.APPROVED,
         )

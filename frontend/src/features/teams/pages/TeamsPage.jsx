@@ -9,6 +9,7 @@ import { deleteTeam } from "@/features/teams/services/teamService";
 import {
     getCourses,
     getEnrollments,
+    getSections,
 } from "@/features/courses/services/courseService";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 
@@ -21,20 +22,24 @@ export const TeamsPage = () => {
     const [filterCourse, setFilterCourse] = useState("");
     const [courses, setCourses] = useState([]);
     const [enrollments, setEnrollments] = useState([]);
+    const [sections, setSections] = useState([]);
 
     useEffect(() => {
         let active = true;
         (async () => {
             try {
-                const [coursesData, enrollmentsData] = await Promise.all([
-                    getCourses(),
-                    getEnrollments(),
-                ]);
+                const [coursesData, enrollmentsData, sectionsData] =
+                    await Promise.all([
+                        getCourses(),
+                        getEnrollments(),
+                        getSections(),
+                    ]);
                 if (!active) {
                     return;
                 }
                 setCourses(Array.isArray(coursesData.results) ? coursesData.results : Array.isArray(coursesData) ? coursesData : []);
                 setEnrollments(Array.isArray(enrollmentsData.results) ? enrollmentsData.results : Array.isArray(enrollmentsData) ? enrollmentsData : []);
+                setSections(Array.isArray(sectionsData.results) ? sectionsData.results : Array.isArray(sectionsData) ? sectionsData : []);
             } catch {
                 // Las opciones del modal simplemente quedarán vacías.
             }
@@ -46,12 +51,19 @@ export const TeamsPage = () => {
 
     const courseOptions = useMemo(() => {
         const map = new Map();
-        teams.forEach((team) => map.set(team.course.id, team.course));
+        teams.forEach((team) => {
+            const course = team.section?.course;
+            if (course) {
+                map.set(course.id, course);
+            }
+        });
         return [...map.values()];
     }, [teams]);
 
     const visibleTeams = filterCourse
-        ? teams.filter((team) => team.course.id === Number(filterCourse))
+        ? teams.filter(
+              (team) => team.section?.course?.id === Number(filterCourse)
+          )
         : teams;
 
     const handleDelete = async (teamId) => {
@@ -141,6 +153,7 @@ export const TeamsPage = () => {
                 courses={courses}
                 enrollments={enrollments}
                 teams={teams}
+                sections={sections}
                 isTeacher={isTeacher}
             />
 

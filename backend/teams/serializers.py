@@ -9,7 +9,7 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from rest_framework import serializers
 
-from course.models import Course, Enrollment, Status
+from course.models import Course, Enrollment, Section, Status
 from teams.models import Team, TeamMember
 
 User = get_user_model()
@@ -29,6 +29,17 @@ class CourseBriefSerializer(serializers.ModelSerializer):
         fields = ["id", "title"]
 
 
+class SectionBriefSerializer(serializers.ModelSerializer):
+    """Compact section representation, including its course."""
+
+    course = CourseBriefSerializer(read_only=True)
+
+    class Meta:
+        model = Section
+        fields = ["id", "name", "course"]
+        read_only_fields = fields
+
+
 class TeamMemberSerializer(serializers.ModelSerializer):
     student = UserBriefSerializer(read_only=True)
 
@@ -45,7 +56,7 @@ class AddMemberSerializer(serializers.Serializer):
         error_messages={"does_not_exist": "Student not found."},
     )
 
-    def validate_student(self, student) -> User:    
+    def validate_student(self, student) -> User:
         """Enforce the membership business rules for the target team."""
         team = self.context["team"]
 
@@ -55,16 +66,16 @@ class AddMemberSerializer(serializers.Serializer):
             )
 
         if not Enrollment.objects.filter(
-            course=team.course,
+            section=team.section,
             student=student,
             status=Status.APPROVED,
         ).exists():
             raise serializers.ValidationError(
-                "This student is not an approved member of the course."
+                "This student is not an approved member of the section."
             )
 
         if TeamMember.objects.filter(
-            team__course=team.course,
+            team__section__course=team.section.course,
             student=student,
         ).exclude(team=team).exists():
             raise serializers.ValidationError(
@@ -83,7 +94,7 @@ class ChangeLeaderSerializer(serializers.Serializer):
     )
 
     def validate_leader(self, leader) -> User:
-        """Reject no-op changes and leaders that do not belong to the course."""
+        """Reject no-op changes and leaders that do not belong to the section."""
         team = self.context["team"]
 
         if leader == team.leader:
@@ -92,12 +103,12 @@ class ChangeLeaderSerializer(serializers.Serializer):
             )
 
         if not Enrollment.objects.filter(
-            course=team.course,
+            section=team.section,
             student=leader,
             status=Status.APPROVED,
         ).exists():
             raise serializers.ValidationError(
-                "The new leader must be an approved member of the course."
+                "The new leader must be an approved member of the section."
             )
 
         return leader
@@ -106,10 +117,10 @@ class ChangeLeaderSerializer(serializers.Serializer):
 class TeamSerializer(serializers.ModelSerializer):
     """Serializer for the Team model with nested member information."""
 
-    course = CourseBriefSerializer(read_only=True)
-    course_id = serializers.PrimaryKeyRelatedField(
-        queryset=Course.objects.all(),
-        source="course",
+    section = SectionBriefSerializer(read_only=True)
+    section_id = serializers.PrimaryKeyRelatedField(
+        queryset=Section.objects.all(),
+        source="section",
         write_only=True,
     )
     leader = UserBriefSerializer(read_only=True)
@@ -125,8 +136,8 @@ class TeamSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "name",
-            "course",
-            "course_id",
+            "section",
+            "section_id",
             "leader",
             "leader_id",
             "members",
@@ -136,14 +147,14 @@ class TeamSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "updated_at"]
 
     def get_fields(self):
-        """Freeze ``course`` and ``leader`` once a team already exists.
+        """Freeze ``section`` and ``leader`` once a team already exists.
 
-        Courses and leaders are managed through the dedicated endpoints
+        Sections and leaders are managed through the dedicated endpoints
         (``members`` and ``change-leader``) instead of a generic PATCH.
         """
         fields = super().get_fields()
         if self.instance is not None:
-            fields["course_id"].read_only = True
+            fields["section_id"].read_only = True
             fields["leader_id"].read_only = True
         return fields
 
@@ -151,30 +162,30 @@ class TeamSerializer(serializers.ModelSerializer):
         """Validate name uniqueness and leader enrollment."""
         attrs = super().validate(attrs)
 
-        course = attrs.get("course") or getattr(self.instance, "course", None)
+        section = attrs.get("section") or getattr(self.instance, "section", None)
         name = attrs.get("name") or getattr(self.instance, "name", None)
 
-        if course and name:
-            duplicates = Team.objects.filter(course=course, name=name)
+        if section and name:
+            duplicates = Team.objects.filter(section=section, name=name)
             if self.instance is not None:
                 duplicates = duplicates.exclude(pk=self.instance.pk)
             if duplicates.exists():
                 raise serializers.ValidationError(
-                    {"name": "A team with this name already exists in this course."}
+                    {"name": "A team with this name already exists in this section."}
                 )
 
         leader = attrs.get("leader") or getattr(self.instance, "leader", None)
-        if course and leader:
+        if section and leader:
             if not Enrollment.objects.filter(
-                course=course,
+                section=section,
                 student=leader,
                 status=Status.APPROVED,
             ).exists():
                 raise serializers.ValidationError(
-                    {"leader": "The team leader must be an approved member of the course."}
+                    {"leader": "The team leader must be an approved member of the section."}
                 )
             if self.instance is None and TeamMember.objects.filter(
-                team__course=course,
+                team__section__course=section.course,
                 student=leader,
             ).exists():
                 raise serializers.ValidationError(

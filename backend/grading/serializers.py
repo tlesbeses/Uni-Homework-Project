@@ -83,7 +83,7 @@ class GradeTeamSerializer(serializers.Serializer):
 
     def validate_team(self, team):
         assignment = self.context["assignment"]
-        if team.course_id != assignment.course_id:
+        if team.section.course_id != assignment.course_id:
             raise serializers.ValidationError(
                 "The team must belong to the same course as the assignment."
             )
@@ -111,8 +111,9 @@ class GradeStudentSerializer(serializers.Serializer):
 
     def validate_student(self, student):
         assignment = self.context["assignment"]
+        # Section is resolved through Grade -> Student -> Enrollment -> Section.
         if not Enrollment.objects.filter(
-            course=assignment.course,
+            section__course=assignment.course,
             student=student,
             status=Status.APPROVED,
         ).exists():

@@ -22,13 +22,13 @@ export const useTeamDetail = (teamId) => {
             const teamData = await getTeam(teamId);
             setTeam(teamData);
 
-            if (teamData.course?.id) {
+            if (teamData.section?.id) {
                 const availableData = await getAvailableStudents(teamId);
                 const items = Array.isArray(availableData.results) ? availableData.results : Array.isArray(availableData) ? availableData : [];
                 setEnrollments(
                     items.filter(
                         (enrollment) =>
-                            enrollment.course.id === teamData.course.id &&
+                            enrollment.section?.id === teamData.section.id &&
                             enrollment.status === "APPROVED"
                     )
                 );

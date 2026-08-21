@@ -25,13 +25,48 @@ export const deleteCourse = async (courseId) => {
     return response.data;
 };
 
-export const joinCourseByCode = async (joinCode) => {
-    const response = await api.post("/api/courses/join/", { join_code: joinCode });
+export const joinCourseByCode = async (joinCode, sectionId) => {
+    const response = await api.post("/api/courses/join/", {
+        join_code: joinCode,
+        section: sectionId,
+    });
     return response.data;
 };
 
-export const enrollInCourse = async (courseId) => {
-    const response = await api.post(`/api/courses/${courseId}/enroll/`);
+export const enrollInCourse = async (courseId, sectionId) => {
+    const response = await api.post(`/api/courses/${courseId}/enroll/`, {
+        section: sectionId,
+    });
+    return response.data;
+};
+
+export const getSections = async (courseId, params) => {
+    const response = await api.get("/api/sections/", {
+        params: courseId
+            ? { course: courseId, ...(params ?? {}) }
+            : { ...(params ?? {}) },
+    });
+    return response.data;
+};
+
+export const createSection = async (courseId, name) => {
+    const response = await api.post("/api/sections/", {
+        name,
+        course_id: courseId,
+    });
+    return response.data;
+};
+
+export const updateSection = async (sectionId, sectionData) => {
+    const response = await api.patch(
+        `/api/sections/${sectionId}/`,
+        sectionData
+    );
+    return response.data;
+};
+
+export const deleteSection = async (sectionId) => {
+    const response = await api.delete(`/api/sections/${sectionId}/`);
     return response.data;
 };
 

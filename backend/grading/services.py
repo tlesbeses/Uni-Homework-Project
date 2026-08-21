@@ -43,7 +43,7 @@ def grade_team(*, assignment, team, score, graded_by):
     """
     _validate_grade_params(assignment, score, graded_by)
 
-    if team.course_id != assignment.course_id:
+    if team.section.course_id != assignment.course_id:
         raise ValidationError(
             {"team": "The team must belong to the same course as the assignment."}
         )
@@ -108,7 +108,7 @@ def grade_student(*, assignment, student, score, graded_by):
     _validate_grade_params(assignment, score, graded_by)
 
     if not Enrollment.objects.filter(
-        course=assignment.course,
+        section__course=assignment.course,
         student=student,
         status=Status.APPROVED,
     ).exists():

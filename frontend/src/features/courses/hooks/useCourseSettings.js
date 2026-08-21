@@ -1,14 +1,20 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { toast } from "react-toastify";
-import { updateCourseSettings } from "@/features/courses/services/courseService";
+import {
+    updateCourse as updateCourseRequest,
+    updateCourseSettings,
+} from "@/features/courses/services/courseService";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 
 export const useCourseSettings = ({ course, updateCourse } = {}) => {
+    const [savingField, setSavingField] = useState(null);
+
     const toggleAutoAccept = useCallback(
         async (checked) => {
             if (!course) {
                 return;
             }
+            setSavingField("auto_accept");
             try {
                 const updated = await updateCourseSettings(course.id, {
                     auto_accept_students: checked,
@@ -21,10 +27,60 @@ export const useCourseSettings = ({ course, updateCourse } = {}) => {
                 toast.success("Ajustes del curso actualizados");
             } catch (err) {
                 toast.error(getErrorMessage(err));
+            } finally {
+                setSavingField(null);
             }
         },
         [course, updateCourse]
     );
 
-    return { toggleAutoAccept };
+    const patchCourseField = useCallback(
+        async (field, payload, successMessage) => {
+            if (!course) {
+                return;
+            }
+            setSavingField(field);
+            try {
+                const updated = await updateCourseRequest(course.id, payload);
+                updateCourse((prev) =>
+                    prev ? { ...prev, ...updated } : prev
+                );
+                toast.success(successMessage);
+            } catch (err) {
+                toast.error(getErrorMessage(err));
+            } finally {
+                setSavingField(null);
+            }
+        },
+        [course, updateCourse]
+    );
+
+    const toggleVisibility = useCallback(
+        (isPublic) =>
+            patchCourseField(
+                "visibility",
+                { visibility: isPublic ? "PUBLIC" : "PRIVATE" },
+                isPublic
+                    ? "El curso ahora es público"
+                    : "El curso ahora es privado"
+            ),
+        [patchCourseField]
+    );
+
+    const toggleActive = useCallback(
+        (isActive) =>
+            patchCourseField(
+                "is_active",
+                { is_active: isActive },
+                isActive ? "Curso activado" : "Curso desactivado"
+            ),
+        [patchCourseField]
+    );
+
+    return {
+        savingField,
+        toggleAutoAccept,
+        toggleVisibility,
+        toggleActive,
+    };
 };

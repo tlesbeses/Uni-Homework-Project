@@ -13,9 +13,9 @@ class TeamMemberInline(admin.TabularInline):
 
 @admin.register(Team)
 class TeamAdmin(admin.ModelAdmin):
-    list_display = ("name", "course", "leader", "created_at", "updated_at")
-    list_filter = ("course",)
-    search_fields = ("name", "course__title", "leader__username")
+    list_display = ("name", "section", "leader", "created_at", "updated_at")
+    list_filter = ("section__course",)
+    search_fields = ("name", "section__name", "section__course__title", "leader__username")
     inlines = [TeamMemberInline]
 
 
