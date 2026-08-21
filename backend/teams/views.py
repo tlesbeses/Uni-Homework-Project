@@ -12,7 +12,7 @@ from rest_framework.exceptions import (
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from course.models import Course, Enrollment, Status
+from course.models import Enrollment, Section, Status
 from course.serializers import EnrollmentSerializer
 from teams.models import Team, TeamMember
 from teams.permissions import IsTeamManagerOrTeacher
@@ -25,19 +25,22 @@ from teams.serializers import (
 
 
 class TeamViewSet(viewsets.ModelViewSet):
-    """Manage teams and their memberships inside a course."""
+    """Manage teams and their memberships inside a section."""
 
     serializer_class = TeamSerializer
     permission_classes = [IsAuthenticated]
-    filterset_fields = ["course", "name", "leader"]
+    filterset_fields = ["section", "name", "leader"]
     search_fields = ["name"]
     ordering_fields = ["name", "created_at"]
 
     def get_queryset(self):
-        """Scope teams to the courses the current user can see."""
+        """Scope teams to the sections the current user can see."""
         user = self.request.user
         queryset = (
-            Team.objects.select_related("course__teacher", "leader")
+            Team.objects.select_related(
+                "section__course__teacher",
+                "leader",
+            )
             .prefetch_related("members__student")
         )
 
@@ -45,20 +48,20 @@ class TeamViewSet(viewsets.ModelViewSet):
             return queryset
 
         if user.groups.filter(name="Teacher").exists():
-            return queryset.filter(course__teacher=user)
+            return queryset.filter(section__course__teacher=user)
 
-        enrolled_courses = Enrollment.objects.filter(
+        enrolled_sections = Enrollment.objects.filter(
             student=user,
             status=Status.APPROVED,
-        ).values("course_id")
-        
-        return queryset.filter(members__student=user, course_id__in=enrolled_courses,).distinct()
-    
+        ).values("section_id")
+
+        return queryset.filter(members__student=user, section_id__in=enrolled_sections,).distinct()
+
     def get_permissions(self):
         """Require the course teacher or the team leader for write operations.
 
         Team creation is open to teachers (of their own courses) and to
-        students (approved members of the course); the specific eligibility
+        students (approved members of the section); the specific eligibility
         is enforced inside ``create``.
         """
         manager_actions = {
@@ -80,37 +83,37 @@ class TeamViewSet(viewsets.ModelViewSet):
         return user.groups.filter(name="Teacher").exists()
 
     def create(self, request, *args, **kwargs):
-        """Restrict team creation to teachers and approved course students.
+        """Restrict team creation to teachers and approved section students.
 
         Teachers can only create teams in their own courses. Students must be
-        approved members of the course and automatically become the leader of
-        the team they create. The eligibility check runs before serialization
-        so callers receive a 403 (permission) instead of a misleading
-        validation error.
+        approved members of the team's section and automatically become the
+        leader of the team they create. The eligibility check runs before
+        serialization so callers receive a 403 (permission) instead of a
+        misleading validation error.
         """
-        course_id = request.data.get("course_id") or request.data.get("course")
-        if course_id is not None:
+        section_id = request.data.get("section_id") or request.data.get("section")
+        if section_id is not None:
             try:
-                course = Course.objects.get(pk=course_id)
-            except Course.DoesNotExist:
-                raise NotFound("Course not found.")
+                section = Section.objects.get(pk=section_id)
+            except Section.DoesNotExist:
+                raise NotFound("Section not found.")
             user = request.user
             if not user.is_superuser and self.is_teacher(user):
-                if course.teacher_id != user.id:
+                if section.course.teacher_id != user.id:
                     raise PermissionDenied(
                         "You can only create teams in your own courses."
                     )
             elif not user.is_superuser and not Enrollment.objects.filter(
-                course=course,
+                section=section,
                 student=user,
                 status=Status.APPROVED,
             ).exists():
                 raise PermissionDenied(
-                    "You must be an approved member of the course to create a team."
+                    "You must be an approved member of the section to create a team."
                 )
 
         data = request.data.copy()
-        
+
         if not (request.user.is_superuser or self.is_teacher(request.user)):
             # A student becomes the leader of the team they create.
             data["leader_id"] = request.user.id
@@ -154,11 +157,11 @@ class TeamViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get"], url_path="available-students")
     def available_students(self, request, pk=None):
-        """List approved enrollments of the team's course for member selection."""
+        """List approved enrollments of the team's section for member selection."""
         team = self.get_object()
         enrollments = (
             Enrollment.objects.filter(
-                course=team.course,
+                section=team.section,
                 status=Status.APPROVED,
             )
             .select_related("student")

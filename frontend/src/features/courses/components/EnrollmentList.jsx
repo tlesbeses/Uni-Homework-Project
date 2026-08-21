@@ -26,6 +26,11 @@ export const EnrollmentList = ({
                             <p className="text-sm font-medium text-gray-800">
                                 {studentName}
                             </p>
+                            {enrollment.section?.name && (
+                                <p className="text-xs text-gray-500">
+                                    Sección: {enrollment.section.name}
+                                </p>
+                            )}
                             <div className="mt-1">
                                 <StatusBadge status={enrollment.status} />
                             </div>

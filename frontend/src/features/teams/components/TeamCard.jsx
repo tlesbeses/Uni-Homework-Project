@@ -12,7 +12,13 @@ export const TeamCard = ({ team, canManage, onDelete, onEdit, deleting }) => {
                         {team.name}
                     </h3>
                     <p className="text-sm text-gray-500">
-                        Curso: {team.course?.title}
+                        {team.section?.course?.title ?? "Curso"}
+                        {team.section?.name && (
+                            <span className="font-medium text-indigo-600">
+                                {" "}
+                                · {team.section.name}
+                            </span>
+                        )}
                     </p>
                 </div>
                 <span className="text-xs font-medium uppercase tracking-wide px-2 py-1 rounded-full bg-indigo-50 text-indigo-600">

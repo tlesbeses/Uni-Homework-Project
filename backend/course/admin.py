@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Course, Enrollment, CourseSettings
+from .models import Course, Enrollment, CourseSettings, Section
 
 
 @admin.register(Course)
@@ -19,10 +19,28 @@ class CourseAdmin(admin.ModelAdmin):
     )
 
 
+@admin.register(Section)
+class SectionAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "course",
+        "created_at",
+    )
+
+    list_filter = (
+        "course",
+    )
+
+    search_fields = (
+        "name",
+        "course__title",
+    )
+
+
 @admin.register(Enrollment)
 class EnrollmentAdmin(admin.ModelAdmin):
     list_display = (
-        "course",
+        "section",
         "student",
         "status",
         "created_at",

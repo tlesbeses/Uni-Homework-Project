@@ -6,7 +6,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from course.models import Course, Enrollment, Status
+from course.models import Course, Enrollment, Section, Status
 from teams.models import Team, TeamMember
 
 User = get_user_model()
@@ -37,6 +37,8 @@ class TeamAPITestCase(APITestCase):
             title="Databases",
             teacher=self.teacher,
         )
+        self.section = self.get_section(self.course)
+        self.other_section = self.get_section(self.other_course)
 
         for user in (self.student, self.student_two, self.other_student):
             self.enroll(user, self.course)
@@ -51,9 +53,15 @@ class TeamAPITestCase(APITestCase):
         )
 
     @staticmethod
-    def enroll(user, course) -> Enrollment:
+    def get_section(course) -> Section:
+        """Return the default section of a course, creating it if needed."""
+        section, _ = Section.objects.get_or_create(course=course, name="Default")
+        return section
+
+    @classmethod
+    def enroll(cls, user, course) -> Enrollment:
         return Enrollment.objects.create(
-            course=course,
+            section=cls.get_section(course),
             student=user,
             status=Status.APPROVED,
         )
@@ -61,7 +69,7 @@ class TeamAPITestCase(APITestCase):
     def create_team(self, course=None, name="Team A", leader=None) -> Team:
         return Team.objects.create(
             name=name,
-            course=course or self.course,
+            section=self.get_section(course or self.course),
             leader=leader or self.student,
         )
 
@@ -74,7 +82,7 @@ class TeamCRUDTests(TeamAPITestCase):
         self.authenticate(self.teacher)
         response = self.client.post(
             reverse("team-list"),
-            {"name": "Alpha", "course_id": self.course.id, "leader_id": self.student.id},
+            {"name": "Alpha", "section_id": self.section.id, "leader_id": self.student.id},
             format="json",
         )
 
@@ -89,7 +97,7 @@ class TeamCRUDTests(TeamAPITestCase):
 
         response = self.client.post(
             reverse("team-list"),
-            {"name": "Alpha", "course_id": self.course.id, "leader_id": self.student.id},
+            {"name": "Alpha", "section_id": self.section.id, "leader_id": self.student.id},
             format="json",
         )
 
@@ -101,7 +109,7 @@ class TeamCRUDTests(TeamAPITestCase):
 
         response = self.client.post(
             reverse("team-list"),
-            {"name": "Alpha", "course_id": self.other_course.id, "leader_id": self.student.id},
+            {"name": "Alpha", "section_id": self.other_section.id, "leader_id": self.student.id},
             format="json",
         )
 
@@ -111,7 +119,7 @@ class TeamCRUDTests(TeamAPITestCase):
         self.authenticate(self.student)
         response = self.client.post(
             reverse("team-list"),
-            {"name": "Alpha", "course_id": self.course.id},
+            {"name": "Alpha", "section_id": self.section.id},
             format="json",
         )
 
@@ -122,10 +130,11 @@ class TeamCRUDTests(TeamAPITestCase):
 
     def test_student_cannot_create_team_in_course_not_approved(self):
         hidden_course = Course.objects.create(title="Hidden", teacher=self.teacher)
+        hidden_section = self.get_section(hidden_course)
         self.authenticate(self.student)
         response = self.client.post(
             reverse("team-list"),
-            {"name": "Alpha", "course_id": hidden_course.id},
+            {"name": "Alpha", "section_id": hidden_section.id},
             format="json",
         )
 
@@ -136,7 +145,7 @@ class TeamCRUDTests(TeamAPITestCase):
         self.authenticate(self.student_two)
         response = self.client.post(
             reverse("team-list"),
-            {"name": "Alpha", "course_id": self.course.id},
+            {"name": "Alpha", "section_id": self.section.id},
             format="json",
         )
 
@@ -146,11 +155,12 @@ class TeamCRUDTests(TeamAPITestCase):
         other_teacher = self.create_user("other_teacher")
         other_teacher.groups.add(self.teacher_group)
         foreign_course = Course.objects.create(title="Foreign", teacher=other_teacher)
+        foreign_section = self.get_section(foreign_course)
 
         self.authenticate(self.teacher)
         response = self.client.post(
             reverse("team-list"),
-            {"name": "Alpha", "course_id": foreign_course.id, "leader_id": self.student.id},
+            {"name": "Alpha", "section_id": foreign_section.id, "leader_id": self.student.id},
             format="json",
         )
 
@@ -274,8 +284,10 @@ class TeamMemberTests(TeamAPITestCase):
             reverse("team-remove-member", args=[self.team.id, self.other_student.id])
         )
 
-        self.assertEqual(add_response.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(remove_response.status_code, status.HTTP_403_FORBIDDEN)
+        # The student is not a team member, so the team is not even
+        # visible through the scoped queryset (404 instead of 403).
+        self.assertEqual(add_response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(remove_response.status_code, status.HTTP_404_NOT_FOUND)
 
 
 class TeamAvailableStudentsTests(TeamAPITestCase):
@@ -323,7 +335,7 @@ class TeamAvailableStudentsTests(TeamAPITestCase):
 
     def test_only_approved_students_of_the_team_course_are_returned(self):
         Enrollment.objects.create(
-            course=self.course,
+            section=self.section,
             student=self.create_user("pending_student"),
             status=Status.PENDING,
         )
@@ -405,7 +417,9 @@ class TeamLeaderTests(TeamAPITestCase):
             format="json",
         )
 
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        # The student is not a team member, so the team is not even
+        # visible through the scoped queryset (404 instead of 403).
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
 class TeamLeaderManagementTests(TeamAPITestCase):
@@ -432,10 +446,12 @@ class TeamLeaderManagementTests(TeamAPITestCase):
             {"name": "Hacked"},
             format="json",
         )
-        self.assertEqual(patch_response.status_code, status.HTTP_403_FORBIDDEN)
+        # The student is not a team member, so the team is not even
+        # visible through the scoped queryset (404 instead of 403).
+        self.assertEqual(patch_response.status_code, status.HTTP_404_NOT_FOUND)
 
         delete_response = self.client.delete(reverse("team-detail", args=[team.id]))
-        self.assertEqual(delete_response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(delete_response.status_code, status.HTTP_404_NOT_FOUND)
 
 
 class CascadeTests(TeamAPITestCase):
