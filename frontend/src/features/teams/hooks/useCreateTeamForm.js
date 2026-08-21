@@ -21,7 +21,7 @@ export const useCreateTeamForm = ({ onSuccess, isTeacher } = {}) => {
         resolver: zodResolver(schema),
         defaultValues: {
             name: "",
-            course_id: "",
+            section_id: "",
             leader_id: "",
         },
     });
@@ -30,7 +30,7 @@ export const useCreateTeamForm = ({ onSuccess, isTeacher } = {}) => {
         try {
             const payload = isTeacher
                 ? data
-                : { name: data.name, course_id: data.course_id };
+                : { name: data.name, section_id: data.section_id };
             await createTeam(payload);
             toast.success("Equipo creado con éxito");
             reset();

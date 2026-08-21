@@ -53,7 +53,13 @@ export const TeamDetailPage = () => {
                             {team.name}
                         </h1>
                         <p className="text-sm text-gray-500">
-                            Curso: {team.course?.title}
+                            {team.section?.course?.title ?? "Curso"}
+                            {team.section?.name && (
+                                <span className="font-medium text-indigo-600">
+                                    {" "}
+                                    · Sección {team.section.name}
+                                </span>
+                            )}
                         </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-3">

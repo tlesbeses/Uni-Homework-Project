@@ -6,6 +6,7 @@ import { AutoAcceptToggle } from "@/features/courses/components/AutoAcceptToggle
 import { CourseDetailHeader } from "@/features/courses/components/CourseDetailHeader";
 import { EditCourseModal } from "@/features/courses/components/EditCourseModal";
 import { EnrollmentSection } from "@/features/courses/components/EnrollmentSection";
+import { SectionSection } from "@/features/courses/components/SectionSection";
 import { useCourse } from "@/features/courses/hooks/useCourse";
 import { useCourseSettings } from "@/features/courses/hooks/useCourseSettings";
 
@@ -53,6 +54,10 @@ export const CourseDetailPage = () => {
                     checked={autoAccept}
                     onChange={toggleAutoAccept}
                 />
+            )}
+
+            {isOwner && (
+                <SectionSection courseId={id} />
             )}
 
             <EnrollmentSection

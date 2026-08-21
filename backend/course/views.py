@@ -77,9 +77,17 @@ class CourseViewSet(viewsets.ModelViewSet):
 
     def _create_enrollment_for_section(self, request, course, section_id):
         """Shared enrollment creation used by ``join`` and ``enroll``."""
+        available_sections = [
+            {"id": section.id, "name": section.name}
+            for section in course.sections.all()
+        ]
+
         if section_id is None:
             return Response(
-                {"section": ["This field is required."]},
+                {
+                    "section": ["This field is required."],
+                    "available_sections": available_sections,
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -87,7 +95,10 @@ class CourseViewSet(viewsets.ModelViewSet):
             section = course.sections.get(pk=section_id)
         except (Section.DoesNotExist, ValueError, TypeError):
             return Response(
-                {"detail": "Invalid section for this course."},
+                {
+                    "detail": "Invalid section for this course.",
+                    "available_sections": available_sections,
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

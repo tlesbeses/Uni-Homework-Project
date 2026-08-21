@@ -3,6 +3,9 @@ import { useCreateTeamForm } from "@/features/teams/hooks/useCreateTeamForm";
 import { InputField } from "@/shared/components/ui/InputField";
 import { formatUser } from "@/features/teams/utils/formatUser";
 
+const sectionLabel = (section) =>
+    section ? `${section.course?.title ?? "Curso"} — ${section.name}` : "";
+
 export const CreateTeamModal = ({
     open,
     onClose,
@@ -10,40 +13,48 @@ export const CreateTeamModal = ({
     courses,
     enrollments,
     teams,
+    sections,
     isTeacher,
 }) => {
     const { register, handleSubmit, errors, isSubmitting, onSubmit, watch, setValue } =
         useCreateTeamForm({ onSuccess: onCreated, isTeacher });
 
-    const selectedCourseId = watch("course_id");
+    const selectedSectionId = watch("section_id");
 
     useEffect(() => {
         if (isTeacher) {
             setValue("leader_id", "");
         }
-    }, [selectedCourseId, isTeacher, setValue]);
+    }, [selectedSectionId, isTeacher, setValue]);
 
     if (!open) {
         return null;
     }
 
-    const approvedCourses = isTeacher
-        ? (courses ?? [])
-        : (courses ?? []).filter((course) =>
-              (enrollments ?? []).some(
-                  (enrollment) =>
-                      enrollment.course.id === course.id &&
-                      enrollment.status === "APPROVED"
-              )
-          );
-    const courseId = Number(selectedCourseId);
+    // Teachers pick among all the sections of their courses; students
+    // among the sections of the courses where they are approved.
+    const sectionOptions = isTeacher
+        ? (sections ?? [])
+        : (enrollments ?? [])
+              .filter((enrollment) => enrollment.status === "APPROVED")
+              .map((enrollment) => enrollment.section)
+              .filter(Boolean);
+
+    const selectedSection = sectionOptions.find(
+        (section) => section.id === Number(selectedSectionId)
+    );
+    const selectedCourseId = selectedSection?.course?.id;
+
     const courseEnrollments = (enrollments ?? []).filter(
         (enrollment) =>
-            enrollment.course.id === courseId && enrollment.status === "APPROVED"
+            enrollment.section?.id === Number(selectedSectionId) &&
+            enrollment.status === "APPROVED"
     );
     const takenStudentIds = new Set(
         (teams ?? [])
-            .filter((team) => team.course.id === courseId)
+            .filter(
+                (team) => team.section?.course?.id === selectedCourseId
+            )
             .flatMap((team) => (team.members ?? []).map((member) => member.student.id))
     );
     const leaders = courseEnrollments.filter(
@@ -82,25 +93,25 @@ export const CreateTeamModal = ({
 
                     <div>
                         <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                            Curso
+                            Sección
                         </label>
                         <select
-                            {...register("course_id")}
+                            {...register("section_id")}
                             className="w-full px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                         >
-                            <option value="">Selecciona un curso...</option>
-                            {(approvedCourses ?? []).map((course) => (
-                                <option key={course.id} value={course.id}>
-                                    {course.title}
+                            <option value="">Selecciona una sección...</option>
+                            {(sectionOptions ?? []).map((section) => (
+                                <option key={section.id} value={section.id}>
+                                    {sectionLabel(section)}
                                 </option>
                             ))}
                         </select>
-                        {errors.course_id && (
+                        {errors.section_id && (
                             <p className="text-red-500 text-xs mt-1">
-                                {errors.course_id.message}
+                                {errors.section_id.message}
                             </p>
                         )}
-                        {!isTeacher && approvedCourses.length === 0 && (
+                        {!isTeacher && sectionOptions.length === 0 && (
                             <p className="text-gray-500 text-xs mt-1">
                                 Aún no estás aprobado en ningún curso.
                             </p>
@@ -117,9 +128,9 @@ export const CreateTeamModal = ({
                                 className="w-full px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                             >
                                 <option value="">
-                                    {selectedCourseId
+                                    {selectedSectionId
                                         ? "Selecciona un líder..."
-                                        : "Primero selecciona un curso"}
+                                        : "Primero selecciona una sección"}
                                 </option>
                                 {(leaders ?? []).map((enrollment) => (
                                     <option
@@ -135,7 +146,7 @@ export const CreateTeamModal = ({
                                     {errors.leader_id.message}
                                 </p>
                             )}
-                            {selectedCourseId && leaders.length === 0 && (
+                            {selectedSectionId && leaders.length === 0 && (
                                 <p className="text-gray-500 text-xs mt-1">
                                     No hay estudiantes disponibles para ser líder.
                                 </p>
