@@ -16,8 +16,9 @@ export const CourseDetailPage = () => {
   const [isEditOpen, setIsEditOpen] = useState(false);
 
   const { course, loading, error, reload, updateCourse } = useCourse(id);
-  const { savingField, toggleAutoAccept, toggleVisibility, toggleActive } =
-    useCourseSettings({ course, updateCourse });
+  const { savingField, toggleAutoAccept, toggleVisibility } = useCourseSettings(
+    { course, updateCourse },
+  );
 
   if (loading) {
     return <p className="text-gray-500">Cargando curso...</p>;

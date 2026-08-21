@@ -28,6 +28,7 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editingName, setEditingName] = useState("");
     const [savingId, setSavingId] = useState(null);
+    const [requestsView, setRequestsView] = useState("PENDING");
 
     const loadSections = useCallback(async () => {
         setLoadingSections(true);
@@ -58,6 +59,13 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse }) => {
     const pendingRequests = enrollments.filter(
         (enrollment) => enrollment.status === "PENDING"
     );
+
+    const rejectedRequests = enrollments.filter(
+        (enrollment) => enrollment.status === "REJECTED"
+    );
+
+    const visibleRequests =
+        requestsView === "PENDING" ? pendingRequests : rejectedRequests;
 
     const selectedSection =
         sections.find((section) => section.id === selectedSectionId) ?? null;
@@ -167,16 +175,34 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse }) => {
     return (
         <aside className="space-y-6">
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                <div className="flex items-center justify-between gap-2 mb-4">
-                    <h2 className="text-lg font-semibold text-gray-800">
-                        Solicitudes de inscripción
-                    </h2>
-                    {pendingRequests.length > 0 && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800 whitespace-nowrap">
-                            {pendingRequests.length} pendiente
-                            {pendingRequests.length === 1 ? "" : "s"}
-                        </span>
-                    )}
+                <h2 className="text-lg font-semibold text-gray-800 mb-4">
+                    Solicitudes de inscripción
+                </h2>
+
+                <div className="flex items-center gap-1 p-1 bg-gray-100 rounded-lg mb-4">
+                    {[
+                        {
+                            key: "PENDING",
+                            label: `Pendientes (${pendingRequests.length})`,
+                        },
+                        {
+                            key: "REJECTED",
+                            label: `Rechazadas (${rejectedRequests.length})`,
+                        },
+                    ].map((tab) => (
+                        <button
+                            key={tab.key}
+                            type="button"
+                            onClick={() => setRequestsView(tab.key)}
+                            className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-md transition ${
+                                requestsView === tab.key
+                                    ? "bg-white text-gray-800 shadow-sm"
+                                    : "text-gray-500 hover:text-gray-700"
+                            }`}
+                        >
+                            {tab.label}
+                        </button>
+                    ))}
                 </div>
 
                 {loadingEnrollments ? (
@@ -185,13 +211,15 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse }) => {
                     </p>
                 ) : enrollmentsError ? (
                     <p className="text-sm text-red-500">{enrollmentsError}</p>
-                ) : pendingRequests.length === 0 ? (
+                ) : visibleRequests.length === 0 ? (
                     <p className="text-sm text-gray-500">
-                        No hay solicitudes pendientes.
+                        {requestsView === "PENDING"
+                            ? "No hay solicitudes pendientes."
+                            : "No hay solicitudes rechazadas."}
                     </p>
                 ) : (
                     <ul className="divide-y divide-gray-100">
-                        {pendingRequests.map((enrollment) => {
+                        {visibleRequests.map((enrollment) => {
                             const busy =
                                 savingId === `enrollment-${enrollment.id}` ||
                                 updatingEnrollmentId === enrollment.id;
@@ -221,19 +249,21 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse }) => {
                                         >
                                             Aprobar
                                         </button>
-                                        <button
-                                            type="button"
-                                            onClick={() =>
-                                                handleStatus(
-                                                    enrollment.id,
-                                                    "reject"
-                                                )
-                                            }
-                                            disabled={busy}
-                                            className="px-3 py-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition disabled:opacity-50"
-                                        >
-                                            Rechazar
-                                        </button>
+                                        {requestsView === "PENDING" && (
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    handleStatus(
+                                                        enrollment.id,
+                                                        "reject"
+                                                    )
+                                                }
+                                                disabled={busy}
+                                                className="px-3 py-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition disabled:opacity-50"
+                                            >
+                                                Rechazar
+                                            </button>
+                                        )}
                                     </div>
                                 </li>
                             );
@@ -258,40 +288,23 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse }) => {
                     </p>
                 ) : (
                     <>
-                        <ul className="space-y-1 mb-4">
-                            {sections.map((section) => {
-                                const active =
-                                    section.id === selectedSectionId;
-
-                                return (
-                                    <li key={section.id}>
-                                        <button
-                                            type="button"
-                                            onClick={() =>
-                                                selectSection(section.id)
-                                            }
-                                            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition ${
-                                                active
-                                                    ? "bg-indigo-50 text-indigo-700 font-semibold ring-1 ring-indigo-200"
-                                                    : "text-gray-700 hover:bg-gray-50"
-                                            }`}
-                                        >
-                                            <span>{section.name}</span>
-                                            <span
-                                                className={`ml-2 px-2 py-0.5 rounded-full text-xs font-medium ${
-                                                    active
-                                                        ? "bg-indigo-100 text-indigo-700"
-                                                        : "bg-gray-100 text-gray-600"
-                                                }`}
-                                            >
-                                                {section.enrollments_count ??
-                                                    0}
-                                            </span>
-                                        </button>
-                                    </li>
-                                );
-                            })}
-                        </ul>
+                        <select
+                            value={selectedSectionId ?? ""}
+                            onChange={(event) =>
+                                selectSection(Number(event.target.value))
+                            }
+                            className="w-full px-4 py-2.5 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 mb-4"
+                        >
+                            <option value="" disabled>
+                                Selecciona una sección...
+                            </option>
+                            {sections.map((section) => (
+                                <option key={section.id} value={section.id}>
+                                    {section.name} (
+                                    {section.enrollments_count ?? 0} inscritos)
+                                </option>
+                            ))}
+                        </select>
 
                         {selectedSection && (
                             <div className="rounded-lg border border-gray-200 p-4">
