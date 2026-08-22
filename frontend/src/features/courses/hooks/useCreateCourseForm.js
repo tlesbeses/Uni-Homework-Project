@@ -22,10 +22,10 @@ export const useCreateCourseForm = ({ onSuccess } = {}) => {
 
     const onSubmit = async (data) => {
         try {
-            await createCourse(data);
+            const created = await createCourse(data);
             toast.success("Curso creado con éxito");
             reset();
-            onSuccess?.();
+            onSuccess?.(created);
         } catch (error) {
             toast.error(getErrorMessage(error));
         }
