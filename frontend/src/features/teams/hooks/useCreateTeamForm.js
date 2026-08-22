@@ -31,10 +31,10 @@ export const useCreateTeamForm = ({ onSuccess, isTeacher } = {}) => {
             const payload = isTeacher
                 ? data
                 : { name: data.name, section_id: data.section_id };
-            await createTeam(payload);
+            const created = await createTeam(payload);
             toast.success("Equipo creado con éxito");
             reset();
-            onSuccess?.();
+            onSuccess?.(created);
         } catch (error) {
             toast.error(getErrorMessage(error));
         }

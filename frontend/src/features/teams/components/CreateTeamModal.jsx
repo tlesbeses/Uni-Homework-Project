@@ -15,6 +15,7 @@ export const CreateTeamModal = ({
     teams,
     sections,
     isTeacher,
+    userId,
 }) => {
     const { register, handleSubmit, errors, isSubmitting, onSubmit, watch, setValue } =
         useCreateTeamForm({ onSuccess: onCreated, isTeacher });
@@ -32,13 +33,34 @@ export const CreateTeamModal = ({
     }
 
     // Teachers pick among all the sections of their courses; students
-    // among the sections of the courses where they are approved.
+    // among the sections of the courses where they are approved, excluding
+    // those where they already belong to a team (a student can only be in
+    // one team per section).
+    const approvedSections = (
+        isTeacher
+            ? []
+            : (enrollments ?? [])
+                  .filter((enrollment) => enrollment.status === "APPROVED")
+                  .map((enrollment) => enrollment.section)
+                  .filter(Boolean)
+    );
+    const ownTeamSectionIds = new Set(
+        (teams ?? [])
+            .filter(
+                (team) =>
+                    team.leader?.id === userId ||
+                    (team.members ?? []).some(
+                        (member) => member.student?.id === userId
+                    )
+            )
+            .map((team) => team.section?.id)
+    );
+
     const sectionOptions = isTeacher
         ? (sections ?? [])
-        : (enrollments ?? [])
-              .filter((enrollment) => enrollment.status === "APPROVED")
-              .map((enrollment) => enrollment.section)
-              .filter(Boolean);
+        : approvedSections.filter(
+              (section) => !ownTeamSectionIds.has(section.id)
+          );
 
     const selectedSection = sectionOptions.find(
         (section) => section.id === Number(selectedSectionId)
@@ -111,11 +133,19 @@ export const CreateTeamModal = ({
                                 {errors.section_id.message}
                             </p>
                         )}
-                        {!isTeacher && sectionOptions.length === 0 && (
+                        {!isTeacher && approvedSections.length === 0 && (
                             <p className="text-gray-500 text-xs mt-1">
                                 Aún no estás aprobado en ningún curso.
                             </p>
                         )}
+                        {!isTeacher &&
+                            approvedSections.length > 0 &&
+                            sectionOptions.length === 0 && (
+                                <p className="text-gray-500 text-xs mt-1">
+                                    Ya perteneces a un equipo en todas tus
+                                    secciones.
+                                </p>
+                            )}
                     </div>
 
                     {isTeacher && (

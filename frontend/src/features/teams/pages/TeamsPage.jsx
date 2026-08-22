@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useAuth } from "@/features/auth/providers/AuthProvider";
 import { useTeams } from "@/features/teams/hooks/useTeams";
@@ -15,11 +16,13 @@ import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 
 export const TeamsPage = () => {
     const { user, isTeacher } = useAuth();
+    const navigate = useNavigate();
     const { teams, loading, error, loadTeams } = useTeams();
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [deletingId, setDeletingId] = useState(null);
     const [editingTeam, setEditingTeam] = useState(null);
     const [filterCourse, setFilterCourse] = useState("");
+    const [filterSection, setFilterSection] = useState("");
     const [courses, setCourses] = useState([]);
     const [enrollments, setEnrollments] = useState([]);
     const [sections, setSections] = useState([]);
@@ -60,11 +63,57 @@ export const TeamsPage = () => {
         return [...map.values()];
     }, [teams]);
 
-    const visibleTeams = filterCourse
-        ? teams.filter(
-              (team) => team.section?.course?.id === Number(filterCourse)
-          )
-        : teams;
+    // Profesores: secciones derivadas de los equipos, dependiendo del curso.
+    const teacherSectionOptions = useMemo(() => {
+        const map = new Map();
+        teams.forEach((team) => {
+            const section = team.section;
+            if (!section) {
+                return;
+            }
+            if (filterCourse && section.course?.id !== Number(filterCourse)) {
+                return;
+            }
+            map.set(section.id, section);
+        });
+        return [...map.values()];
+    }, [teams, filterCourse]);
+
+    // Estudiantes: solo los grupos (secciones) a los que pertenecen.
+    const studentSectionOptions = useMemo(() => {
+        const map = new Map();
+        enrollments.forEach((enrollment) => {
+            if (enrollment.status === "APPROVED" && enrollment.section) {
+                map.set(enrollment.section.id, enrollment.section);
+            }
+        });
+        return [...map.values()];
+    }, [enrollments]);
+
+    const visibleTeams = useMemo(
+        () =>
+            teams.filter((team) => {
+                if (
+                    filterCourse &&
+                    team.section?.course?.id !== Number(filterCourse)
+                ) {
+                    return false;
+                }
+                if (
+                    filterSection &&
+                    team.section?.id !== Number(filterSection)
+                ) {
+                    return false;
+                }
+                return true;
+            }),
+        [teams, filterCourse, filterSection]
+    );
+
+    const handleCourseChange = (event) => {
+        setFilterCourse(event.target.value);
+        setFilterSection("");
+    };
 
     const handleDelete = async (teamId) => {
         if (!window.confirm("¿Eliminar este equipo y todos sus miembros?")) {
@@ -103,24 +152,82 @@ export const TeamsPage = () => {
                 </button>
             </div>
 
-            {courseOptions.length > 0 && (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-                    <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                        Filtrar por curso
-                    </label>
-                    <select
-                        value={filterCourse}
-                        onChange={(event) => setFilterCourse(event.target.value)}
-                        className="w-full max-w-md px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    >
-                        <option value="">Todos los cursos</option>
-                        {(courseOptions ?? []).map((course) => (
-                            <option key={course.id} value={course.id}>
-                                {course.title}
-                            </option>
-                        ))}
-                    </select>
-                </div>
+            {isTeacher ? (
+                (courseOptions.length > 0 ||
+                    teacherSectionOptions.length > 0) && (
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 grid gap-4 sm:grid-cols-2">
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
+                                Filtrar por curso
+                            </label>
+                            <select
+                                value={filterCourse}
+                                onChange={handleCourseChange}
+                                className="w-full px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            >
+                                <option value="">Todos los cursos</option>
+                                {(courseOptions ?? []).map((course) => (
+                                    <option key={course.id} value={course.id}>
+                                        {course.title}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
+                                Filtrar por sección
+                            </label>
+                            <select
+                                value={filterSection}
+                                onChange={(event) =>
+                                    setFilterSection(event.target.value)
+                                }
+                                disabled={!filterCourse}
+                                className="w-full px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:text-gray-400"
+                            >
+                                <option value="">
+                                    {filterCourse
+                                        ? "Todas las secciones"
+                                        : "Primero selecciona un curso"}
+                                </option>
+                                {(teacherSectionOptions ?? []).map(
+                                    (section) => (
+                                        <option
+                                            key={section.id}
+                                            value={section.id}
+                                        >
+                                            {section.name}
+                                        </option>
+                                    )
+                                )}
+                            </select>
+                        </div>
+                    </div>
+                )
+            ) : (
+                studentSectionOptions.length > 1 && (
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                        <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
+                            Filtrar por grupo
+                        </label>
+                        <select
+                            value={filterSection}
+                            onChange={(event) =>
+                                setFilterSection(event.target.value)
+                            }
+                            className="w-full max-w-md px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        >
+                            <option value="">Todos mis grupos</option>
+                            {(studentSectionOptions ?? []).map((section) => (
+                                <option key={section.id} value={section.id}>
+                                    {section.course?.title
+                                        ? `${section.course.title} — ${section.name}`
+                                        : section.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                )
             )}
 
             {loading && <p className="text-gray-500">Cargando equipos...</p>}
@@ -153,15 +260,19 @@ export const TeamsPage = () => {
             <CreateTeamModal
                 open={isCreateOpen}
                 onClose={() => setIsCreateOpen(false)}
-                onCreated={async () => {
+                onCreated={async (createdTeam) => {
                     await loadTeams();
                     setIsCreateOpen(false);
+                    if (createdTeam?.id) {
+                        navigate(`/teams/${createdTeam.id}`);
+                    }
                 }}
                 courses={courses}
                 enrollments={enrollments}
                 teams={teams}
                 sections={sections}
                 isTeacher={isTeacher}
+                userId={user?.id}
             />
 
             <EditTeamModal
