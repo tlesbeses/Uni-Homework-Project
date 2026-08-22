@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useAllAssignments } from "@/features/assignments/hooks/useAllAssignments";
 import { getEnrollments } from "@/features/courses/services/courseService";
@@ -44,8 +45,11 @@ const unteamedDraftKey = (studentId) => `u:${studentId}`;
 export const TeacherGradingPanel = () => {
     const { assignments, loading: assignmentsLoading } = useAllAssignments();
     const { courses } = useCourses();
+    const [searchParams] = useSearchParams();
     const [courseFilter, setCourseFilter] = useState("");
-    const [selectedAssignmentId, setSelectedAssignmentId] = useState("");
+    const [selectedAssignmentId, setSelectedAssignmentId] = useState(
+        () => searchParams.get("assignment") ?? ""
+    );
     const [selectedTeamId, setSelectedTeamId] = useState(null);
     const [teamNameQuery, setTeamNameQuery] = useState("");
     const [drafts, setDrafts] = useState({});

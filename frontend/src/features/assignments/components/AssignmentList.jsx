@@ -7,6 +7,7 @@ export const AssignmentList = ({
     onEdit,
     onDelete,
     onTogglePublish,
+    onGrade,
     deletingId,
     togglingId,
 }) => {
@@ -52,6 +53,16 @@ export const AssignmentList = ({
 
                         {canManage && (
                             <div className="flex items-center gap-2 shrink-0">
+                                {onGrade && (
+                                    <button
+                                        type="button"
+                                        onClick={() => onGrade(assignment)}
+                                        disabled={busy}
+                                        className="px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition disabled:opacity-50"
+                                    >
+                                        Calificar
+                                    </button>
+                                )}
                                 <button
                                     type="button"
                                     onClick={() => onTogglePublish(assignment)}

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { toast } from "react-toastify";
+import { useNavigate } from "react-router-dom";
 import { AssignmentList } from "@/features/assignments/components/AssignmentList";
 import { CreateAssignmentModal } from "@/features/assignments/components/CreateAssignmentModal";
 import { EditAssignmentModal } from "@/features/assignments/components/EditAssignmentModal";
@@ -15,6 +16,7 @@ import { SearchInput } from "@/shared/components/SearchInput";
 const PAGE_SIZE = 6;
 
 export const AssignmentSection = ({ courseId, isTeacher, isOwner }) => {
+    const navigate = useNavigate();
     const { assignments, loading, error, reload } = useAssignments(courseId);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [editingAssignment, setEditingAssignment] = useState(null);
@@ -51,6 +53,10 @@ export const AssignmentSection = ({ courseId, isTeacher, isOwner }) => {
     const handleSearchChange = (value) => {
         setSearch(value);
         setPage(1);
+    };
+
+    const handleGrade = (assignment) => {
+        navigate(`/grades?assignment=${assignment.id}`);
     };
 
     const handleDelete = async (assignment) => {
@@ -134,6 +140,7 @@ export const AssignmentSection = ({ courseId, isTeacher, isOwner }) => {
                             onEdit={setEditingAssignment}
                             onDelete={handleDelete}
                             onTogglePublish={handleTogglePublish}
+                            onGrade={canManage ? handleGrade : undefined}
                             deletingId={deletingId}
                             togglingId={togglingId}
                         />

@@ -6,7 +6,9 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from assignments.models import Assignment
 from course.models import Course, Enrollment, Section, Status
+from grading.models import Grade
 from teams.models import Team, TeamMember
 
 User = get_user_model()
@@ -471,3 +473,123 @@ class CascadeTests(TeamAPITestCase):
         team.delete()
 
         self.assertFalse(TeamMember.objects.filter(team_id=team_id).exists())
+
+
+class TeamCleanupOnEnrollmentRemovalTests(TeamAPITestCase):
+    """Deleting/rejecting an enrollment must detach the student from teams."""
+
+    def setUp(self):
+        super().setUp()
+        self.assignment = Assignment.objects.create(
+            course=self.course,
+            title="Homework 1",
+            max_score="100.00",
+            is_published=True,
+        )
+
+    def enrollment_of(self, user) -> Enrollment:
+        return Enrollment.objects.get(
+            student=user, section=self.section
+        )
+
+    def test_deleting_enrollment_removes_team_membership_and_keeps_grades(self):
+        team = self.create_team(name="Alpha", leader=self.student)
+        TeamMember.objects.create(team=team, student=self.student_two)
+        grade = Grade.objects.create(
+            assignment=self.assignment,
+            student=self.student_two,
+            score="90.00",
+            graded_by=self.teacher,
+        )
+
+        self.authenticate(self.teacher)
+        response = self.client.delete(
+            f"/api/enrollments/{self.enrollment_of(self.student_two).id}/"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(
+            team.members.filter(student=self.student_two).exists()
+        )
+        self.assertTrue(Team.objects.filter(pk=team.pk).exists())
+        # Grades are historical records: they survive the removal.
+        self.assertTrue(Grade.objects.filter(pk=grade.pk).exists())
+
+    def test_leadership_transfers_to_earliest_remaining_member(self):
+        # Creation order defines joined_at: leader first, then the members.
+        team = self.create_team(name="Alpha", leader=self.student)
+        TeamMember.objects.create(team=team, student=self.student_two)
+        TeamMember.objects.create(team=team, student=self.other_student)
+
+        self.authenticate(self.teacher)
+        response = self.client.delete(
+            f"/api/enrollments/{self.enrollment_of(self.student).id}/"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        team.refresh_from_db()
+        self.assertEqual(team.leader, self.student_two)
+        self.assertFalse(
+            team.members.filter(student=self.student).exists()
+        )
+        self.assertTrue(Team.objects.filter(pk=team.pk).exists())
+
+    def test_team_is_deleted_when_leader_was_the_last_member(self):
+        team = self.create_team(name="Alpha", leader=self.student)
+
+        self.authenticate(self.teacher)
+        response = self.client.delete(
+            f"/api/enrollments/{self.enrollment_of(self.student).id}/"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Team.objects.filter(pk=team.pk).exists())
+
+    def test_rejecting_an_approved_enrollment_cleans_teams(self):
+        team = self.create_team(name="Alpha", leader=self.student)
+        TeamMember.objects.create(team=team, student=self.student_two)
+
+        self.authenticate(self.teacher)
+        response = self.client.post(
+            f"/api/enrollments/{self.enrollment_of(self.student_two).id}/reject/"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(
+            team.members.filter(student=self.student_two).exists()
+        )
+        self.assertTrue(Team.objects.filter(pk=team.pk).exists())
+
+    def test_deleting_a_pending_enrollment_does_not_touch_teams(self):
+        outsider = self.create_user("outsider")
+        outsider.groups.add(self.student_group)
+        pending = Enrollment.objects.create(
+            section=self.section,
+            student=outsider,
+            status=Status.PENDING,
+        )
+        team = self.create_team(name="Alpha", leader=self.student)
+        membership = TeamMember.objects.create(team=team, student=outsider)
+
+        self.authenticate(self.teacher)
+        response = self.client.delete(f"/api/enrollments/{pending.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertTrue(
+            TeamMember.objects.filter(pk=membership.pk).exists()
+        )
+        self.assertTrue(Team.objects.filter(pk=team.pk).exists())
+
+    def test_student_can_leave_course_and_teams_are_cleaned(self):
+        team = self.create_team(name="Alpha", leader=self.student)
+        TeamMember.objects.create(team=team, student=self.student_two)
+
+        self.authenticate(self.student_two)
+        response = self.client.delete(
+            f"/api/enrollments/{self.enrollment_of(self.student_two).id}/"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(
+            team.members.filter(student=self.student_two).exists()
+        )

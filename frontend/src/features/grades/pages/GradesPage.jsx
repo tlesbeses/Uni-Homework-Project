@@ -6,7 +6,9 @@ export const GradesPage = () => {
     const { isTeacher } = useAuth();
 
     return (
-        <div className="space-y-6 max-w-4xl">
+        <div
+            className={`space-y-6 ${isTeacher ? "max-w-6xl" : "max-w-4xl"}`}
+        >
             <div>
                 <h1 className="text-2xl font-bold text-gray-800">
                     Calificaciones
