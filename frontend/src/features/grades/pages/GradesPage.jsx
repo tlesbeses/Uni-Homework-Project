@@ -1,5 +1,5 @@
 import { TeacherGradingPanel } from "@/features/grades/components/TeacherGradingPanel";
-import { StudentGradesList } from "@/features/grades/components/StudentGradesList";
+import { StudentCourseGrades } from "@/features/grades/components/StudentCourseGrades";
 import { useAuth } from "@/features/auth/providers/AuthProvider";
 
 export const GradesPage = () => {
@@ -16,11 +16,11 @@ export const GradesPage = () => {
                 <p className="text-sm text-gray-500">
                     {isTeacher
                         ? "Califica equipos o estudiantes individualmente por asignación."
-                        : "Consulta las calificaciones de tus asignaciones."}
+                        : "Consulta tus calificaciones y el total acumulado por curso."}
                 </p>
             </div>
 
-            {isTeacher ? <TeacherGradingPanel /> : <StudentGradesList />}
+            {isTeacher ? <TeacherGradingPanel /> : <StudentCourseGrades />}
         </div>
     );
 };

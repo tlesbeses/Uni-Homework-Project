@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import {
     changeTeamLeader,
-    getAvailableStudents,
     getTeam,
     removeTeamMember,
 } from "@/features/teams/services/teamService";
@@ -10,7 +9,6 @@ import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 
 export const useTeamDetail = (teamId) => {
     const [team, setTeam] = useState(null);
-    const [enrollments, setEnrollments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [removingId, setRemovingId] = useState(null);
@@ -19,22 +17,7 @@ export const useTeamDetail = (teamId) => {
         setLoading(true);
         setError("");
         try {
-            const teamData = await getTeam(teamId);
-            setTeam(teamData);
-
-            if (teamData.section?.id) {
-                const availableData = await getAvailableStudents(teamId);
-                const items = Array.isArray(availableData.results) ? availableData.results : Array.isArray(availableData) ? availableData : [];
-                setEnrollments(
-                    items.filter(
-                        (enrollment) =>
-                            enrollment.section?.id === teamData.section.id &&
-                            enrollment.status === "APPROVED"
-                    )
-                );
-            } else {
-                setEnrollments([]);
-            }
+            setTeam(await getTeam(teamId));
         } catch (err) {
             setError(getErrorMessage(err));
         } finally {
@@ -77,7 +60,6 @@ export const useTeamDetail = (teamId) => {
 
     return {
         team,
-        enrollments,
         loading,
         error,
         reload: load,

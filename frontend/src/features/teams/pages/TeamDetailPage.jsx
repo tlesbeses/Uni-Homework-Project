@@ -14,7 +14,6 @@ export const TeamDetailPage = () => {
     const [isEditOpen, setIsEditOpen] = useState(false);
     const {
         team,
-        enrollments,
         loading,
         error,
         reload,
@@ -108,7 +107,6 @@ export const TeamDetailPage = () => {
             <AddMemberModal
                 key={team.id}
                 team={team}
-                enrollments={enrollments}
                 open={isAddOpen}
                 onClose={() => setIsAddOpen(false)}
                 onAdded={async () => {

@@ -1,7 +1,14 @@
 import { Link } from "react-router-dom";
 import { formatUser } from "@/features/teams/utils/formatUser";
 
-export const TeamCard = ({ team, canManage, onDelete, onEdit, deleting }) => {
+export const TeamCard = ({
+    team,
+    canManage,
+    onDelete,
+    onEdit,
+    deleting,
+    roleLabel,
+}) => {
     const memberCount = team.members?.length ?? 0;
 
     return (
@@ -21,8 +28,21 @@ export const TeamCard = ({ team, canManage, onDelete, onEdit, deleting }) => {
                         )}
                     </p>
                 </div>
-                <span className="text-xs font-medium uppercase tracking-wide px-2 py-1 rounded-full bg-indigo-50 text-indigo-600">
-                    {memberCount} {memberCount === 1 ? "miembro" : "miembros"}
+                <span className="flex flex-col items-end gap-1 shrink-0">
+                    <span className="text-xs font-medium uppercase tracking-wide px-2 py-1 rounded-full bg-indigo-50 text-indigo-600">
+                        {memberCount} {memberCount === 1 ? "miembro" : "miembros"}
+                    </span>
+                    {roleLabel && (
+                        <span
+                            className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                                roleLabel === "Líder"
+                                    ? "bg-amber-50 text-amber-700"
+                                    : "bg-gray-100 text-gray-600"
+                            }`}
+                        >
+                            {roleLabel}
+                        </span>
+                    )}
                 </span>
             </div>
 

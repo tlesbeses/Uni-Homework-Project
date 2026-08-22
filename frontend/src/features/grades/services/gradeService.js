@@ -20,3 +20,11 @@ export const gradeStudent = async (assignmentId, studentId, score) => {
     );
     return response.data;
 };
+
+export const exportSectionGrades = async (sectionId) => {
+    const response = await api.get(
+        `/api/sections/${sectionId}/export-grades/`,
+        { responseType: "blob" }
+    );
+    return response.data;
+};

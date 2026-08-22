@@ -1,5 +1,6 @@
 from django.db import transaction
 from django.db.models import Count, Exists, OuterRef, Q
+from django.http import HttpResponse
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound, PermissionDenied
@@ -21,6 +22,7 @@ from course.serializers import (
     SectionSerializer,
 )
 from django_filters.rest_framework import DjangoFilterBackend
+from grading.exports import build_section_grades_workbook
 from teams.services import remove_student_from_course_teams
 from .filters import EnrollmentFilter, SectionFilter
 from .permissions import IsCourseTeacherOfSection, IsTeacher, IsStudent
@@ -266,9 +268,31 @@ class SectionViewSet(viewsets.ModelViewSet):
         )
 
     def get_permissions(self):
-        if self.action in ("create", "update", "partial_update", "destroy"):
+        if self.action in (
+            "create",
+            "update",
+            "partial_update",
+            "destroy",
+            "export_grades",
+        ):
             return [IsAuthenticated(), IsCourseTeacherOfSection()]
         return [IsAuthenticated()]
+
+    @action(detail=True, methods=["get"], url_path="export-grades")
+    def export_grades(self, request, pk=None):
+        """Download an Excel workbook with the grades of the section."""
+        section = self.get_object()
+        content = build_section_grades_workbook(section=section)
+        response = HttpResponse(
+            content,
+            content_type=(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            ),
+        )
+        response["Content-Disposition"] = (
+            f'attachment; filename="notas_{section.course.id}_{section.id}.xlsx"'
+        )
+        return response
 
     def create(self, request, *args, **kwargs):
         """Restrict section creation to the teacher that owns the course."""

@@ -107,6 +107,15 @@ class GradeViewSet(viewsets.ReadOnlyModelViewSet):
     ]
     ordering_fields = ["score", "created_at", "updated_at"]
 
+    def get_serializer_context(self):
+        """Only teachers (or admins) may see whether a grade is individual."""
+        context = super().get_serializer_context()
+        user = self.request.user
+        context["show_grade_origin"] = user.is_superuser or user.groups.filter(
+            name="Teacher"
+        ).exists()
+        return context
+
     def get_queryset(self):
         user = self.request.user
         queryset = Grade.objects.select_related(
