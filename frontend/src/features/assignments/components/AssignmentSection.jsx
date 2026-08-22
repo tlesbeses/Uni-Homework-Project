@@ -9,6 +9,10 @@ import {
     updateAssignment,
 } from "@/features/assignments/services/assignmentService";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
+import { Pager } from "@/shared/components/Pager";
+import { SearchInput } from "@/shared/components/SearchInput";
+
+const PAGE_SIZE = 6;
 
 export const AssignmentSection = ({ courseId, isTeacher, isOwner }) => {
     const { assignments, loading, error, reload } = useAssignments(courseId);
@@ -16,8 +20,38 @@ export const AssignmentSection = ({ courseId, isTeacher, isOwner }) => {
     const [editingAssignment, setEditingAssignment] = useState(null);
     const [deletingId, setDeletingId] = useState(null);
     const [togglingId, setTogglingId] = useState(null);
+    const [search, setSearch] = useState("");
+    const [page, setPage] = useState(1);
 
     const canManage = isTeacher && isOwner;
+
+    const normalizedSearch = search.trim().toLowerCase();
+    const filteredAssignments = normalizedSearch
+        ? assignments.filter(
+              (assignment) =>
+                  assignment.title
+                      ?.toLowerCase()
+                      .includes(normalizedSearch) ||
+                  assignment.description
+                      ?.toLowerCase()
+                      .includes(normalizedSearch)
+          )
+        : assignments;
+
+    const totalPages = Math.max(
+        1,
+        Math.ceil(filteredAssignments.length / PAGE_SIZE)
+    );
+    const safePage = Math.min(page, totalPages);
+    const visibleAssignments = filteredAssignments.slice(
+        (safePage - 1) * PAGE_SIZE,
+        safePage * PAGE_SIZE
+    );
+
+    const handleSearchChange = (value) => {
+        setSearch(value);
+        setPage(1);
+    };
 
     const handleDelete = async (assignment) => {
         if (!window.confirm(`¿Eliminar "${assignment.title}"?`)) {
@@ -76,15 +110,41 @@ export const AssignmentSection = ({ courseId, isTeacher, isOwner }) => {
             ) : error ? (
                 <p className="text-sm text-red-500">{error}</p>
             ) : (
-                <AssignmentList
-                    assignments={assignments}
-                    canManage={canManage}
-                    onEdit={setEditingAssignment}
-                    onDelete={handleDelete}
-                    onTogglePublish={handleTogglePublish}
-                    deletingId={deletingId}
-                    togglingId={togglingId}
-                />
+                <>
+                    {assignments.length > 0 && (
+                        <div className="mb-4">
+                            <SearchInput
+                                value={search}
+                                onChange={handleSearchChange}
+                                placeholder="Buscar asignación por título o descripción..."
+                            />
+                        </div>
+                    )}
+
+                    {filteredAssignments.length === 0 &&
+                    normalizedSearch ? (
+                        <p className="text-sm text-gray-500">
+                            Sin resultados para &laquo;{search.trim()}
+                            &raquo;.
+                        </p>
+                    ) : (
+                        <AssignmentList
+                            assignments={visibleAssignments}
+                            canManage={canManage}
+                            onEdit={setEditingAssignment}
+                            onDelete={handleDelete}
+                            onTogglePublish={handleTogglePublish}
+                            deletingId={deletingId}
+                            togglingId={togglingId}
+                        />
+                    )}
+
+                    <Pager
+                        page={safePage}
+                        totalPages={totalPages}
+                        onChange={setPage}
+                    />
+                </>
             )}
 
             <CreateAssignmentModal

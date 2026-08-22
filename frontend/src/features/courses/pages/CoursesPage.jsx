@@ -8,6 +8,7 @@ import { EditCourseModal } from "@/features/courses/components/EditCourseModal";
 import { JoinCourseForm } from "@/features/courses/components/JoinCourseForm";
 import { deleteCourse } from "@/features/courses/services/courseService";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
+import { Pager } from "@/shared/components/Pager";
 
 export const CoursesPage = () => {
     const { isTeacher, isStudent } = useAuth();
@@ -90,28 +91,8 @@ export const CoursesPage = () => {
                 ))}
             </div>
 
-            {!loading && !error && totalPages > 1 && (
-                <div className="flex items-center justify-center gap-4">
-                    <button
-                        type="button"
-                        onClick={() => setPage(page - 1)}
-                        disabled={page <= 1}
-                        className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition disabled:opacity-50"
-                    >
-                        &larr; Anterior
-                    </button>
-                    <span className="text-sm text-gray-600">
-                        Página {page} de {totalPages}
-                    </span>
-                    <button
-                        type="button"
-                        onClick={() => setPage(page + 1)}
-                        disabled={page >= totalPages}
-                        className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition disabled:opacity-50"
-                    >
-                        Siguiente &rarr;
-                    </button>
-                </div>
+            {!loading && !error && (
+                <Pager page={page} totalPages={totalPages} onChange={setPage} />
             )}
 
             <CreateCourseModal

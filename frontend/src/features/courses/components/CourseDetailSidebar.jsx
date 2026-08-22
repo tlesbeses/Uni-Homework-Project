@@ -11,6 +11,10 @@ import {
     updateSection,
 } from "@/features/courses/services/courseService";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
+import { Pager } from "@/shared/components/Pager";
+import { SearchInput } from "@/shared/components/SearchInput";
+
+const MEMBER_PAGE_SIZE = 5;
 
 export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse }) => {
     const {
@@ -30,6 +34,8 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse }) => {
     const [editingName, setEditingName] = useState("");
     const [savingId, setSavingId] = useState(null);
     const [requestsView, setRequestsView] = useState("PENDING");
+    const [memberSearch, setMemberSearch] = useState("");
+    const [memberPage, setMemberPage] = useState(1);
 
     const loadSections = useCallback(async () => {
         setLoadingSections(true);
@@ -76,6 +82,39 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse }) => {
             enrollment.section?.id === selectedSectionId &&
             enrollment.status === "APPROVED"
     );
+
+    const normalizedMemberSearch = memberSearch.trim().toLowerCase();
+    const filteredMembers = normalizedMemberSearch
+        ? sectionMembers.filter((member) => {
+              const student = member.student ?? {};
+              return (
+                  student.username
+                      ?.toLowerCase()
+                      .includes(normalizedMemberSearch) ||
+                  student.first_name
+                      ?.toLowerCase()
+                      .includes(normalizedMemberSearch) ||
+                  student.last_name
+                      ?.toLowerCase()
+                      .includes(normalizedMemberSearch)
+              );
+          })
+        : sectionMembers;
+
+    const memberTotalPages = Math.max(
+        1,
+        Math.ceil(filteredMembers.length / MEMBER_PAGE_SIZE)
+    );
+    const safeMemberPage = Math.min(memberPage, memberTotalPages);
+    const visibleMembers = filteredMembers.slice(
+        (safeMemberPage - 1) * MEMBER_PAGE_SIZE,
+        safeMemberPage * MEMBER_PAGE_SIZE
+    );
+
+    const handleMemberSearchChange = (value) => {
+        setMemberSearch(value);
+        setMemberPage(1);
+    };
 
     const handleStatus = useCallback(
         async (enrollmentId, action) => {
@@ -124,6 +163,8 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse }) => {
     const selectSection = (sectionId) => {
         setSelectedSectionId(sectionId);
         setIsEditing(false);
+        setMemberSearch("");
+        setMemberPage(1);
     };
 
     const handleCreate = async (event) => {
@@ -398,9 +439,9 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse }) => {
                                                     {selectedSection.name}
                                                 </h3>
                                                 <p className="text-xs text-gray-500 mt-0.5">
-                                                    {sectionMembers.length}{" "}
+                                                    {filteredMembers.length}{" "}
                                                     estudiante
-                                                    {sectionMembers.length === 1
+                                                    {filteredMembers.length === 1
                                                         ? ""
                                                         : "s"}
                                                 </p>
@@ -429,6 +470,18 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse }) => {
                                             )}
                                         </div>
 
+                                        {sectionMembers.length > 0 && (
+                                            <div className="mb-3">
+                                                <SearchInput
+                                                    value={memberSearch}
+                                                    onChange={
+                                                        handleMemberSearchChange
+                                                    }
+                                                    placeholder="Buscar estudiante por nombre..."
+                                                />
+                                            </div>
+                                        )}
+
                                         {loadingEnrollments ? (
                                             <p className="text-sm text-gray-500">
                                                 Cargando inscritos...
@@ -438,50 +491,66 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse }) => {
                                                 No hay estudiantes inscritos en
                                                 esta sección.
                                             </p>
+                                        ) : filteredMembers.length === 0 ? (
+                                            <p className="text-sm text-gray-500">
+                                                Ningún estudiante coincide con
+                                                &laquo;{memberSearch.trim()}
+                                                &raquo;.
+                                            </p>
                                         ) : (
-                                            <ul className="divide-y divide-gray-100">
-                                                {sectionMembers.map(
-                                                    (member) => (
-                                                        <li
-                                                            key={member.id}
-                                                            className="py-2 flex items-center justify-between gap-3"
-                                                        >
-                                                            <span className="text-sm text-gray-800">
-                                                                {member.student
-                                                                    ?.username ??
-                                                                    "Desconocido"}
-                                                            </span>
-                                                            <div className="flex items-center gap-3 shrink-0">
-                                                                {member.approved_at && (
-                                                                    <span className="text-xs text-gray-400 whitespace-nowrap">
-                                                                        Desde{" "}
-                                                                        {new Date(
-                                                                            member.approved_at
-                                                                        ).toLocaleDateString()}
-                                                                    </span>
-                                                                )}
-                                                                {isOwner && (
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() =>
-                                                                            handleRemove(
-                                                                                member
-                                                                            )
-                                                                        }
-                                                                        disabled={
-                                                                            savingId ===
-                                                                            `enrollment-${member.id}`
-                                                                        }
-                                                                        className="text-sm font-medium text-red-600 hover:text-red-800 disabled:opacity-50"
-                                                                    >
-                                                                        Eliminar
-                                                                    </button>
-                                                                )}
-                                                            </div>
-                                                        </li>
-                                                    )
-                                                )}
-                                            </ul>
+                                            <>
+                                                <ul className="divide-y divide-gray-100">
+                                                    {visibleMembers.map(
+                                                        (member) => (
+                                                            <li
+                                                                key={member.id}
+                                                                className="py-2 flex items-center justify-between gap-3"
+                                                            >
+                                                                <span className="text-sm text-gray-800">
+                                                                    {member
+                                                                        .student
+                                                                        ?.username ??
+                                                                        "Desconocido"}
+                                                                </span>
+                                                                <div className="flex items-center gap-3 shrink-0">
+                                                                    {member.approved_at && (
+                                                                        <span className="text-xs text-gray-400 whitespace-nowrap">
+                                                                            Desde{" "}
+                                                                            {new Date(
+                                                                                member.approved_at
+                                                                            ).toLocaleDateString()}
+                                                                        </span>
+                                                                    )}
+                                                                    {isOwner && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() =>
+                                                                                handleRemove(
+                                                                                    member
+                                                                                )
+                                                                            }
+                                                                            disabled={
+                                                                                savingId ===
+                                                                                `enrollment-${member.id}`
+                                                                            }
+                                                                            className="text-sm font-medium text-red-600 hover:text-red-800 disabled:opacity-50"
+                                                                        >
+                                                                            Eliminar
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </li>
+                                                        )
+                                                    )}
+                                                </ul>
+                                                <Pager
+                                                    page={safeMemberPage}
+                                                    totalPages={
+                                                        memberTotalPages
+                                                    }
+                                                    onChange={setMemberPage}
+                                                />
+                                            </>
                                         )}
                                     </>
                                 )}
