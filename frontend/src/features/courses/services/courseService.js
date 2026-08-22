@@ -1,7 +1,7 @@
 import { api } from "@/lib/axios";
 
-export const getCourses = async () => {
-    const response = await api.get("/api/courses/");
+export const getCourses = async (params) => {
+    const response = await api.get("/api/courses/", { params });
     return response.data;
 };
 

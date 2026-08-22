@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 
+const MAX_PAGES = 50;
+
 export const useAllData = (fetcher) => {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -13,7 +15,7 @@ export const useAllData = (fetcher) => {
             const all = [];
             let page = 1;
             let hasMore = true;
-            while (hasMore) {
+            while (hasMore && page <= MAX_PAGES) {
                 const result = await fetcher({ page, page_size: 100 });
                 if (Array.isArray(result)) {
                     all.push(...result);

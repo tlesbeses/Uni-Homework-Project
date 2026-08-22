@@ -187,11 +187,7 @@ REST_FRAMEWORK = {
     },
     
     "DEFAULT_PAGINATION_CLASS":
-        "rest_framework.pagination.PageNumberPagination",
-
-    "PAGE_SIZE": 10,
-
-    "PAGE_SIZE_QUERY_PARAM": "page_size",
+        "config.pagination.DefaultPagination",
 }
 
 CORS_ALLOWED_ORIGINS = [
