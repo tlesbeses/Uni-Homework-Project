@@ -1,7 +1,7 @@
 import { api } from "@/lib/axios";
 
-export const getCourses = async () => {
-    const response = await api.get("/api/courses/");
+export const getCourses = async (params) => {
+    const response = await api.get("/api/courses/", { params });
     return response.data;
 };
 
@@ -94,5 +94,10 @@ export const approveEnrollment = async (enrollmentId) => {
 
 export const rejectEnrollment = async (enrollmentId) => {
     const response = await api.post(`/api/enrollments/${enrollmentId}/reject/`);
+    return response.data;
+};
+
+export const deleteEnrollment = async (enrollmentId) => {
+    const response = await api.delete(`/api/enrollments/${enrollmentId}/`);
     return response.data;
 };

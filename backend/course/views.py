@@ -1,3 +1,4 @@
+from django.db import transaction
 from django.db.models import Count, Exists, OuterRef, Q
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -20,6 +21,7 @@ from course.serializers import (
     SectionSerializer,
 )
 from django_filters.rest_framework import DjangoFilterBackend
+from teams.services import remove_student_from_course_teams
 from .filters import EnrollmentFilter, SectionFilter
 from .permissions import IsCourseTeacherOfSection, IsTeacher, IsStudent
 
@@ -68,8 +70,17 @@ class CourseViewSet(viewsets.ModelViewSet):
     def sections(self, request, pk=None):
         """List the sections of a course."""
         course = self.get_object()
+        queryset = course.sections.all()
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = SectionSerializer(
+                page,
+                many=True,
+                context=self.get_serializer_context(),
+            )
+            return self.get_paginated_response(serializer.data)
         serializer = SectionSerializer(
-            course.sections.all(),
+            queryset,
             many=True,
             context=self.get_serializer_context(),
         )
@@ -314,6 +325,20 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             enrollment.status = Status.APPROVED
             enrollment.save()
 
+    def perform_destroy(self, instance):
+        """Delete the enrollment and detach the student from course teams.
+
+        Only approved enrollments can have team memberships, so pending or
+        rejected ones are removed without touching teams.
+        """
+        with transaction.atomic():
+            if instance.status == Status.APPROVED:
+                remove_student_from_course_teams(
+                    student=instance.student,
+                    course=instance.section.course,
+                )
+            instance.delete()
+
     @action(detail=True, methods=["post"])
     def approve(self, request, pk=None):
         enrollment = self.get_object()
@@ -343,9 +368,17 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        enrollment.status = Status.REJECTED
-        enrollment.approved_at = None
-        enrollment.save()
+        with transaction.atomic():
+            # Revoking an approval must also detach the student from the
+            # course teams, mirroring an enrollment deletion.
+            if enrollment.status == Status.APPROVED:
+                remove_student_from_course_teams(
+                    student=enrollment.student,
+                    course=enrollment.section.course,
+                )
+            enrollment.status = Status.REJECTED
+            enrollment.approved_at = None
+            enrollment.save()
 
         serializer = EnrollmentSerializer(
             enrollment,

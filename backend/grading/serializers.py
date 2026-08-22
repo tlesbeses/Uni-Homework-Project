@@ -69,6 +69,11 @@ class GradeTeamSerializer(serializers.Serializer):
 
     team = serializers.PrimaryKeyRelatedField(queryset=Team.objects.all())
     score = serializers.DecimalField(max_digits=6, decimal_places=2)
+    # When False (default), students with individual grades keep their own
+    # score; when True, the team score replaces every member's grade.
+    overwrite_individual = serializers.BooleanField(
+        required=False, default=False
+    )
 
     def validate_score(self, score):
         assignment = self.context["assignment"]

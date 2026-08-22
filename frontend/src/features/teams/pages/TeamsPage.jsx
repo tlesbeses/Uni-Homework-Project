@@ -31,8 +31,8 @@ export const TeamsPage = () => {
                 const [coursesData, enrollmentsData, sectionsData] =
                     await Promise.all([
                         getCourses(),
-                        getEnrollments(),
-                        getSections(),
+                        getEnrollments(null, { page_size: 100 }),
+                        getSections(null, { page_size: 100 }),
                     ]);
                 if (!active) {
                     return;
