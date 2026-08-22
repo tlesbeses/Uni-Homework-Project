@@ -25,15 +25,7 @@ requests-oauthlib==2.0.0
 social-auth-app-django==5.9.0
 social-auth-core==4.9.1
 sqlparse==0.5.5
-<<<<<<< HEAD
 tzdata==2026.3
-<<<<<<< Updated upstream
-=======
 openpyxl==3.1.5
->>>>>>> Stashed changes
-=======
-tzdata==2026.7.22
-openpyxl==3.1.5
->>>>>>> 10878a6cac80f94d8639332f4108637af7c81bc2
 urllib3==2.7.0
 whitenoise==6.12.0
