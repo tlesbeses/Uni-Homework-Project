@@ -34,13 +34,21 @@ def _validate_grade_params(assignment, score, graded_by):
 
 
 @transaction.atomic
-def grade_team(*, assignment, team, score, graded_by):
+def grade_team(
+    *,
+    assignment,
+    team,
+    score,
+    graded_by,
+    overwrite_individual=False,
+):
     """Grade every active member of a team with the same score.
 
     Students without an approved enrollment in the course are skipped (and
     any grades they already have are left untouched). Individual grades
-    (``is_individual=True``) are never overwritten: the teacher must adjust
-    them explicitly through ``grade_student``. The whole operation runs in a
+    (``is_individual=True``) are preserved unless ``overwrite_individual``
+    is set, in which case the team score replaces every member's grade and
+    their grades become non-individual again. The whole operation runs in a
     single transaction to avoid partial states.
     """
     _validate_grade_params(assignment, score, graded_by)
@@ -85,7 +93,11 @@ def grade_team(*, assignment, team, score, graded_by):
         if member.student_id not in approved_member_ids:
             continue
         grade = existing.get(member.student_id)
-        if grade is not None and grade.is_individual:
+        if (
+            grade is not None
+            and grade.is_individual
+            and not overwrite_individual
+        ):
             continue
         if grade is not None:
             grade.score = score

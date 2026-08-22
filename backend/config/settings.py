@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
+import sys
 from pathlib import Path
 from datetime import timedelta
 import dj_database_url
@@ -185,10 +186,15 @@ REST_FRAMEWORK = {
         "anon": "50/minute",
         "user": "50/minute",
     },
-    
+
     "DEFAULT_PAGINATION_CLASS":
         "config.pagination.DefaultPagination",
 }
+
+# The in-memory throttle cache persists across test cases (user pks repeat
+# on every fresh test database), which makes large suites flaky with 429s.
+if "test" in sys.argv:
+    REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"] = []
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",

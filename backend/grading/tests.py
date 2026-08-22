@@ -249,6 +249,34 @@ class GradeStudentTests(GradingAPITestCase):
         self.assertEqual(group_member.score, Decimal("100.00"))
         self.assertFalse(group_member.is_individual)
 
+    def test_team_grade_can_overwrite_individual_grades_when_requested(self):
+        """The teacher can force the team score over individual grades."""
+        self.grade_team(self.assignment, self.team, "95.00", self.teacher)
+        self.grade_student(self.assignment, self.student, "80.00", self.teacher)
+
+        self.authenticate(self.teacher)
+        response = self.client.post(
+            reverse(
+                "assignment-grade-team",
+                kwargs={"assignment_id": self.assignment.id},
+            ),
+            {
+                "team": self.team.id,
+                "score": "70.00",
+                "overwrite_individual": True,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)
+        for student in (self.student, self.student2):
+            grade = Grade.objects.get(
+                assignment=self.assignment, student=student
+            )
+            self.assertEqual(grade.score, Decimal("70.00"))
+            self.assertFalse(grade.is_individual)
+
     def test_team_grades_update_when_team_is_regraded(self):
         self.grade_team(self.assignment, self.team, "95.00", self.teacher)
         self.grade_team(self.assignment, self.team, "100.00", self.teacher)

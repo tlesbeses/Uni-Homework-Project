@@ -48,6 +48,9 @@ class GradeTeamView(APIView):
             team=serializer.validated_data["team"],
             score=serializer.validated_data["score"],
             graded_by=request.user,
+            overwrite_individual=serializer.validated_data.get(
+                "overwrite_individual", False
+            ),
         )
         return Response(
             GradeSerializer(

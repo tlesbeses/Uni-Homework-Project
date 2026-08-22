@@ -1,8 +1,8 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useAllAssignments } from "@/features/assignments/hooks/useAllAssignments";
-import { getEnrollments } from "@/features/courses/services/courseService";
+import { getEnrollments, getSections } from "@/features/courses/services/courseService";
 import { useAllData } from "@/features/courses/hooks/useAllData";
 import { useCourses } from "@/features/courses/hooks/useCourses";
 import { useAssignmentGrades } from "@/features/grades/hooks/useAssignmentGrades";
@@ -52,6 +52,8 @@ export const TeacherGradingPanel = () => {
     );
     const [selectedTeamId, setSelectedTeamId] = useState(null);
     const [teamNameQuery, setTeamNameQuery] = useState("");
+    const [sectionFilter, setSectionFilter] = useState("");
+    const [overwriteIndividual, setOverwriteIndividual] = useState(false);
     const [drafts, setDrafts] = useState({});
     const [savingKey, setSavingKey] = useState(null);
 
@@ -59,6 +61,29 @@ export const TeacherGradingPanel = () => {
         (item) => String(item.id) === String(selectedAssignmentId)
     );
     const courseId = selectedAssignment?.course?.id ?? null;
+
+    const [sections, setSections] = useState([]);
+    useEffect(() => {
+        if (!courseId) {
+            setSections([]);
+            return;
+        }
+        let active = true;
+        getSections(courseId, { page_size: 100 })
+            .then((data) => {
+                if (active) {
+                    setSections(data?.results ?? data ?? []);
+                }
+            })
+            .catch(() => {
+                if (active) {
+                    setSections([]);
+                }
+            });
+        return () => {
+            active = false;
+        };
+    }, [courseId]);
 
     const filteredAssignments = courseFilter
         ? assignments.filter(
@@ -71,9 +96,13 @@ export const TeacherGradingPanel = () => {
         useCallback(
             (params) =>
                 courseId
-                    ? getTeams({ course: courseId, ...params })
+                    ? getTeams({
+                          course: courseId,
+                          section: sectionFilter || undefined,
+                          ...params,
+                      })
                     : Promise.resolve([]),
-            [courseId]
+            [courseId, sectionFilter]
         )
     );
 
@@ -100,7 +129,10 @@ export const TeacherGradingPanel = () => {
         )
     );
     const unteamedStudents = students.filter(
-        (enrollment) => !teamedIds.has(String(enrollment.student.id))
+        (enrollment) =>
+            !teamedIds.has(String(enrollment.student.id)) &&
+            (!sectionFilter ||
+                String(enrollment.section?.id) === String(sectionFilter))
     );
 
     const { grades, loading: gradesLoading, reload: reloadGrades } =
@@ -118,6 +150,7 @@ export const TeacherGradingPanel = () => {
 
     const getTeamGrade = useCallback(
         (team) => {
+            // 1. An applied team note: members share a non-individual grade.
             for (const member of team.members ?? []) {
                 const grade = gradesByStudentId.get(
                     String(member.student?.id)
@@ -125,6 +158,12 @@ export const TeacherGradingPanel = () => {
                 if (grade && !grade.is_individual) {
                     return Number(grade.score);
                 }
+            }
+            // 2. Without a team note, the leader's individual grade stands
+            //    for the team (this also covers single-member teams).
+            const leaderGrade = gradesByStudentId.get(String(team.leader?.id));
+            if (leaderGrade) {
+                return Number(leaderGrade.score);
             }
             return null;
         },
@@ -177,6 +216,7 @@ export const TeacherGradingPanel = () => {
         setCourseFilter(e.target.value);
         setSelectedAssignmentId("");
         setSelectedTeamId(null);
+        setSectionFilter("");
         setDrafts({});
     };
 
@@ -186,10 +226,10 @@ export const TeacherGradingPanel = () => {
         setDrafts({});
     };
 
-    const handleSelectTeam = (teamId) =>
-        setSelectedTeamId((current) =>
-            String(current) === String(teamId) ? null : teamId
-        );
+    const handleSelectTeam = (teamId) => {
+        setSelectedTeamId(teamId);
+        setOverwriteIndividual(false);
+    };
 
     const handleSaveTeamNote = async (team) => {
         const key = teamDraftKey(team.id);
@@ -197,11 +237,38 @@ export const TeacherGradingPanel = () => {
         if (!selectedAssignmentId || !team?.id || !raw) {
             return;
         }
+        const membersList = team.members ?? [];
+        const individualCount = membersList.filter((member) =>
+            isIndividual(member.student?.id)
+        ).length;
+
+        if (!overwriteIndividual && individualCount === membersList.length) {
+            toast.info(
+                "Todos los integrantes tienen nota individual. Marca la casilla para sobrescribirlos con la nota del equipo."
+            );
+            return;
+        }
+
         setSavingKey(key);
         try {
-            await gradeTeam(selectedAssignmentId, team.id, raw);
-            toast.success(`Nota aplicada al ${team.name}`);
+            await gradeTeam(selectedAssignmentId, team.id, raw, {
+                overwrite_individual: overwriteIndividual,
+            });
+            if (overwriteIndividual) {
+                toast.success(
+                    `Nota aplicada a todo el ${team.name} (incluidas las notas individuales)`
+                );
+            } else if (individualCount > 0) {
+                toast.success(
+                    `Nota aplicada a ${membersList.length - individualCount} de ${
+                        membersList.length
+                    } integrantes; ${individualCount} conservaron su nota individual`
+                );
+            } else {
+                toast.success(`Nota aplicada al ${team.name}`);
+            }
             clearDraft(key);
+            setOverwriteIndividual(false);
             await reloadGrades();
         } catch (err) {
             toast.error(getErrorMessage(err));
@@ -382,6 +449,33 @@ export const TeacherGradingPanel = () => {
                             className="w-full px-3 py-2 rounded-lg border outline-none transition text-sm text-gray-700 border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                         />
 
+                        {sections.length > 0 && (
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1.5">
+                                    Grupo de clase
+                                </label>
+                                <select
+                                    value={sectionFilter}
+                                    onChange={(e) =>
+                                        setSectionFilter(e.target.value)
+                                    }
+                                    className="w-full px-3 py-2 rounded-lg border outline-none transition text-sm text-gray-700 border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                >
+                                    <option value="">
+                                        Todos los grupos
+                                    </option>
+                                    {sections.map((section) => (
+                                        <option
+                                            key={section.id}
+                                            value={section.id}
+                                        >
+                                            {section.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
                         {teamsLoading ? (
                             <p className="text-sm text-gray-500">
                                 Cargando equipos...
@@ -507,6 +601,27 @@ export const TeacherGradingPanel = () => {
                                                     )
                                             )}
                                         </ul>
+                                    )}
+
+                                    {(selectedTeam.members ?? []).some(
+                                        (member) =>
+                                            isIndividual(member.student?.id)
+                                    ) && (
+                                        <label className="mt-4 flex items-center gap-2.5 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 cursor-pointer select-none">
+                                            <input
+                                                type="checkbox"
+                                                checked={overwriteIndividual}
+                                                onChange={(e) =>
+                                                    setOverwriteIndividual(
+                                                        e.target.checked
+                                                    )
+                                                }
+                                                className="accent-indigo-600 w-4 h-4"
+                                            />
+                                            Sobrescribir también las notas
+                                            individuales al aplicar la nota del
+                                            equipo
+                                        </label>
                                     )}
 
                                     <form

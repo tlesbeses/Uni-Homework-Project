@@ -5,10 +5,10 @@ export const getGrades = async (params) => {
     return response.data;
 };
 
-export const gradeTeam = async (assignmentId, teamId, score) => {
+export const gradeTeam = async (assignmentId, teamId, score, extra = {}) => {
     const response = await api.post(
         `/api/assignments/${assignmentId}/grade-team/`,
-        { team: teamId, score }
+        { team: teamId, score, ...extra }
     );
     return response.data;
 };

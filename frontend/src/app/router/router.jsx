@@ -84,10 +84,11 @@ export const router = createBrowserRouter([
         path: "/teams/:id",
         element: <TeamDetailPage />,
       },
-      {
-        path: "/assignments",
-        element: <AssignmentsPage />,
-      },
+      //future features its comented because the assignments page is not developed yet,
+      // {
+      //   path: "/assignments",
+      //   element: <AssignmentsPage />,
+      // },
       {
         path: "/grades",
         element: <GradesPage />,
