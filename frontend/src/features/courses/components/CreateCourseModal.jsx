@@ -39,6 +39,15 @@ export const CreateCourseModal = ({ open, onClose, onCreated }) => {
                         placeholder="Matemáticas I"
                     />
 
+                    <InputField
+                        label="Sección inicial"
+                        name="section_name"
+                        register={register}
+                        error={errors.section_name?.message}
+                        placeholder="1TS1"
+                        helpText="El curso se creará con esta sección por defecto."
+                    />
+
                     <div>
                         <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
                             Descripción

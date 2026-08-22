@@ -1,4 +1,4 @@
-export const InputField = ({ label, name, type = "text", placeholder, register, error }) => (
+export const InputField = ({ label, name, type = "text", placeholder, register, error, helpText }) => (
     <div>
         {label && (
             <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
@@ -14,6 +14,9 @@ export const InputField = ({ label, name, type = "text", placeholder, register, 
                 : "border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 }`}
         />
+        {helpText && !error && (
+            <p className="text-gray-500 text-xs mt-1">{helpText}</p>
+        )}
         {error && (
             <p className="text-red-500 text-xs mt-1">{error}</p>
         )}

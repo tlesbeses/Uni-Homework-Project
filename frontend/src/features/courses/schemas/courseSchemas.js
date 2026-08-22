@@ -2,6 +2,11 @@ import { z } from "zod";
 
 export const createCourseSchema = z.object({
     title: z.string().min(3, "El título debe tener al menos 3 caracteres"),
+    section_name: z
+        .string()
+        .trim()
+        .min(1, "Agrega una sección inicial")
+        .max(100, "El nombre de la sección es demasiado largo"),
     description: z.string().max(2000, "La descripción es demasiado larga").optional(),
     visibility: z.enum(["PRIVATE", "PUBLIC"], {
         message: "Selecciona una visibilidad válida",

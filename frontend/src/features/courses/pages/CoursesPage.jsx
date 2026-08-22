@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useAuth } from "@/features/auth/providers/AuthProvider";
 import { usePaginatedCourses } from "@/features/courses/hooks/usePaginatedCourses";
@@ -12,6 +13,7 @@ import { Pager } from "@/shared/components/Pager";
 
 export const CoursesPage = () => {
     const { isTeacher, isStudent } = useAuth();
+    const navigate = useNavigate();
     const {
         courses,
         page,
@@ -98,9 +100,12 @@ export const CoursesPage = () => {
             <CreateCourseModal
                 open={isCreateOpen}
                 onClose={() => setIsCreateOpen(false)}
-                onCreated={async () => {
+                onCreated={async (createdCourse) => {
                     await reload();
                     setIsCreateOpen(false);
+                    if (createdCourse?.id) {
+                        navigate(`/courses/${createdCourse.id}`);
+                    }
                 }}
             />
 
