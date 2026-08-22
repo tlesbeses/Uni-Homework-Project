@@ -183,6 +183,37 @@ class GradeTeamTests(GradingAPITestCase):
             2,
         )
 
+    def test_grade_team_skips_members_without_approved_enrollment(self):
+        """A removed student keeps out of team re-grading (ghost member)."""
+        Enrollment.objects.filter(
+            student=self.student2, section__course=self.course
+        ).delete()
+
+        response = self.grade_team(self.assignment, self.team, "95.00", self.teacher)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertTrue(
+            Grade.objects.filter(
+                assignment=self.assignment,
+                student=self.student,
+                score=Decimal("95.00"),
+            ).exists()
+        )
+        self.assertFalse(
+            Grade.objects.filter(
+                assignment=self.assignment, student=self.student2
+            ).exists()
+        )
+
+    def test_team_without_active_members_cannot_be_graded(self):
+        Enrollment.objects.filter(section__course=self.course).delete()
+
+        response = self.grade_team(self.assignment, self.team, "95.00", self.teacher)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(Grade.objects.count(), 0)
+
 
 class GradeStudentTests(GradingAPITestCase):
     def test_teacher_can_grade_a_student_individually(self):
@@ -217,6 +248,34 @@ class GradeStudentTests(GradingAPITestCase):
         self.assertTrue(individual.is_individual)
         self.assertEqual(group_member.score, Decimal("100.00"))
         self.assertFalse(group_member.is_individual)
+
+    def test_team_grade_can_overwrite_individual_grades_when_requested(self):
+        """The teacher can force the team score over individual grades."""
+        self.grade_team(self.assignment, self.team, "95.00", self.teacher)
+        self.grade_student(self.assignment, self.student, "80.00", self.teacher)
+
+        self.authenticate(self.teacher)
+        response = self.client.post(
+            reverse(
+                "assignment-grade-team",
+                kwargs={"assignment_id": self.assignment.id},
+            ),
+            {
+                "team": self.team.id,
+                "score": "70.00",
+                "overwrite_individual": True,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)
+        for student in (self.student, self.student2):
+            grade = Grade.objects.get(
+                assignment=self.assignment, student=student
+            )
+            self.assertEqual(grade.score, Decimal("70.00"))
+            self.assertFalse(grade.is_individual)
 
     def test_team_grades_update_when_team_is_regraded(self):
         self.grade_team(self.assignment, self.team, "95.00", self.teacher)
@@ -282,6 +341,32 @@ class GradeAccessTests(GradingAPITestCase):
             response.data["results"][0]["assignment"]["course"]["id"],
             self.course.id,
         )
+
+    def test_student_loses_access_to_grades_after_enrollment_removal(self):
+        """Grades are preserved but hidden from the removed student."""
+        self.grade_student(self.assignment, self.student, "90.00", self.teacher)
+
+        Enrollment.objects.filter(
+            student=self.student, section__course=self.course
+        ).delete()
+
+        self.authenticate(self.student)
+        student_response = self.client.get(reverse("grade-list"))
+        detail = Grade.objects.get(assignment=self.assignment, student=self.student)
+        detail_response = self.client.get(
+            reverse("grade-detail", args=[detail.id])
+        )
+
+        self.assertEqual(student_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(student_response.data["count"], 0)
+        self.assertEqual(detail_response.status_code, status.HTTP_404_NOT_FOUND)
+
+        # The teacher keeps the historical record of their course.
+        self.authenticate(self.teacher)
+        teacher_response = self.client.get(reverse("grade-list"))
+
+        self.assertEqual(teacher_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(teacher_response.data["count"], 1)
 
 
 class GradeValidationTests(GradingAPITestCase):

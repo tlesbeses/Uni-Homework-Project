@@ -24,9 +24,12 @@ export function Navbar() {
             <Link to="/courses" className="hover:text-indigo-200 transition">
               Cursos
             </Link>
-            <Link to="/assignments" className="hover:text-indigo-200 transition">
+            {
+              //future features
+              /* <Link to="/assignments" className="hover:text-indigo-200 transition">
               Asignaciones
-            </Link>
+            </Link> */
+            }
             <Link to="/grades" className="hover:text-indigo-200 transition">
               Calificaciones
             </Link>

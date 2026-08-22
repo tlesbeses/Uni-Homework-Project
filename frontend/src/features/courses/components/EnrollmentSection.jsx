@@ -30,7 +30,7 @@ export const EnrollmentSection = ({
             return;
         }
         let active = true;
-        getSections(courseId)
+        getSections(courseId, { page_size: 100 })
             .then((data) => {
                 if (!active) {
                     return;

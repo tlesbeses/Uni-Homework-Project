@@ -205,7 +205,9 @@ class SectionTests(BaseCourseTestCase):
         self.client.force_authenticate(self.student)
         response = self.client.get(f"/api/courses/{self.course.id}/sections/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 2)
+        self.assertEqual(response.data["count"], 2)
+        names = {item["name"] for item in response.data["results"]}
+        self.assertEqual(names, {"1TS1", "2TS2"})
 
 
 class EnrollmentTests(BaseCourseTestCase):

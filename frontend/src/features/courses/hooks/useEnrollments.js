@@ -12,7 +12,7 @@ export const useEnrollments = (courseId) => {
     const [updatingEnrollmentId, setUpdatingEnrollmentId] = useState(null);
 
     const fetchEnrollments = useCallback(async () => {
-        const data = await getEnrollments(courseId);
+        const data = await getEnrollments(courseId, { page_size: 100 });
         return Array.isArray(data.results) ? data.results : Array.isArray(data) ? data : [];
     }, [courseId]);
 

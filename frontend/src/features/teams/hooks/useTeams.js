@@ -11,7 +11,7 @@ export const useTeams = () => {
         setLoading(true);
         setError("");
         try {
-            const data = await getTeams();
+            const data = await getTeams({ page_size: 100 });
             setTeams(Array.isArray(data.results) ? data.results : Array.isArray(data) ? data : []);
         } catch (err) {
             setError(getErrorMessage(err));
