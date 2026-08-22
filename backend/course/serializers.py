@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from rest_framework import serializers
 
 from course.models import Course, CourseSettings, Enrollment, Section
@@ -23,6 +24,14 @@ class CourseSerializer(serializers.ModelSerializer):
     teacher = UserBriefSerializer(read_only=True)
     settings = CourseSettingsSerializer(read_only=True)
     enrollments_count = serializers.IntegerField(read_only=True)
+    section_name = serializers.CharField(
+        write_only=True,
+        max_length=100,
+        help_text=(
+            "Name of the initial section created along with the course "
+            "so it always has at least one."
+        ),
+    )
 
     class Meta:
         model = Course
@@ -36,10 +45,33 @@ class CourseSerializer(serializers.ModelSerializer):
             "is_active",
             "enrollments_count",
             "settings",
+            "section_name",
             "created_at",
             "updated_at",
         ]
         read_only_fields = ["id", "join_code", "created_at", "updated_at"]
+
+    def get_fields(self):
+        fields = super().get_fields()
+        if self.instance is not None:
+            # The initial section only applies on creation.
+            fields["section_name"].read_only = True
+        return fields
+
+    def validate_section_name(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError(
+                "The section name is required."
+            )
+        return value
+
+    def create(self, validated_data):
+        section_name = validated_data.pop("section_name")
+        with transaction.atomic():
+            course = super().create(validated_data)
+            Section.objects.create(course=course, name=section_name)
+        return course
 
 
 class SectionBriefSerializer(serializers.ModelSerializer):

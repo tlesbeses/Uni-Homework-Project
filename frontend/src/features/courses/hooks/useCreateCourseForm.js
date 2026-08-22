@@ -15,6 +15,7 @@ export const useCreateCourseForm = ({ onSuccess } = {}) => {
         resolver: zodResolver(createCourseSchema),
         defaultValues: {
             title: "",
+            section_name: "",
             description: "",
             visibility: "PRIVATE",
         },
