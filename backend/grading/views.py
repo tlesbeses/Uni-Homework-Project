@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from assignments.models import Assignment
+from course.models import Status
 from grading.models import Grade
 from grading.permissions import IsCourseTeacherOfAssignment
 from grading.serializers import (
@@ -85,9 +86,11 @@ class GradeStudentView(APIView):
 class GradeViewSet(viewsets.ReadOnlyModelViewSet):
     """Read-only access to grades, scoped by the requesting user.
 
-    Students only ever see their own grades; teachers only see grades of
-    assignments that belong to their own courses. Grades are created through
-    the ``grade-team``/``grade-student`` endpoints, never through this viewset.
+    Students only ever see their own grades, and only while they keep an
+    approved enrollment in the course (removing them hides historical
+    grades from the API). Teachers only see grades of assignments that
+    belong to their own courses. Grades are created through the
+    ``grade-team``/``grade-student`` endpoints, never through this viewset.
     """
 
     serializer_class = GradeSerializer
@@ -112,4 +115,11 @@ class GradeViewSet(viewsets.ReadOnlyModelViewSet):
             return queryset
         if user.groups.filter(name="Teacher").exists():
             return queryset.filter(assignment__course__teacher=user)
-        return queryset.filter(student=user)
+        return (
+            queryset.filter(
+                student=user,
+                assignment__course__sections__enrollments__student=user,
+                assignment__course__sections__enrollments__status=Status.APPROVED,
+            )
+            .distinct()
+        )

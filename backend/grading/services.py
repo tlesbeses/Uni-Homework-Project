@@ -35,11 +35,13 @@ def _validate_grade_params(assignment, score, graded_by):
 
 @transaction.atomic
 def grade_team(*, assignment, team, score, graded_by):
-    """Grade every member of a team with the same score.
+    """Grade every active member of a team with the same score.
 
-    Individual grades (``is_individual=True``) are never overwritten: the
-    teacher must adjust them explicitly through ``grade_student``. The whole
-    operation runs in a single transaction to avoid partial states.
+    Students without an approved enrollment in the course are skipped (and
+    any grades they already have are left untouched). Individual grades
+    (``is_individual=True``) are never overwritten: the teacher must adjust
+    them explicitly through ``grade_student``. The whole operation runs in a
+    single transaction to avoid partial states.
     """
     _validate_grade_params(assignment, score, graded_by)
 
@@ -53,6 +55,22 @@ def grade_team(*, assignment, team, score, graded_by):
         raise ValidationError({"team": "The team has no members to grade."})
 
     member_ids = [member.student_id for member in members]
+    approved_member_ids = set(
+        Enrollment.objects.filter(
+            section__course_id=assignment.course_id,
+            status=Status.APPROVED,
+            student_id__in=member_ids,
+        ).values_list("student_id", flat=True)
+    )
+    if not approved_member_ids:
+        raise ValidationError(
+            {
+                "team": (
+                    "The team has no members with an approved enrollment "
+                    "in this course."
+                )
+            }
+        )
     existing = {
         grade.student_id: grade
         for grade in Grade.objects.filter(
@@ -64,6 +82,8 @@ def grade_team(*, assignment, team, score, graded_by):
     now = timezone.now()
     grades_to_create = []
     for member in members:
+        if member.student_id not in approved_member_ids:
+            continue
         grade = existing.get(member.student_id)
         if grade is not None and grade.is_individual:
             continue
@@ -92,7 +112,10 @@ def grade_team(*, assignment, team, score, graded_by):
         Grade.objects.bulk_create(grades_to_create)
 
     return (
-        Grade.objects.filter(assignment=assignment, student_id__in=member_ids)
+        Grade.objects.filter(
+            assignment=assignment,
+            student_id__in=approved_member_ids,
+        )
         .select_related("assignment__course", "student", "graded_by")
         .order_by("student__username")
     )
