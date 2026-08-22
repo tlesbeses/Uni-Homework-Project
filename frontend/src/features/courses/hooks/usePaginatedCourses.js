@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { getCourses } from "@/features/courses/services/courseService";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 9;
 
 export const usePaginatedCourses = () => {
     const [courses, setCourses] = useState([]);
@@ -17,7 +17,10 @@ export const usePaginatedCourses = () => {
         setLoading(true);
         setError("");
         try {
-            const data = await getCourses({ page: targetPage });
+            const data = await getCourses({
+                page: targetPage,
+                page_size: PAGE_SIZE,
+            });
             const items = Array.isArray(data.results)
                 ? data.results
                 : Array.isArray(data)

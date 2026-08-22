@@ -68,8 +68,17 @@ class CourseViewSet(viewsets.ModelViewSet):
     def sections(self, request, pk=None):
         """List the sections of a course."""
         course = self.get_object()
+        queryset = course.sections.all()
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = SectionSerializer(
+                page,
+                many=True,
+                context=self.get_serializer_context(),
+            )
+            return self.get_paginated_response(serializer.data)
         serializer = SectionSerializer(
-            course.sections.all(),
+            queryset,
             many=True,
             context=self.get_serializer_context(),
         )

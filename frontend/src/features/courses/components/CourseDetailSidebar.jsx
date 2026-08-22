@@ -34,7 +34,7 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse }) => {
     const loadSections = useCallback(async () => {
         setLoadingSections(true);
         try {
-            const data = await getSections(courseId);
+            const data = await getSections(courseId, { page_size: 100 });
             const list = Array.isArray(data.results)
                 ? data.results
                 : Array.isArray(data)
