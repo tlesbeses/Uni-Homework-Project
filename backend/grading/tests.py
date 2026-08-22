@@ -4,11 +4,13 @@ Covers the 16 core business rules of the grading module.
 """
 
 from decimal import Decimal
+from io import BytesIO
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.db import IntegrityError
 from django.urls import reverse
+from openpyxl import load_workbook
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -451,3 +453,86 @@ class GradeValidationTests(GradingAPITestCase):
                 score="90.00",
                 graded_by=self.teacher,
             )
+
+
+class SectionGradesExportTests(GradingAPITestCase):
+    """GET /api/sections/{id}/export-grades/ (Excel workbook download)."""
+
+    def setUp(self):
+        super().setUp()
+        self.section = self.get_section(self.course)
+        self.ungraded_student = self.create_user("ungraded_student")
+        self.enroll(self.ungraded_student, self.course)
+
+    def export_url(self) -> str:
+        return reverse(
+            "section-export-grades", kwargs={"pk": self.section.id}
+        )
+
+    def test_teacher_downloads_workbook_with_expected_layout(self):
+        self.grade_team(self.assignment, self.team, "95.00", self.teacher)
+        self.grade_student(self.assignment, self.student2, "80.00", self.teacher)
+        Assignment.objects.create(
+            course=self.course,
+            title="Draft homework",
+            max_score="50.00",
+            is_published=False,
+        )
+        self.enroll(self.unapproved_student, self.course)
+        Enrollment.objects.filter(student=self.unapproved_student).update(
+            status=Status.PENDING
+        )
+
+        self.authenticate(self.teacher)
+        response = self.client.get(self.export_url())
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response["Content-Type"],
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        self.assertIn("attachment", response["Content-Disposition"])
+
+        workbook = load_workbook(BytesIO(response.content))
+        sheet = workbook.active
+        self.assertEqual(sheet["A1"].value, "Curso:")
+        self.assertEqual(sheet["B1"].value, "Math 101")
+        self.assertEqual(sheet["A2"].value, "Grupo:")
+        self.assertEqual(sheet["B2"].value, "Default")
+        self.assertEqual(
+            [cell.value for cell in sheet[4]],
+            ["Estudiante", "Homework 1", "Total"],
+        )
+        rows = {row[0].value: row for row in sheet.iter_rows(min_row=5)}
+        student_row = rows[self.student.username]
+        student2_row = rows[self.student2.username]
+        self.assertEqual(student_row[1].value, 95.0)
+        self.assertEqual(student_row[2].value, 95.0)
+        self.assertEqual(student2_row[1].value, 80.0)
+        self.assertEqual(student2_row[2].value, 80.0)
+        self.assertNotIn(self.unapproved_student.username, rows)
+
+    def test_total_sums_only_existing_grades(self):
+        self.grade_team(self.assignment, self.team, "95.00", self.teacher)
+
+        self.authenticate(self.teacher)
+        response = self.client.get(self.export_url())
+
+        workbook = load_workbook(BytesIO(response.content))
+        sheet = workbook.active
+        rows = {row[0].value: row for row in sheet.iter_rows(min_row=5)}
+        ungraded_row = rows[self.ungraded_student.username]
+        self.assertIsNone(ungraded_row[1].value)
+        self.assertEqual(ungraded_row[2].value, 0)
+
+    def test_other_teacher_cannot_export(self):
+        self.authenticate(self.other_teacher)
+        response = self.client.get(self.export_url())
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_student_cannot_export(self):
+        self.authenticate(self.student)
+        response = self.client.get(self.export_url())
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

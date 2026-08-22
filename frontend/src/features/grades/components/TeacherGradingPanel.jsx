@@ -7,10 +7,12 @@ import { useAllData } from "@/features/courses/hooks/useAllData";
 import { useCourses } from "@/features/courses/hooks/useCourses";
 import { useAssignmentGrades } from "@/features/grades/hooks/useAssignmentGrades";
 import {
+    exportSectionGrades,
     gradeStudent,
     gradeTeam,
 } from "@/features/grades/services/gradeService";
 import { getTeams } from "@/features/teams/services/teamService";
+import { downloadBlob } from "@/shared/utils/downloadBlob";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 
 const DOT_COLORS = [
@@ -56,6 +58,7 @@ export const TeacherGradingPanel = () => {
     const [overwriteIndividual, setOverwriteIndividual] = useState(false);
     const [drafts, setDrafts] = useState({});
     const [savingKey, setSavingKey] = useState(null);
+    const [exporting, setExporting] = useState(false);
 
     const selectedAssignment = assignments.find(
         (item) => String(item.id) === String(selectedAssignmentId)
@@ -229,6 +232,32 @@ export const TeacherGradingPanel = () => {
     const handleSelectTeam = (teamId) => {
         setSelectedTeamId(teamId);
         setOverwriteIndividual(false);
+    };
+
+    const handleExportExcel = async () => {
+        if (!sectionFilter) {
+            toast.info(
+                "Selecciona un grupo de clase para exportar sus notas."
+            );
+            return;
+        }
+        setExporting(true);
+        try {
+            const blob = await exportSectionGrades(sectionFilter);
+            const section = sections.find(
+                (item) => String(item.id) === String(sectionFilter)
+            );
+            const course = courses.find((item) => item.id === courseId);
+            downloadBlob(
+                blob,
+                `notas_${course?.title ?? "curso"}_${section?.name ?? "grupo"}.xlsx`
+            );
+            toast.success("Notas exportadas a Excel.");
+        } catch (error) {
+            toast.error(getErrorMessage(error));
+        } finally {
+            setExporting(false);
+        }
     };
 
     const handleSaveTeamNote = async (team) => {
@@ -473,6 +502,16 @@ export const TeacherGradingPanel = () => {
                                         </option>
                                     ))}
                                 </select>
+                                <button
+                                    type="button"
+                                    onClick={handleExportExcel}
+                                    disabled={!sectionFilter || exporting}
+                                    className="mt-2 w-full px-3 py-2 rounded-lg border border-emerald-200 bg-emerald-50 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {exporting
+                                        ? "Exportando..."
+                                        : "⬇ Exportar Excel"}
+                                </button>
                             </div>
                         )}
 
