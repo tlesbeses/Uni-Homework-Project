@@ -43,7 +43,12 @@ class AssignmentBriefSerializer(serializers.ModelSerializer):
 
 
 class GradeSerializer(serializers.ModelSerializer):
-    """Read-only representation of a Grade."""
+    """Read-only representation of a Grade.
+
+    ``is_individual`` (whether the grade came from an individual override or
+    from a team-wide score) is only exposed to teachers; students see their
+    scores without that detail.
+    """
 
     assignment = AssignmentBriefSerializer(read_only=True)
     student = UserBriefSerializer(read_only=True)
@@ -62,6 +67,12 @@ class GradeSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = fields
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if not self.context.get("show_grade_origin"):
+            data.pop("is_individual", None)
+        return data
 
 
 class GradeTeamSerializer(serializers.Serializer):

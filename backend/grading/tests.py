@@ -342,6 +342,26 @@ class GradeAccessTests(GradingAPITestCase):
             self.course.id,
         )
 
+    def test_students_do_not_see_grade_origin_but_teachers_do(self):
+        """``is_individual`` is teacher-only data."""
+        self.grade_team(self.assignment, self.team, "95.00", self.teacher)
+        self.grade_student(self.assignment, self.student, "80.00", self.teacher)
+
+        self.authenticate(self.student)
+        student_response = self.client.get(reverse("grade-list"))
+
+        self.assertEqual(student_response.status_code, status.HTTP_200_OK)
+        self.assertGreater(student_response.data["count"], 0)
+        for item in student_response.data["results"]:
+            self.assertNotIn("is_individual", item)
+
+        self.authenticate(self.teacher)
+        teacher_response = self.client.get(reverse("grade-list"))
+
+        self.assertEqual(teacher_response.status_code, status.HTTP_200_OK)
+        for item in teacher_response.data["results"]:
+            self.assertIn("is_individual", item)
+
     def test_student_loses_access_to_grades_after_enrollment_removal(self):
         """Grades are preserved but hidden from the removed student."""
         self.grade_student(self.assignment, self.student, "90.00", self.teacher)

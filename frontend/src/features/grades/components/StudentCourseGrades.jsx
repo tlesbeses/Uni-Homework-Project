@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { GradeOriginBadge } from "@/features/grades/components/GradeOriginBadge";
 import { useGrades } from "@/features/grades/hooks/useGrades";
 
 const formatPoints = (value) => String(Number(value.toFixed(2)));
@@ -12,12 +11,9 @@ const formatGradedBy = (gradedBy) =>
 const GradeRow = ({ grade }) => (
     <li className="py-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2 mt-0.5">
-                <p className="text-sm font-medium text-gray-800">
-                    {grade.assignment.title}
-                </p>
-                <GradeOriginBadge isIndividual={grade.is_individual} />
-            </div>
+            <p className="text-sm font-medium text-gray-800 mt-0.5">
+                {grade.assignment.title}
+            </p>
             <p className="text-xs text-gray-500 mt-1">
                 Calificada por: {formatGradedBy(grade.graded_by)}
             </p>
