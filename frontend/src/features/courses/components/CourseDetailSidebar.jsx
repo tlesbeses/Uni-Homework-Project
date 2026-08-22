@@ -4,6 +4,7 @@ import { useEnrollments } from "@/features/courses/hooks/useEnrollments";
 import {
     approveEnrollment,
     createSection,
+    deleteEnrollment,
     deleteSection,
     getSections,
     rejectEnrollment,
@@ -97,6 +98,28 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse }) => {
         },
         [reloadEnrollments, reloadCourse]
     );
+
+    const handleRemove = async (enrollment) => {
+        if (
+            !window.confirm(
+                `¿Eliminar la inscripción de ${
+                    enrollment.student?.username ?? "este estudiante"
+                }?`
+            )
+        ) {
+            return;
+        }
+        setSavingId(`enrollment-${enrollment.id}`);
+        try {
+            await deleteEnrollment(enrollment.id);
+            toast.success("Inscripción eliminada");
+            await Promise.all([reloadEnrollments(), reloadCourse()]);
+        } catch (err) {
+            toast.error(getErrorMessage(err));
+        } finally {
+            setSavingId(null);
+        }
+    };
 
     const selectSection = (sectionId) => {
         setSelectedSectionId(sectionId);
@@ -225,17 +248,23 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse }) => {
                                 updatingEnrollmentId === enrollment.id;
 
                             return (
-                                <li key={enrollment.id} className="py-3">
-                                    <p className="text-sm font-medium text-gray-800">
-                                        {enrollment.student?.username ??
-                                            "Desconocido"}
-                                    </p>
-                                    {enrollment.section?.name && (
-                                        <p className="text-xs text-gray-500">
-                                            Sección: {enrollment.section.name}
+                                <li
+                                    key={enrollment.id}
+                                    className="py-3 flex items-center justify-between gap-3"
+                                >
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-medium text-gray-800">
+                                            {enrollment.student?.username ??
+                                                "Desconocido"}
                                         </p>
-                                    )}
-                                    <div className="flex items-center gap-2 mt-2">
+                                        {enrollment.section?.name && (
+                                            <p className="text-xs text-gray-500">
+                                                Sección:{" "}
+                                                {enrollment.section.name}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0">
                                         <button
                                             type="button"
                                             onClick={() =>
@@ -262,6 +291,18 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse }) => {
                                                 className="px-3 py-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition disabled:opacity-50"
                                             >
                                                 Rechazar
+                                            </button>
+                                        )}
+                                        {requestsView === "REJECTED" && (
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    handleRemove(enrollment)
+                                                }
+                                                disabled={busy}
+                                                className="px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition disabled:opacity-50"
+                                            >
+                                                Eliminar
                                             </button>
                                         )}
                                     </div>
@@ -410,14 +451,33 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse }) => {
                                                                     ?.username ??
                                                                     "Desconocido"}
                                                             </span>
-                                                            {member.approved_at && (
-                                                                <span className="text-xs text-gray-400 whitespace-nowrap">
-                                                                    Desde{" "}
-                                                                    {new Date(
-                                                                        member.approved_at
-                                                                    ).toLocaleDateString()}
-                                                                </span>
-                                                            )}
+                                                            <div className="flex items-center gap-3 shrink-0">
+                                                                {member.approved_at && (
+                                                                    <span className="text-xs text-gray-400 whitespace-nowrap">
+                                                                        Desde{" "}
+                                                                        {new Date(
+                                                                            member.approved_at
+                                                                        ).toLocaleDateString()}
+                                                                    </span>
+                                                                )}
+                                                                {isOwner && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() =>
+                                                                            handleRemove(
+                                                                                member
+                                                                            )
+                                                                        }
+                                                                        disabled={
+                                                                            savingId ===
+                                                                            `enrollment-${member.id}`
+                                                                        }
+                                                                        className="text-sm font-medium text-red-600 hover:text-red-800 disabled:opacity-50"
+                                                                    >
+                                                                        Eliminar
+                                                                    </button>
+                                                                )}
+                                                            </div>
                                                         </li>
                                                     )
                                                 )}

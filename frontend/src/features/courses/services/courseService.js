@@ -96,3 +96,8 @@ export const rejectEnrollment = async (enrollmentId) => {
     const response = await api.post(`/api/enrollments/${enrollmentId}/reject/`);
     return response.data;
 };
+
+export const deleteEnrollment = async (enrollmentId) => {
+    const response = await api.delete(`/api/enrollments/${enrollmentId}/`);
+    return response.data;
+};
