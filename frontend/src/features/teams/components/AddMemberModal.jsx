@@ -1,9 +1,44 @@
+import { useEffect, useState } from "react";
 import { useAddMemberForm } from "@/features/teams/hooks/useAddMemberForm";
+import { getAvailableStudents } from "@/features/teams/services/teamService";
 import { formatUser } from "@/features/teams/utils/formatUser";
 
-export const AddMemberModal = ({ team, enrollments, open, onClose, onAdded }) => {
+const toList = (data) =>
+    Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
+
+export const AddMemberModal = ({ team, open, onClose, onAdded }) => {
     const { register, handleSubmit, errors, isSubmitting, onSubmit } =
         useAddMemberForm({ teamId: team?.id, onSuccess: onAdded });
+    const [enrollments, setEnrollments] = useState([]);
+    const [loadingCandidates, setLoadingCandidates] = useState(false);
+
+    useEffect(() => {
+        if (!open || !team?.id) {
+            return;
+        }
+        let active = true;
+        setLoadingCandidates(true);
+        setEnrollments([]);
+        getAvailableStudents(team.id)
+            .then((data) => {
+                if (active) {
+                    setEnrollments(toList(data));
+                }
+            })
+            .catch(() => {
+                if (active) {
+                    setEnrollments([]);
+                }
+            })
+            .finally(() => {
+                if (active) {
+                    setLoadingCandidates(false);
+                }
+            });
+        return () => {
+            active = false;
+        };
+    }, [open, team?.id]);
 
     if (!open || !team) {
         return null;
@@ -61,7 +96,12 @@ export const AddMemberModal = ({ team, enrollments, open, onClose, onAdded }) =>
                                 {errors.student_id.message}
                             </p>
                         )}
-                        {candidates.length === 0 && (
+                        {loadingCandidates && (
+                            <p className="text-gray-500 text-xs mt-1">
+                                Cargando estudiantes...
+                            </p>
+                        )}
+                        {!loadingCandidates && candidates.length === 0 && (
                             <p className="text-gray-500 text-xs mt-1">
                                 No hay estudiantes disponibles para agregar.
                             </p>
@@ -78,7 +118,11 @@ export const AddMemberModal = ({ team, enrollments, open, onClose, onAdded }) =>
                         </button>
                         <button
                             type="submit"
-                            disabled={isSubmitting || candidates.length === 0}
+                            disabled={
+                                isSubmitting ||
+                                loadingCandidates ||
+                                candidates.length === 0
+                            }
                             className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition disabled:opacity-60"
                         >
                             {isSubmitting ? "Agregando..." : "Agregar miembro"}

@@ -139,6 +139,13 @@ export const TeamsPage = () => {
                         onDelete={handleDelete}
                         onEdit={setEditingTeam}
                         deleting={deletingId === team.id}
+                        roleLabel={
+                            isTeacher
+                                ? null
+                                : team.leader?.id === user?.id
+                                  ? "Líder"
+                                  : "Miembro"
+                        }
                     />
                 ))}
             </div>
