@@ -88,7 +88,10 @@ export function Navbar() {
         <div className="flex items-center space-x-4">
           <div className="relative">
             <button
-              onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+              onClick={() => {
+                setIsSettingsOpen(!isSettingsOpen);
+                setIsMobileMenuOpen(false);
+              }}
               className={`text-indigo-200 hover:text-white hover:bg-white/10 p-2 rounded-lg transition ${
                 isSettingsOpen ? "bg-white/10 text-white" : ""
               }`}
@@ -218,7 +221,10 @@ export function Navbar() {
           </div>
 
           <button
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            onClick={() => {
+              setIsMobileMenuOpen(!isMobileMenuOpen);
+              setIsSettingsOpen(false);
+            }}
             className={`md:hidden text-indigo-200 hover:text-white hover:bg-white/10 p-2 rounded-lg transition ${
               isMobileMenuOpen ? "bg-white/10 text-white" : ""
             }`}
