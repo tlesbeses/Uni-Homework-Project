@@ -13,7 +13,7 @@ import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 import { Pager } from "@/shared/components/Pager";
 import { SearchInput } from "@/shared/components/SearchInput";
 
-const PAGE_SIZE = 6;
+const DEFAULT_PAGE_SIZE = 10;
 
 export const AssignmentSection = ({ courseId, isTeacher, isOwner }) => {
     const navigate = useNavigate();
@@ -24,6 +24,7 @@ export const AssignmentSection = ({ courseId, isTeacher, isOwner }) => {
     const [togglingId, setTogglingId] = useState(null);
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
     const canManage = isTeacher && isOwner;
 
@@ -42,16 +43,21 @@ export const AssignmentSection = ({ courseId, isTeacher, isOwner }) => {
 
     const totalPages = Math.max(
         1,
-        Math.ceil(filteredAssignments.length / PAGE_SIZE)
+        Math.ceil(filteredAssignments.length / pageSize)
     );
     const safePage = Math.min(page, totalPages);
     const visibleAssignments = filteredAssignments.slice(
-        (safePage - 1) * PAGE_SIZE,
-        safePage * PAGE_SIZE
+        (safePage - 1) * pageSize,
+        safePage * pageSize
     );
 
     const handleSearchChange = (value) => {
         setSearch(value);
+        setPage(1);
+    };
+
+    const handlePageSizeChange = (size) => {
+        setPageSize(size);
         setPage(1);
     };
 
@@ -150,6 +156,8 @@ export const AssignmentSection = ({ courseId, isTeacher, isOwner }) => {
                         page={safePage}
                         totalPages={totalPages}
                         onChange={setPage}
+                        pageSize={pageSize}
+                        onPageSizeChange={handlePageSizeChange}
                     />
                 </>
             )}

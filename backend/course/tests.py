@@ -62,7 +62,7 @@ class CourseTests(BaseCourseTestCase):
         self.client.force_authenticate(self.teacher)
         response = self.client.post(
             "/api/courses/",
-            {"title": "Physics", "visibility": "PUBLIC"},
+            {"title": "Physics", "visibility": "PUBLIC", "section_name": "1TS1"},
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertTrue(response.data["join_code"])
@@ -88,6 +88,24 @@ class CourseTests(BaseCourseTestCase):
 
     def test_join_code_has_expected_length(self):
         self.assertEqual(len(self.course.join_code), 8)
+
+    def test_page_size_param_is_respected_and_capped(self):
+        for index in range(105):
+            Course.objects.create(
+                title=f"Filler {index}",
+                teacher=self.teacher,
+                visibility=Visibility.PUBLIC,
+            )
+        self.client.force_authenticate(self.teacher)
+
+        response = self.client.get("/api/courses/?page=1&page_size=10")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 10)
+        self.assertEqual(response.data["count"], 106)
+
+        response = self.client.get("/api/courses/?page_size=500")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 100)
 
 
 class SectionTests(BaseCourseTestCase):
