@@ -1,3 +1,7 @@
+import { useMediaQuery } from "@/shared/hooks/useMediaQuery";
+
+const MOBILE_QUERY = "(max-width: 767px)";
+
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -56,6 +60,8 @@ export const Pager = ({
   onPageSizeChange,
 }) => {
   const hasPageSize = typeof onPageSizeChange === "function";
+  const isSmallScreen = useMediaQuery(MOBILE_QUERY);
+  const useCompactLayout = compact || isSmallScreen;
 
   if (!totalPages || totalPages <= 1) {
     if (!hasPageSize || pageSize === DEFAULT_PAGE_SIZE) {
@@ -64,7 +70,7 @@ export const Pager = ({
     return (
       <div
         className={`flex items-center justify-center ${
-          compact ? "pt-1" : "pt-2"
+          useCompactLayout ? "pt-1" : "pt-2"
         }`}
       >
         <ResetPageSizeButton
@@ -74,7 +80,7 @@ export const Pager = ({
     );
   }
 
-  if (compact) {
+  if (useCompactLayout) {
     return (
       <div className="flex items-center justify-center gap-1 pt-1">
         <button
