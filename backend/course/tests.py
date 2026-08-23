@@ -62,7 +62,7 @@ class CourseTests(BaseCourseTestCase):
         self.client.force_authenticate(self.teacher)
         response = self.client.post(
             "/api/courses/",
-            {"title": "Physics", "visibility": "PUBLIC"},
+            {"title": "Physics", "visibility": "PUBLIC", "section_name": "1TS1"},
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertTrue(response.data["join_code"])
@@ -374,6 +374,79 @@ class EnrollmentTests(BaseCourseTestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["status"], Status.APPROVED)
+
+
+class EnrollmentSectionChangeTests(BaseCourseTestCase):
+    def setUp(self):
+        super().setUp()
+        self.enrollment = Enrollment.objects.create(
+            section=self.section,
+            student=self.student,
+        )
+        self.private_course = Course.objects.create(
+            title="Private 202",
+            teacher=self.teacher,
+            visibility=Visibility.PRIVATE,
+        )
+        self.private_section = Section.objects.create(
+            course=self.private_course,
+            name="P1",
+        )
+
+    def _assert_section_unchanged(self):
+        self.enrollment.refresh_from_db()
+        self.assertEqual(self.enrollment.section_id, self.section.id)
+
+    def test_student_cannot_move_enrollment_to_private_course_section(self):
+        self.client.force_authenticate(self.student)
+        response = self.client.patch(
+            f"/api/enrollments/{self.enrollment.id}/",
+            {"section_id": self.private_section.id},
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self._assert_section_unchanged()
+
+    def test_student_cannot_change_enrollment_section_same_course(self):
+        self.client.force_authenticate(self.student)
+        response = self.client.patch(
+            f"/api/enrollments/{self.enrollment.id}/",
+            {"section_id": self.section2.id},
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self._assert_section_unchanged()
+
+    def test_put_cannot_change_enrollment_section(self):
+        self.client.force_authenticate(self.student)
+        response = self.client.put(
+            f"/api/enrollments/{self.enrollment.id}/",
+            {"section_id": self.private_section.id},
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self._assert_section_unchanged()
+
+    def test_teacher_cannot_move_enrollment_to_foreign_course_section(self):
+        foreign_teacher = User.objects.create_user(
+            username="teacher2",
+            email="teacher2@example.com",
+            password="pass",
+        )
+        foreign_teacher.groups.add(self.teacher_group)
+        foreign_course = Course.objects.create(
+            title="Foreign 202",
+            teacher=foreign_teacher,
+            visibility=Visibility.PUBLIC,
+        )
+        foreign_section = Section.objects.create(
+            course=foreign_course,
+            name="F1",
+        )
+        self.client.force_authenticate(self.teacher)
+        response = self.client.patch(
+            f"/api/enrollments/{self.enrollment.id}/",
+            {"section_id": foreign_section.id},
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self._assert_section_unchanged()
 
 
 class CourseSettingsTests(BaseCourseTestCase):
