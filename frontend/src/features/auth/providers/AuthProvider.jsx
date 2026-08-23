@@ -7,12 +7,14 @@ import {
     useEffect
 } from "react";
 
-import { tokenStorage, userStorage } from "@/shared/storage/tokenStorage";
-import { loginUser, logoutUser } from "@/features/auth/services/authService";
+import { tokenStorage, clearLegacyTokens } from "@/shared/storage/tokenStorage";
 import {
-    isStudent as hasStudentRole,
-    isTeacher as hasTeacherRole,
-} from "@/shared/utils/roles";
+    ensureCsrfToken,
+    getUserProfile,
+    loginUser,
+    logoutUser,
+} from "@/features/auth/services/authService";
+import { refreshSession } from "@/lib/axios";
 
 const AuthContext = createContext(undefined);
 
@@ -21,13 +23,40 @@ export function AuthProvider({ children }) {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        const storedUser = userStorage.getUser();
+        let cancelled = false;
 
-        if (storedUser) {
-            setUser(storedUser);
+        async function restoreSession() {
+            // Elimina credenciales persistidas por versiones anteriores.
+            clearLegacyTokens();
+
+            try {
+                // Garantiza la cookie CSRF antes del primer POST autenticado.
+                await ensureCsrfToken();
+
+                // El access token vive solo en memoria; al recargar la página
+                // se restaura desde la cookie HttpOnly de refresh.
+                await refreshSession();
+                const profile = await getUserProfile();
+
+                if (!cancelled) {
+                    setUser(profile);
+                }
+            } catch {
+                if (!cancelled) {
+                    setUser(null);
+                }
+            } finally {
+                if (!cancelled) {
+                    setIsLoading(false);
+                }
+            }
         }
 
-        setIsLoading(false);
+        restoreSession();
+
+        return () => {
+            cancelled = true;
+        };
     }, []);
 
     const isTeacher = user?.roles?.some(
@@ -42,10 +71,10 @@ export function AuthProvider({ children }) {
         setIsLoading(true);
         try {
             const data = await loginUser(credentials);
-            tokenStorage.setAccessToken(data.access);
-            tokenStorage.setRefreshToken(data.refresh);
-            userStorage.setUser(data.user);
 
+            // El backend entrega el refresh en una cookie HttpOnly;
+            // aquí solo guardamos el access token en memoria.
+            tokenStorage.setAccessToken(data.access);
             setUser(data.user);
 
             return data;
@@ -57,20 +86,20 @@ export function AuthProvider({ children }) {
     const logout = useCallback(async () => {
         setIsLoading(true);
         try {
-            const refreshToken = tokenStorage.getRefreshToken();
-
-            if (refreshToken) {
-                await logoutUser({ refresh: refreshToken });
-            }
+            // El servidor blackliste el refresh (cookie) y limpia las cookies.
+            await logoutUser();
         } catch (error) {
             console.error("Error al reportar el logout al servidor:", error);
         } finally {
             tokenStorage.clear();
-            userStorage.clear();
             setUser(null);
             setIsLoading(false);
             window.location.assign("/login");
         }
+    }, []);
+
+    const updateUser = useCallback((updatedUser) => {
+        setUser(updatedUser);
     }, []);
 
     const value = useMemo(() => ({
@@ -80,8 +109,9 @@ export function AuthProvider({ children }) {
         isTeacher,
         isStudent,
         login,
-        logout
-    }), [user, isLoading, login, logout]);
+        logout,
+        updateUser
+    }), [user, isLoading, isTeacher, isStudent, login, logout, updateUser]);
 
     return (
         <AuthContext.Provider value={value}>

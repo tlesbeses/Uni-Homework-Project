@@ -1,5 +1,9 @@
 import { api } from "@/lib/axios";
 
+export const ensureCsrfToken = async () => {
+    await api.get("/auth/csrf/");
+};
+
 export const loginUser = async (credentials) => {
     const response = await api.post("/auth/login/", credentials);
     return response.data;
@@ -10,8 +14,9 @@ export const registerUser = async (userData) => {
     return response.data;
 };
 
-export const logoutUser = async (tokens) => {
-    const response = await api.post("/auth/jwt/blacklist/", tokens);
+// El refresh token viaja en la cookie HttpOnly; no se envía en el cuerpo.
+export const logoutUser = async () => {
+    const response = await api.post("/auth/jwt/blacklist/");
     return response.data;
 };
 

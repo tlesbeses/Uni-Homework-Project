@@ -1,5 +1,7 @@
 import axios from "axios";
-import { tokenStorage, userStorage } from "@/shared/storage/tokenStorage";
+import { tokenStorage } from "@/shared/storage/tokenStorage";
+import { getCsrfToken } from "@/lib/csrf";
+
 let isRefreshing = false;
 let failedQueue = [];
 
@@ -15,11 +17,27 @@ const processQueue = (error, token = null) => {
     failedQueue = [];
 };
 
+// Refresca la sesión usando SOLO la cookie HttpOnly (sin cuerpo con tokens).
+// Usa una instancia axios "cruda" para no re-disparar los interceptores.
+export async function refreshSession() {
+    const csrfToken = getCsrfToken();
+
+    const { data } = await axios.post(
+        "/auth/jwt/refresh/",
+        {},
+        {
+            withCredentials: true,
+            headers: csrfToken ? { "X-CSRFToken": csrfToken } : undefined,
+        }
+    );
+
+    tokenStorage.setAccessToken(data.access);
+    return data.access;
+}
+
 export const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || '',
-    headers: {
-        "Content-Type": "application/json",
-    },
+    baseURL: import.meta.env.VITE_API_URL || "",
+    withCredentials: true,
 });
 
 api.interceptors.request.use((config) => {
@@ -27,6 +45,14 @@ api.interceptors.request.use((config) => {
 
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    const method = (config.method || "get").toLowerCase();
+    if (!["get", "head", "options"].includes(method)) {
+        const csrfToken = getCsrfToken();
+        if (csrfToken) {
+            config.headers["X-CSRFToken"] = csrfToken;
+        }
     }
 
     return config;
@@ -47,10 +73,6 @@ api.interceptors.response.use(
             return Promise.reject(error);
         }
 
-        const refreshToken = tokenStorage.getRefreshToken();
-        if (!refreshToken) {          //
-            return Promise.reject(error);
-        }
         // Si ya hay un refresh en curso, espera
         if (isRefreshing) {
             return new Promise((resolve, reject) => {
@@ -65,29 +87,7 @@ api.interceptors.response.use(
         isRefreshing = true;
 
         try {
-            const refreshToken = tokenStorage.getRefreshToken();
-
-            if (!refreshToken) {
-                throw new Error("Refresh token not found.");
-            }
-
-            // Endpoint de SimpleJWT
-            const { data } = await axios.post(
-                `${api.defaults.baseURL}/auth/jwt/refresh/`,
-                {
-                    refresh: refreshToken,
-                }
-            );
-
-            const newAccessToken = data.access;
-            const newRefreshToken = data.refresh;
-
-            tokenStorage.setRefreshToken(newRefreshToken);
-
-            tokenStorage.setAccessToken(newAccessToken);
-
-            api.defaults.headers.common.Authorization =
-                `Bearer ${newAccessToken}`;
+            const newAccessToken = await refreshSession();
 
             processQueue(null, newAccessToken);
 
@@ -99,9 +99,6 @@ api.interceptors.response.use(
             processQueue(refreshError);
 
             tokenStorage.clear();
-            userStorage.clear();
-
-            delete api.defaults.headers.common.Authorization;
 
             window.location.replace("/login");
 

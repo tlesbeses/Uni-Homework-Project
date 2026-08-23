@@ -203,6 +203,16 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
 ]
 
+# Necesario para que el frontend (Vite en dev) pueda mantener las cookies
+# de sesión (refresh token + CSRF) entre dominios durante el desarrollo.
+CORS_ALLOW_CREDENTIALS = True
+
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://uni-homework-project.onrender.com",
+]
+
 DJOSER = {
     'SERIALIZERS': {
         'user_create': 'authentication.serializers.UserCreateSerializer',
