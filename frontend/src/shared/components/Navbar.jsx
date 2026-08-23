@@ -76,12 +76,6 @@ export function Navbar() {
                 {label}
               </NavLink>
             ))}
-            {
-              //future features
-              /* <Link to="/assignments" className="hover:text-indigo-200 transition">
-              Asignaciones
-            </Link> */
-            }
           </nav>
         </div>
 
