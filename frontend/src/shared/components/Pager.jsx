@@ -2,15 +2,15 @@ import { useMediaQuery } from "@/shared/hooks/useMediaQuery";
 
 const MOBILE_QUERY = "(max-width: 767px)";
 
-const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
+const PAGE_SIZE_OPTIONS = [25, 50, 100];
 const DEFAULT_PAGE_SIZE = 10;
 
-const ResetPageSizeButton = ({ onClick }) => (
+const ResetPageSizeButton = ({ onClick, defaultSize }) => (
   <button
     type="button"
     onClick={onClick}
     aria-label="Restablecer registros por página"
-    title={`Restablecer a ${DEFAULT_PAGE_SIZE} por página`}
+    title={`Restablecer a ${defaultSize} por página`}
     className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
   >
     <svg
@@ -29,24 +29,35 @@ const ResetPageSizeButton = ({ onClick }) => (
   </button>
 );
 
-const PageSizeSelect = ({ pageSize, onPageSizeChange, compact = false }) => (
-  <label className="flex items-center gap-1 text-xs text-gray-500">
-    <span className={compact ? "sr-only" : ""}>Por página</span>
-    <select
-      value={pageSize}
-      onChange={(event) => onPageSizeChange(Number(event.target.value))}
-      className="appearance-none rounded-md border border-gray-200 bg-white px-2 py-0.5 font-medium text-sm text-gray-700 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition cursor-pointer"
-      aria-label="Registros por página"
-      title="Registros por página"
-    >
-      {PAGE_SIZE_OPTIONS.map((size) => (
-        <option key={size} value={size}>
-          {size}
-        </option>
-      ))}
-    </select>
-  </label>
-);
+const PageSizeSelect = ({
+  pageSize,
+  onPageSizeChange,
+  defaultSize,
+  compact = false,
+}) => {
+  const options = [...new Set([defaultSize, ...PAGE_SIZE_OPTIONS])].sort(
+    (a, b) => a - b,
+  );
+
+  return (
+    <label className="flex items-center gap-1 text-xs text-gray-500">
+      <span className={compact ? "sr-only" : ""}>Por página</span>
+      <select
+        value={pageSize}
+        onChange={(event) => onPageSizeChange(Number(event.target.value))}
+        className="appearance-none rounded-md border border-gray-200 bg-white px-2 py-0.5 font-medium text-sm text-gray-700 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition cursor-pointer"
+        aria-label="Registros por página"
+        title="Registros por página"
+      >
+        {options.map((size) => (
+          <option key={size} value={size}>
+            {size}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+};
 
 const COMPACT_BUTTON_CLASS =
   "w-8 h-8 flex items-center justify-center text-base leading-none text-gray-600 bg-white border border-gray-200 rounded-md hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 transition disabled:opacity-40 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1";
@@ -58,13 +69,14 @@ export const Pager = ({
   compact = false,
   pageSize,
   onPageSizeChange,
+  defaultPageSize = DEFAULT_PAGE_SIZE,
 }) => {
   const hasPageSize = typeof onPageSizeChange === "function";
   const isSmallScreen = useMediaQuery(MOBILE_QUERY);
   const useCompactLayout = compact || isSmallScreen;
 
   if (!totalPages || totalPages <= 1) {
-    if (!hasPageSize || pageSize === DEFAULT_PAGE_SIZE) {
+    if (!hasPageSize || pageSize === defaultPageSize) {
       return null;
     }
     return (
@@ -74,7 +86,8 @@ export const Pager = ({
         }`}
       >
         <ResetPageSizeButton
-          onClick={() => onPageSizeChange(DEFAULT_PAGE_SIZE)}
+          onClick={() => onPageSizeChange(defaultPageSize)}
+          defaultSize={defaultPageSize}
         />
       </div>
     );
@@ -114,11 +127,13 @@ export const Pager = ({
               <PageSizeSelect
                 pageSize={pageSize}
                 onPageSizeChange={onPageSizeChange}
+                defaultSize={defaultPageSize}
                 compact
               />
-              {pageSize !== DEFAULT_PAGE_SIZE && (
+              {pageSize !== defaultPageSize && (
                 <ResetPageSizeButton
-                  onClick={() => onPageSizeChange(DEFAULT_PAGE_SIZE)}
+                  onClick={() => onPageSizeChange(defaultPageSize)}
+                  defaultSize={defaultPageSize}
                 />
               )}
             </div>
@@ -154,10 +169,12 @@ export const Pager = ({
           <PageSizeSelect
             pageSize={pageSize}
             onPageSizeChange={onPageSizeChange}
+            defaultSize={defaultPageSize}
           />
-          {pageSize !== DEFAULT_PAGE_SIZE && (
+          {pageSize !== defaultPageSize && (
             <ResetPageSizeButton
-              onClick={() => onPageSizeChange(DEFAULT_PAGE_SIZE)}
+              onClick={() => onPageSizeChange(defaultPageSize)}
+              defaultSize={defaultPageSize}
             />
           )}
         </div>

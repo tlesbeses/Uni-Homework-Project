@@ -20,6 +20,7 @@ export const CoursesPage = () => {
         totalPages,
         setPage,
         pageSize,
+        defaultPageSize,
         onPageSizeChange: handlePageSizeChange,
         loading,
         error,
@@ -102,6 +103,7 @@ export const CoursesPage = () => {
                     onChange={setPage}
                     pageSize={pageSize}
                     onPageSizeChange={handlePageSizeChange}
+                    defaultPageSize={defaultPageSize}
                 />
             )}
 

@@ -14,7 +14,7 @@ import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 import { Pager } from "@/shared/components/Pager";
 import { SearchInput } from "@/shared/components/SearchInput";
 
-const DEFAULT_MEMBER_PAGE_SIZE = 10;
+const DEFAULT_MEMBER_PAGE_SIZE = 8;
 
 export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse }) => {
   const {
@@ -505,6 +505,7 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse }) => {
                           onChange={setMemberPage}
                           pageSize={memberPageSize}
                           onPageSizeChange={handleMemberPageSizeChange}
+                          defaultPageSize={DEFAULT_MEMBER_PAGE_SIZE}
                           compact
                         />
                       </>

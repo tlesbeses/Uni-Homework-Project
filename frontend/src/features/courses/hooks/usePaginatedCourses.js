@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { getCourses } from "@/features/courses/services/courseService";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 
-const DEFAULT_PAGE_SIZE = 10;
+const DEFAULT_PAGE_SIZE = 9;
 
 export const usePaginatedCourses = () => {
     const [courses, setCourses] = useState([]);
@@ -61,6 +61,7 @@ export const usePaginatedCourses = () => {
         totalPages,
         setPage,
         pageSize,
+        defaultPageSize: DEFAULT_PAGE_SIZE,
         onPageSizeChange: handlePageSizeChange,
         loading,
         error,
