@@ -495,6 +495,7 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse }) => {
                           page={safeMemberPage}
                           totalPages={memberTotalPages}
                           onChange={setMemberPage}
+                          compact
                         />
                       </>
                     )}
