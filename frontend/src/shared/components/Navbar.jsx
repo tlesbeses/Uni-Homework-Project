@@ -1,16 +1,36 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/providers/AuthProvider";
 
 export function Navbar() {
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { logout, isTeacher } = useAuth();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { isTeacher } = useAuth();
+  const headerRef = useRef(null);
+
+  useEffect(() => {
+    const closeMenus = () => {
+      setIsSettingsOpen(false);
+      setIsMobileMenuOpen(false);
+    };
+    window.addEventListener("scroll", closeMenus, { passive: true });
+    return () => window.removeEventListener("scroll", closeMenus);
+  }, []);
+
+  const handleHeaderBlur = (event) => {
+    if (!headerRef.current?.contains(event.relatedTarget)) {
+      setIsSettingsOpen(false);
+      setIsMobileMenuOpen(false);
+    }
+  };
 
   return (
-    <header className="bg-indigo-600 text-white shadow-md">
+    <header
+      ref={headerRef}
+      onBlur={handleHeaderBlur}
+      className="bg-indigo-600 text-white shadow-md"
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         <div className="flex items-center space-x-8">
           <Link to="/dashboard" className="text-xl font-bold tracking-wide">
