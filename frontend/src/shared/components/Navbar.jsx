@@ -143,13 +143,6 @@ export function Navbar() {
             Cursos
           </Link>
           <Link
-            to="/assignments"
-            onClick={() => setIsMobileMenuOpen(false)}
-            className="block hover:text-indigo-200 transition"
-          >
-            Asignaciones
-          </Link>
-          <Link
             to="/grades"
             onClick={() => setIsMobileMenuOpen(false)}
             className="block hover:text-indigo-200 transition"
