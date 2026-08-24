@@ -16,12 +16,6 @@ from .serializers import LoginSerializer
 REFRESH_COOKIE_NAME = "refresh_token"
 REFRESH_COOKIE_PATH = "/auth/"
 
-# Cookie legible por JS (no HttpOnly) que solo indica si existe una sesión.
-# El frontend la consulta para no lanzar el refresh en cada carga anónima;
-# NO contiene el token ni ningún dato sensible.
-SESSION_HINT_COOKIE_NAME = "session_hint"
-SESSION_HINT_COOKIE_PATH = "/"
-
 
 def _set_refresh_cookie(response, token):
     response.set_cookie(
@@ -35,34 +29,26 @@ def _set_refresh_cookie(response, token):
         samesite=settings.AUTH_COOKIE_SAMESITE,
         path=REFRESH_COOKIE_PATH,
     )
-    response.set_cookie(
-        SESSION_HINT_COOKIE_NAME,
-        "1",
-        max_age=int(
-            settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()
-        ),
-        secure=auth_cookie_secure(),
-        httponly=False,
-        samesite=settings.AUTH_COOKIE_SAMESITE,
-        path=SESSION_HINT_COOKIE_PATH,
-    )
 
 
 def _clear_auth_cookies(response):
     response.delete_cookie(REFRESH_COOKIE_NAME, path=REFRESH_COOKIE_PATH)
-    response.delete_cookie(
-        SESSION_HINT_COOKIE_NAME, path=SESSION_HINT_COOKIE_PATH
-    )
 
 
 class CsrfView(APIView):
-    """Entrega el token CSRF inicial para habilitar el patrón double-submit."""
+    """Entrega el token CSRF para habilitar el patrón double-submit.
+
+    El token viaja en la cookie y también en el cuerpo: cuando el frontend
+    vive en otro origen no puede leer document.cookie, así que necesita el
+    valor por JSON (CORS con credenciales ya limita quién puede leerlo).
+    """
 
     permission_classes = [AllowAny]
 
     def get(self, request):
-        response = Response(status=status.HTTP_204_NO_CONTENT)
-        set_csrf_cookie(response)
+        response = Response(status=status.HTTP_200_OK)
+        csrf_token = set_csrf_cookie(response)
+        response.data = {"csrfToken": csrf_token}
         return response
 
 
@@ -84,7 +70,9 @@ class LoginView(TokenObtainPairView):
         response = Response(data, status=status.HTTP_200_OK)
         if refresh_token:
             _set_refresh_cookie(response, refresh_token)
-        set_csrf_cookie(response)
+        # El login rota la cookie CSRF; el nuevo valor viaja en el cuerpo
+        # para que un frontend cross-origin pueda seguir enviando el header.
+        data["csrfToken"] = set_csrf_cookie(response)
         return response
 
 
@@ -108,6 +96,7 @@ class RefreshView(TokenRefreshView):
         response = Response(data, status=status.HTTP_200_OK)
         if rotated_token:
             _set_refresh_cookie(response, rotated_token)
+        data["csrfToken"] = set_csrf_cookie(response)
         return response
 
 

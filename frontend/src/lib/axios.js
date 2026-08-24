@@ -1,6 +1,6 @@
 import axios from "axios";
 import { tokenStorage } from "@/shared/storage/tokenStorage";
-import { getCsrfToken } from "@/lib/csrf";
+import { getCsrfToken, setCsrfToken } from "@/lib/csrf";
 
 let isRefreshing = false;
 let failedQueue = [];
@@ -41,6 +41,8 @@ export async function refreshSession() {
     );
 
     tokenStorage.setAccessToken(data.access);
+    // La rotación del refresh rota también el CSRF; guardamos el nuevo valor.
+    setCsrfToken(data.csrfToken);
     return data.access;
 }
 

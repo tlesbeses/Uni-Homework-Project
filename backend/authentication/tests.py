@@ -45,8 +45,14 @@ class AuthCookieFlowTests(TestCase):
 
     def _bootstrap_csrf(self):
         response = self.client.get("/auth/csrf/")
-        self.assertEqual(response.status_code, 204)
-        return self.client.cookies["csrftoken"].value
+        self.assertEqual(response.status_code, 200)
+        # El token viaja en el cuerpo y en la cookie con el mismo valor:
+        # es lo que permite el double-submit desde un origen cruzado.
+        self.assertEqual(
+            response.data["csrfToken"],
+            self.client.cookies["csrftoken"].value,
+        )
+        return response.data["csrfToken"]
 
     def _csrf_header(self):
         # El login rota la cookie CSRF, así que siempre se lee el valor
@@ -83,12 +89,16 @@ class AuthCookieFlowTests(TestCase):
         self.assertEqual(cookie["path"], "/auth/")
         self.assertEqual(cookie["samesite"], "Lax")
 
-    def test_login_sets_readable_session_hint(self):
-        self._login()
-        cookie = self.client.cookies["session_hint"]
-        self.assertFalse(cookie["httponly"])
-        self.assertEqual(cookie.value, "1")
-        self.assertEqual(cookie["samesite"], "Lax")
+    def test_login_returns_rotated_csrf_token_in_body(self):
+        old_csrf = self.client.cookies["csrftoken"].value
+
+        response = self._login()
+
+        # El login rota la cookie CSRF y expone el nuevo valor en el
+        # cuerpo: un frontend en otro origen no puede leer la cookie.
+        new_csrf = response.data["csrfToken"]
+        self.assertNotEqual(new_csrf, old_csrf)
+        self.assertEqual(new_csrf, self.client.cookies["csrftoken"].value)
 
     @override_settings(AUTH_COOKIE_SAMESITE="None")
     def test_samesite_none_forces_secure_cookies(self):
@@ -96,8 +106,8 @@ class AuthCookieFlowTests(TestCase):
         self.assertEqual(response.status_code, 200)
 
         refresh_cookie = self.client.cookies["refresh_token"]
-        hint_cookie = self.client.cookies["session_hint"]
-        for cookie in (refresh_cookie, hint_cookie):
+        csrf_cookie = self.client.cookies["csrftoken"]
+        for cookie in (refresh_cookie, csrf_cookie):
             self.assertEqual(cookie["samesite"], "None")
             self.assertTrue(cookie["secure"])
 
@@ -118,8 +128,11 @@ class AuthCookieFlowTests(TestCase):
         new_refresh = self.client.cookies["refresh_token"].value
         self.assertNotEqual(new_refresh, old_refresh)
 
-        # La rotación renueva también la cookie de hint de sesión.
-        self.assertEqual(self.client.cookies["session_hint"].value, "1")
+        # La rotación también entrega el nuevo valor CSRF en el cuerpo.
+        self.assertEqual(
+            response.data["csrfToken"],
+            self.client.cookies["csrftoken"].value,
+        )
 
     def test_refresh_without_csrf_is_rejected(self):
         self._login()
@@ -153,7 +166,6 @@ class AuthCookieFlowTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(self.client.cookies["refresh_token"].value, "")
-        self.assertEqual(self.client.cookies["session_hint"].value, "")
 
         # Restauramos manualmente la cookie para probar que el token
         # quedó blacklisteado y ya no puede refrescar.

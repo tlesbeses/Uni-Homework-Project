@@ -206,13 +206,16 @@ REST_FRAMEWORK = {
 if "test" in sys.argv:
     REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"] = []
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
+# Orígenes del frontend autorizados para CORS con credenciales. En desarrollo
+# Vite corre en :5173; si el frontend se despliega en otro origen, agreguelo
+# vía la variable CORS_ALLOWED_ORIGINS (separada por comas).
+CORS_ALLOWED_ORIGINS = os.getenv(
+    "CORS_ALLOWED_ORIGINS",
+    "http://localhost:5173,http://127.0.0.1:5173"
+).split(",")
 
-# Necesario para que el frontend (Vite en dev) pueda mantener las cookies
-# de sesión (refresh token + CSRF) entre dominios durante el desarrollo.
+# Necesario para que el frontend pueda mantener las cookies de sesión
+# (refresh token + CSRF) entre dominios durante el desarrollo.
 CORS_ALLOW_CREDENTIALS = True
 
 CSRF_TRUSTED_ORIGINS = [

@@ -1,11 +1,17 @@
 import { api } from "@/lib/axios";
+import { setCsrfToken } from "@/lib/csrf";
 
 export const ensureCsrfToken = async () => {
-    await api.get("/auth/csrf/");
+    const response = await api.get("/auth/csrf/");
+    // Con API en otro origen la cookie no es legible por JS; el token
+    // necesario para el header X-CSRFToken llega en el cuerpo.
+    setCsrfToken(response.data.csrfToken);
 };
 
 export const loginUser = async (credentials) => {
     const response = await api.post("/auth/login/", credentials);
+    // El login rota el CSRF; la respuesta trae el nuevo valor.
+    setCsrfToken(response.data.csrfToken);
     return response.data;
 };
 
