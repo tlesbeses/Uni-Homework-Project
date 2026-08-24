@@ -23,11 +23,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 load_dotenv(BASE_DIR / ".env")
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-xgmt83d4e8&b2u^9xmexd^*994x&ne^!9-o4#8mqm+)rcwdf6&'
+SECRET_KEY = os.getenv("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # Por defecto False: un despliegue sin la variable DEBUG emite cookies
@@ -44,11 +40,10 @@ if AUTH_COOKIE_SAMESITE not in ("Lax", "Strict", "None"):
         "AUTH_COOKIE_SAMESITE debe ser 'Lax', 'Strict' o 'None'."
     )
 
-ALLOWED_HOSTS = [
-    "uni-homework-project.onrender.com",
-    "localhost",
-    "127.0.0.1",
-    ]
+ALLOWED_HOSTS = os.getenv(
+    "ALLOWED_HOSTS",
+    "localhost,127.0.0.1"
+).split(",")
 
 AUTH_USER_MODEL = "authentication.User"
 # Application definition
