@@ -2,24 +2,25 @@ import { useCallback, useEffect, useState } from "react";
 import { getCourses } from "@/features/courses/services/courseService";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 
-const PAGE_SIZE = 9;
+const DEFAULT_PAGE_SIZE = 9;
 
 export const usePaginatedCourses = () => {
     const [courses, setCourses] = useState([]);
     const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
     const [count, setCount] = useState(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
-    const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
+    const totalPages = Math.max(1, Math.ceil(count / pageSize));
 
-    const loadPage = useCallback(async (targetPage) => {
+    const loadPage = useCallback(async (targetPage, size) => {
         setLoading(true);
         setError("");
         try {
             const data = await getCourses({
                 page: targetPage,
-                page_size: PAGE_SIZE,
+                page_size: size,
             });
             const items = Array.isArray(data.results)
                 ? data.results
@@ -41,10 +42,29 @@ export const usePaginatedCourses = () => {
     }, []);
 
     useEffect(() => {
-        loadPage(page);
-    }, [loadPage, page]);
+        loadPage(page, pageSize);
+    }, [loadPage, page, pageSize]);
 
-    const reload = useCallback(() => loadPage(page), [loadPage, page]);
+    const reload = useCallback(
+        () => loadPage(page, pageSize),
+        [loadPage, page, pageSize]
+    );
 
-    return { courses, page, totalPages, setPage, loading, error, reload };
+    const handlePageSizeChange = useCallback((size) => {
+        setPageSize(size);
+        setPage(1);
+    }, []);
+
+    return {
+        courses,
+        page,
+        totalPages,
+        setPage,
+        pageSize,
+        defaultPageSize: DEFAULT_PAGE_SIZE,
+        onPageSizeChange: handlePageSizeChange,
+        loading,
+        error,
+        reload,
+    };
 };

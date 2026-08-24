@@ -14,7 +14,7 @@ import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 import { Pager } from "@/shared/components/Pager";
 import { SearchInput } from "@/shared/components/SearchInput";
 
-const MEMBER_PAGE_SIZE = 5;
+const DEFAULT_MEMBER_PAGE_SIZE = 8;
 
 export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse }) => {
   const {
@@ -36,6 +36,9 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse }) => {
   const [requestsView, setRequestsView] = useState("PENDING");
   const [memberSearch, setMemberSearch] = useState("");
   const [memberPage, setMemberPage] = useState(1);
+  const [memberPageSize, setMemberPageSize] = useState(
+    DEFAULT_MEMBER_PAGE_SIZE,
+  );
 
   const loadSections = useCallback(async () => {
     setLoadingSections(true);
@@ -97,16 +100,21 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse }) => {
 
   const memberTotalPages = Math.max(
     1,
-    Math.ceil(filteredMembers.length / MEMBER_PAGE_SIZE),
+    Math.ceil(filteredMembers.length / memberPageSize),
   );
   const safeMemberPage = Math.min(memberPage, memberTotalPages);
   const visibleMembers = filteredMembers.slice(
-    (safeMemberPage - 1) * MEMBER_PAGE_SIZE,
-    safeMemberPage * MEMBER_PAGE_SIZE,
+    (safeMemberPage - 1) * memberPageSize,
+    safeMemberPage * memberPageSize,
   );
 
   const handleMemberSearchChange = (value) => {
     setMemberSearch(value);
+    setMemberPage(1);
+  };
+
+  const handleMemberPageSizeChange = (size) => {
+    setMemberPageSize(size);
     setMemberPage(1);
   };
 
@@ -495,6 +503,9 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse }) => {
                           page={safeMemberPage}
                           totalPages={memberTotalPages}
                           onChange={setMemberPage}
+                          pageSize={memberPageSize}
+                          onPageSizeChange={handleMemberPageSizeChange}
+                          defaultPageSize={DEFAULT_MEMBER_PAGE_SIZE}
                           compact
                         />
                       </>
