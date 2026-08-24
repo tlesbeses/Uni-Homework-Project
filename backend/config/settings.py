@@ -16,26 +16,34 @@ from pathlib import Path
 from dotenv import load_dotenv
 from datetime import timedelta
 import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 load_dotenv(BASE_DIR / ".env")
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-xgmt83d4e8&b2u^9xmexd^*994x&ne^!9-o4#8mqm+)rcwdf6&'
+SECRET_KEY = os.getenv("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv("DEBUG", "True").lower() in ("true", "1", "yes")
+# Por defecto False: un despliegue sin la variable DEBUG emite cookies
+# Secure y no filtra detalles de errores.
+DEBUG = os.getenv("DEBUG", "False").lower() in ("true", "1", "yes")
 
-ALLOWED_HOSTS = [
-    "uni-homework-project.onrender.com",
-    "localhost",
-    "127.0.0.1",
-    ]
+# Política SameSite para las cookies de autenticación (refresh token y CSRF).
+# "Lax" cubre el despliegue actual (SPA servida por Django) y el desarrollo
+# con proxy. Usar "None" solo si frontend y API viven en sitios distintos;
+# en ese caso las cookies se marcan Secure obligatoriamente.
+AUTH_COOKIE_SAMESITE = os.getenv("AUTH_COOKIE_SAMESITE", "Lax")
+if AUTH_COOKIE_SAMESITE not in ("Lax", "Strict", "None"):
+    raise ImproperlyConfigured(
+        "AUTH_COOKIE_SAMESITE debe ser 'Lax', 'Strict' o 'None'."
+    )
+
+ALLOWED_HOSTS = os.getenv(
+    "ALLOWED_HOSTS",
+    "localhost,127.0.0.1"
+).split(",")
 
 AUTH_USER_MODEL = "authentication.User"
 # Application definition
@@ -198,9 +206,22 @@ REST_FRAMEWORK = {
 if "test" in sys.argv:
     REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"] = []
 
-CORS_ALLOWED_ORIGINS = [
+# Orígenes del frontend autorizados para CORS con credenciales. En desarrollo
+# Vite corre en :5173; si el frontend se despliega en otro origen, agreguelo
+# vía la variable CORS_ALLOWED_ORIGINS (separada por comas).
+CORS_ALLOWED_ORIGINS = os.getenv(
+    "CORS_ALLOWED_ORIGINS",
+    "http://localhost:5173,http://127.0.0.1:5173"
+).split(",")
+
+# Necesario para que el frontend pueda mantener las cookies de sesión
+# (refresh token + CSRF) entre dominios durante el desarrollo.
+CORS_ALLOW_CREDENTIALS = True
+
+CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "https://uni-homework-project.onrender.com",
 ]
 
 DJOSER = {

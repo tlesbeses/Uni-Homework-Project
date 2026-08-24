@@ -1,7 +1,20 @@
 import axios from "axios";
-import { tokenStorage, userStorage } from "@/shared/storage/tokenStorage";
+import { tokenStorage } from "@/shared/storage/tokenStorage";
+import { getCsrfToken, setCsrfToken } from "@/lib/csrf";
+
 let isRefreshing = false;
 let failedQueue = [];
+
+// Misma configuración base para ambas instancias: respeta VITE_API_URL,
+// de modo que el refresh funcione también con API en otro origen.
+const BASE_URL = import.meta.env.VITE_API_URL || "";
+
+// Instancia SIN interceptores para las llamadas de autenticación:
+// evita recursión y hereda baseURL/withCredentials.
+export const authApi = axios.create({
+    baseURL: BASE_URL,
+    withCredentials: true,
+});
 
 const processQueue = (error, token = null) => {
     failedQueue.forEach(({ resolve, reject }) => {
@@ -15,11 +28,27 @@ const processQueue = (error, token = null) => {
     failedQueue = [];
 };
 
+// Refresca la sesión usando SOLO la cookie HttpOnly (sin cuerpo con tokens).
+export async function refreshSession() {
+    const csrfToken = getCsrfToken();
+
+    const { data } = await authApi.post(
+        "/auth/jwt/refresh/",
+        {},
+        {
+            headers: csrfToken ? { "X-CSRFToken": csrfToken } : undefined,
+        }
+    );
+
+    tokenStorage.setAccessToken(data.access);
+    // La rotación del refresh rota también el CSRF; guardamos el nuevo valor.
+    setCsrfToken(data.csrfToken);
+    return data.access;
+}
+
 export const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || '',
-    headers: {
-        "Content-Type": "application/json",
-    },
+    baseURL: BASE_URL,
+    withCredentials: true,
 });
 
 api.interceptors.request.use((config) => {
@@ -27,6 +56,14 @@ api.interceptors.request.use((config) => {
 
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    const method = (config.method || "get").toLowerCase();
+    if (!["get", "head", "options"].includes(method)) {
+        const csrfToken = getCsrfToken();
+        if (csrfToken) {
+            config.headers["X-CSRFToken"] = csrfToken;
+        }
     }
 
     return config;
@@ -47,10 +84,6 @@ api.interceptors.response.use(
             return Promise.reject(error);
         }
 
-        const refreshToken = tokenStorage.getRefreshToken();
-        if (!refreshToken) {          //
-            return Promise.reject(error);
-        }
         // Si ya hay un refresh en curso, espera
         if (isRefreshing) {
             return new Promise((resolve, reject) => {
@@ -65,29 +98,7 @@ api.interceptors.response.use(
         isRefreshing = true;
 
         try {
-            const refreshToken = tokenStorage.getRefreshToken();
-
-            if (!refreshToken) {
-                throw new Error("Refresh token not found.");
-            }
-
-            // Endpoint de SimpleJWT
-            const { data } = await axios.post(
-                `${api.defaults.baseURL}/auth/jwt/refresh/`,
-                {
-                    refresh: refreshToken,
-                }
-            );
-
-            const newAccessToken = data.access;
-            const newRefreshToken = data.refresh;
-
-            tokenStorage.setRefreshToken(newRefreshToken);
-
-            tokenStorage.setAccessToken(newAccessToken);
-
-            api.defaults.headers.common.Authorization =
-                `Bearer ${newAccessToken}`;
+            const newAccessToken = await refreshSession();
 
             processQueue(null, newAccessToken);
 
@@ -99,9 +110,6 @@ api.interceptors.response.use(
             processQueue(refreshError);
 
             tokenStorage.clear();
-            userStorage.clear();
-
-            delete api.defaults.headers.common.Authorization;
 
             window.location.replace("/login");
 
