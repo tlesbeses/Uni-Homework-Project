@@ -1,6 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 User = get_user_model()
 
@@ -83,6 +83,24 @@ class AuthCookieFlowTests(TestCase):
         self.assertEqual(cookie["path"], "/auth/")
         self.assertEqual(cookie["samesite"], "Lax")
 
+    def test_login_sets_readable_session_hint(self):
+        self._login()
+        cookie = self.client.cookies["session_hint"]
+        self.assertFalse(cookie["httponly"])
+        self.assertEqual(cookie.value, "1")
+        self.assertEqual(cookie["samesite"], "Lax")
+
+    @override_settings(AUTH_COOKIE_SAMESITE="None")
+    def test_samesite_none_forces_secure_cookies(self):
+        response = self._login()
+        self.assertEqual(response.status_code, 200)
+
+        refresh_cookie = self.client.cookies["refresh_token"]
+        hint_cookie = self.client.cookies["session_hint"]
+        for cookie in (refresh_cookie, hint_cookie):
+            self.assertEqual(cookie["samesite"], "None")
+            self.assertTrue(cookie["secure"])
+
     def test_login_without_csrf_is_rejected(self):
         response = self._login(with_csrf=False)
         self.assertEqual(response.status_code, 403)
@@ -99,6 +117,9 @@ class AuthCookieFlowTests(TestCase):
 
         new_refresh = self.client.cookies["refresh_token"].value
         self.assertNotEqual(new_refresh, old_refresh)
+
+        # La rotación renueva también la cookie de hint de sesión.
+        self.assertEqual(self.client.cookies["session_hint"].value, "1")
 
     def test_refresh_without_csrf_is_rejected(self):
         self._login()
@@ -132,6 +153,7 @@ class AuthCookieFlowTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(self.client.cookies["refresh_token"].value, "")
+        self.assertEqual(self.client.cookies["session_hint"].value, "")
 
         # Restauramos manualmente la cookie para probar que el token
         # quedó blacklisteado y ya no puede refrescar.

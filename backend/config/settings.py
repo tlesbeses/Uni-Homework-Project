@@ -16,6 +16,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from datetime import timedelta
 import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -29,7 +30,19 @@ load_dotenv(BASE_DIR / ".env")
 SECRET_KEY = 'django-insecure-xgmt83d4e8&b2u^9xmexd^*994x&ne^!9-o4#8mqm+)rcwdf6&'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv("DEBUG", "True").lower() in ("true", "1", "yes")
+# Por defecto False: un despliegue sin la variable DEBUG emite cookies
+# Secure y no filtra detalles de errores.
+DEBUG = os.getenv("DEBUG", "False").lower() in ("true", "1", "yes")
+
+# Política SameSite para las cookies de autenticación (refresh token y CSRF).
+# "Lax" cubre el despliegue actual (SPA servida por Django) y el desarrollo
+# con proxy. Usar "None" solo si frontend y API viven en sitios distintos;
+# en ese caso las cookies se marcan Secure obligatoriamente.
+AUTH_COOKIE_SAMESITE = os.getenv("AUTH_COOKIE_SAMESITE", "Lax")
+if AUTH_COOKIE_SAMESITE not in ("Lax", "Strict", "None"):
+    raise ImproperlyConfigured(
+        "AUTH_COOKIE_SAMESITE debe ser 'Lax', 'Strict' o 'None'."
+    )
 
 ALLOWED_HOSTS = [
     "uni-homework-project.onrender.com",

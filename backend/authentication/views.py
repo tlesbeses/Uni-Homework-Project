@@ -10,11 +10,17 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
 
-from .csrf import assert_csrf, set_csrf_cookie
+from .csrf import assert_csrf, auth_cookie_secure, set_csrf_cookie
 from .serializers import LoginSerializer
 
 REFRESH_COOKIE_NAME = "refresh_token"
 REFRESH_COOKIE_PATH = "/auth/"
+
+# Cookie legible por JS (no HttpOnly) que solo indica si existe una sesión.
+# El frontend la consulta para no lanzar el refresh en cada carga anónima;
+# NO contiene el token ni ningún dato sensible.
+SESSION_HINT_COOKIE_NAME = "session_hint"
+SESSION_HINT_COOKIE_PATH = "/"
 
 
 def _set_refresh_cookie(response, token):
@@ -24,15 +30,29 @@ def _set_refresh_cookie(response, token):
         max_age=int(
             settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()
         ),
-        secure=not settings.DEBUG,
+        secure=auth_cookie_secure(),
         httponly=True,
-        samesite="Lax",
+        samesite=settings.AUTH_COOKIE_SAMESITE,
         path=REFRESH_COOKIE_PATH,
+    )
+    response.set_cookie(
+        SESSION_HINT_COOKIE_NAME,
+        "1",
+        max_age=int(
+            settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()
+        ),
+        secure=auth_cookie_secure(),
+        httponly=False,
+        samesite=settings.AUTH_COOKIE_SAMESITE,
+        path=SESSION_HINT_COOKIE_PATH,
     )
 
 
-def _clear_refresh_cookie(response):
+def _clear_auth_cookies(response):
     response.delete_cookie(REFRESH_COOKIE_NAME, path=REFRESH_COOKIE_PATH)
+    response.delete_cookie(
+        SESSION_HINT_COOKIE_NAME, path=SESSION_HINT_COOKIE_PATH
+    )
 
 
 class CsrfView(APIView):
@@ -109,5 +129,5 @@ class LogoutView(APIView):
                 pass
 
         response = Response({}, status=status.HTTP_200_OK)
-        _clear_refresh_cookie(response)
+        _clear_auth_cookies(response)
         return response

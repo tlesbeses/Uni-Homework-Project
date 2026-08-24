@@ -5,6 +5,17 @@ import { getCsrfToken } from "@/lib/csrf";
 let isRefreshing = false;
 let failedQueue = [];
 
+// Misma configuración base para ambas instancias: respeta VITE_API_URL,
+// de modo que el refresh funcione también con API en otro origen.
+const BASE_URL = import.meta.env.VITE_API_URL || "";
+
+// Instancia SIN interceptores para las llamadas de autenticación:
+// evita recursión y hereda baseURL/withCredentials.
+export const authApi = axios.create({
+    baseURL: BASE_URL,
+    withCredentials: true,
+});
+
 const processQueue = (error, token = null) => {
     failedQueue.forEach(({ resolve, reject }) => {
         if (error) {
@@ -18,15 +29,13 @@ const processQueue = (error, token = null) => {
 };
 
 // Refresca la sesión usando SOLO la cookie HttpOnly (sin cuerpo con tokens).
-// Usa una instancia axios "cruda" para no re-disparar los interceptores.
 export async function refreshSession() {
     const csrfToken = getCsrfToken();
 
-    const { data } = await axios.post(
+    const { data } = await authApi.post(
         "/auth/jwt/refresh/",
         {},
         {
-            withCredentials: true,
             headers: csrfToken ? { "X-CSRFToken": csrfToken } : undefined,
         }
     );
@@ -36,7 +45,7 @@ export async function refreshSession() {
 }
 
 export const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || "",
+    baseURL: BASE_URL,
     withCredentials: true,
 });
 

@@ -15,6 +15,7 @@ import {
     logoutUser,
 } from "@/features/auth/services/authService";
 import { refreshSession } from "@/lib/axios";
+import { hasSessionHint } from "@/lib/csrf";
 
 const AuthContext = createContext(undefined);
 
@@ -30,8 +31,15 @@ export function AuthProvider({ children }) {
             clearLegacyTokens();
 
             try {
-                // Garantiza la cookie CSRF antes del primer POST autenticado.
+                // Garantiza la cookie CSRF (necesaria también para el login).
                 await ensureCsrfToken();
+
+                // Solo intenta restaurar si el backend indicó que hay sesión;
+                // evita un 401 en cada carga anónima.
+                if (!hasSessionHint()) {
+                    setUser(null);
+                    return;
+                }
 
                 // El access token vive solo en memoria; al recargar la página
                 // se restaura desde la cookie HttpOnly de refresh.
