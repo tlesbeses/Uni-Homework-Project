@@ -6,12 +6,13 @@ export const getDashboard = async () => {
 };
 
 export const getCourses = async (params) => {
-    const response = await api.get("/api/courses/", { params });
+    const { signal, ...queryParams } = params ?? {};
+    const response = await api.get("/api/courses/", { params: queryParams, signal });
     return response.data;
 };
 
-export const getCourse = async (courseId) => {
-    const response = await api.get(`/api/courses/${courseId}/`);
+export const getCourse = async (courseId, opts) => {
+    const response = await api.get(`/api/courses/${courseId}/`, { signal: opts?.signal });
     return response.data;
 };
 
@@ -46,10 +47,12 @@ export const enrollInCourse = async (courseId, sectionId) => {
 };
 
 export const getSections = async (courseId, params) => {
+    const { signal, ...queryParams } = params ?? {};
     const response = await api.get("/api/sections/", {
         params: courseId
-            ? { course: courseId, ...(params ?? {}) }
-            : { ...(params ?? {}) },
+            ? { course: courseId, ...queryParams }
+            : queryParams,
+        signal,
     });
     return response.data;
 };
@@ -84,10 +87,12 @@ export const updateCourseSettings = async (courseId, settings) => {
 };
 
 export const getEnrollments = async (courseId, params) => {
+    const { signal, ...queryParams } = params ?? {};
     const response = await api.get("/api/enrollments/", {
         params: courseId
-            ? { course: courseId, ...(params ?? {}) }
-            : { ...(params ?? {}) },
+            ? { course: courseId, ...queryParams }
+            : queryParams,
+        signal,
     });
 
     return response.data;

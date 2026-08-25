@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useAllAssignments } from "@/features/assignments/hooks/useAllAssignments";
 import { getEnrollments, getSections } from "@/features/courses/services/courseService";
-import { useAllData } from "@/features/courses/hooks/useAllData";
+import { useAllData } from "@/shared/hooks/useAllData";
 import { useCourses } from "@/features/courses/hooks/useCourses";
 import { useAssignmentGrades } from "@/features/grades/hooks/useAssignmentGrades";
 import {

@@ -1,10 +1,10 @@
 import { useCallback } from "react";
-import { useAsyncData } from "@/features/courses/hooks/useAsyncData";
+import { useAsyncData } from "@/shared/hooks/useAsyncData";
 import { getCourseAssignments } from "@/features/assignments/services/assignmentService";
 
 export const useAssignments = (courseId) => {
     const fetchAssignments = useCallback(
-        () => getCourseAssignments(courseId),
+        (opts) => getCourseAssignments(courseId, opts),
         [courseId]
     );
 

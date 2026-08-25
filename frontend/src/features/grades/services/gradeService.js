@@ -1,7 +1,8 @@
 import { api } from "@/lib/axios";
 
 export const getGrades = async (params) => {
-    const response = await api.get("/api/grades/", { params });
+    const { signal, ...queryParams } = params ?? {};
+    const response = await api.get("/api/grades/", { params: queryParams, signal });
     return response.data;
 };
 
