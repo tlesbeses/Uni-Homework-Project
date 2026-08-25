@@ -6,10 +6,9 @@ import { userSchema } from "@/features/auth/schemas/userSchemas";
 import { updateUserProfile } from "@/features/auth/services/authService";
 import { useAuth } from "@/features/auth/providers/AuthProvider";
 import { useNavigate } from "react-router-dom";
-import { userStorage } from "@/shared/storage/tokenStorage";
 export const useUserForm = () => {
     const [serverError, setServerError] = useState("");
-    const { user } = useAuth();
+    const { user, updateUser } = useAuth();
     const navigate = useNavigate();
     const {
         register,
@@ -31,11 +30,14 @@ export const useUserForm = () => {
         try {
             await updateUserProfile(data);
             toast.success("Perfil actualizado con éxito");
-            user.username = data.username;
-            user.first_name = data.first_name;
-            user.last_name = data.last_name;
-            user.email = data.email;
-            userStorage.setUser(user);
+            const updatedUser = {
+                ...user,
+                username: data.username,
+                first_name: data.first_name,
+                last_name: data.last_name,
+                email: data.email,
+            };
+            updateUser(updatedUser);
             navigate("/dashboard");
 
         } catch (error) {

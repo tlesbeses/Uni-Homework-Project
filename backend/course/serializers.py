@@ -171,6 +171,16 @@ class EnrollmentSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         attrs = super().validate(attrs)
 
+        if self.instance is not None and attrs.get("section") is not None:
+            raise serializers.ValidationError(
+                {
+                    "section": (
+                        "The section cannot be changed after the "
+                        "enrollment is created."
+                    )
+                }
+            )
+
         section = attrs.get("section") or getattr(self.instance, "section", None)
         request = self.context.get("request")
 

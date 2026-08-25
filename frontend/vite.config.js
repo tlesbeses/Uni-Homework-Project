@@ -12,7 +12,22 @@ export default defineConfig({
     },
   },
   base: '/',
-  
+
+  // En desarrollo el backend corre en :8000; al proxearlo, el navegador ve
+  // todo como mismo origen y las cookies de sesión funcionan sin CORS.
+  server: {
+    proxy: {
+      "/api": {
+        target: "http://127.0.0.1:8000",
+        changeOrigin: true,
+      },
+      "/auth": {
+        target: "http://127.0.0.1:8000",
+        changeOrigin: true,
+      },
+    },
+  },
+
   build: {
         outDir: "dist",
         assetsDir: "static",

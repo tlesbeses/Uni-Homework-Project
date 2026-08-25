@@ -1,32 +1,24 @@
-const ACCESS_TOKEN_KEY = "accessToken";
-const REFRESH_TOKEN_KEY = "refreshToken";
+// El access token vive SOLO en memoria: nunca en localStorage/sessionStorage,
+// para que un XSS no pueda robarlo. Se pierde al recargar y se restaura
+// mediante el refresh token (cookie HttpOnly) en el arranque de la app.
+const LEGACY_KEYS = ["accessToken", "refreshToken", "user"];
+
+let accessToken = null;
 
 export const tokenStorage = {
-    getAccessToken: () => localStorage.getItem(ACCESS_TOKEN_KEY),
+    getAccessToken: () => accessToken,
 
-    getRefreshToken: () => localStorage.getItem(REFRESH_TOKEN_KEY),
-
-    setAccessToken: (token) =>
-        localStorage.setItem(ACCESS_TOKEN_KEY, token),
-
-    setRefreshToken: (token) =>
-        localStorage.setItem(REFRESH_TOKEN_KEY, token),
+    setAccessToken: (token) => {
+        accessToken = token;
+    },
 
     clear() {
-        localStorage.removeItem(ACCESS_TOKEN_KEY);
-        localStorage.removeItem(REFRESH_TOKEN_KEY);
+        accessToken = null;
     },
 };
 
-export const userStorage = {
-    setUser: (user) => localStorage.setItem("user", JSON.stringify(user)),
-
-    getUser: () => {
-        const user = localStorage.getItem("user");
-        return user ? JSON.parse(user) : null;
-    },
-
-    clear() {
-        localStorage.removeItem("user");
-    }
+// Limpieza única de credenciales dejadas por versiones anteriores
+// que persistían tokens y usuario en localStorage.
+export function clearLegacyTokens() {
+    LEGACY_KEYS.forEach((key) => localStorage.removeItem(key));
 }
