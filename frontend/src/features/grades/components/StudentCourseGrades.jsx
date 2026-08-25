@@ -15,7 +15,7 @@ const GradeRow = ({ grade }) => (
                 {grade.assignment.title}
             </p>
             <p className="text-xs text-gray-500 mt-1">
-                Calificada por: {formatGradedBy(grade.graded_by)}
+                Evaluada por: {formatGradedBy(grade.graded_by)}
             </p>
         </div>
         <p className="text-sm font-bold text-indigo-700 shrink-0 pt-0.5">
@@ -57,7 +57,7 @@ export const StudentCourseGrades = () => {
 
     if (loading) {
         return (
-            <p className="text-sm text-gray-500">Cargando calificaciones...</p>
+            <p className="text-sm text-gray-500">Cargando evaluaciones...</p>
         );
     }
 
@@ -69,7 +69,7 @@ export const StudentCourseGrades = () => {
         return (
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                 <p className="text-sm text-gray-500">
-                    Aún no tienes calificaciones.
+                    Aún no tienes evaluaciones.
                 </p>
             </div>
         );
@@ -108,8 +108,8 @@ export const StudentCourseGrades = () => {
                                         {group.grades.length}{" "}
                                         asignació
                                         {group.grades.length === 1
-                                            ? "n calificada"
-                                            : "nes calificadas"}
+                                            ? "n evaluada"
+                                            : "nes evaluadas"}
                                     </span>
                                 </span>
                             </span>

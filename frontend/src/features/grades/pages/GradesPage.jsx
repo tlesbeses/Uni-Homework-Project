@@ -11,12 +11,12 @@ export const GradesPage = () => {
         >
             <div>
                 <h1 className="text-2xl font-bold text-gray-800">
-                    Calificaciones
+                    Evaluaciones
                 </h1>
                 <p className="text-sm text-gray-500">
                     {isTeacher
-                        ? "Califica equipos o estudiantes individualmente por asignación."
-                        : "Consulta tus calificaciones y el total acumulado por curso."}
+                        ? "Evalúa equipos o estudiantes individualmente por asignación."
+                        : "Consulta tus evaluaciones y el total acumulado por curso."}
                 </p>
             </div>
 
