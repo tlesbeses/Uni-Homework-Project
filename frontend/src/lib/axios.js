@@ -79,8 +79,13 @@ api.interceptors.response.use(
             return Promise.reject(error);
         }
 
-        // No es un 401 o ya se intentó refrescar
-        if (error.response.status !== 401 || originalRequest._retry) {
+        // No es un 401, ya se intentó refrescar, o es una petición de
+        // autenticación (login/register) donde el 401 es esperado.
+        if (
+            error.response.status !== 401 ||
+            originalRequest._retry ||
+            originalRequest.url?.includes("/auth/")
+        ) {
             return Promise.reject(error);
         }
 
