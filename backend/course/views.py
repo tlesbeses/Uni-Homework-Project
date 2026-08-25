@@ -6,7 +6,9 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
+from assignments.models import Assignment
 from course.models import (
     Course,
     CourseSettings,
@@ -18,11 +20,16 @@ from course.models import (
 from course.serializers import (
     CourseSerializer,
     CourseSettingsSerializer,
+    DashboardAssignmentSerializer,
+    DashboardCourseSerializer,
+    DashboardEnrollmentSerializer,
+    DashboardGradeSerializer,
     EnrollmentSerializer,
     SectionSerializer,
 )
 from django_filters.rest_framework import DjangoFilterBackend
 from grading.exports import build_section_grades_workbook
+from grading.models import Grade
 from teams.services import remove_student_from_course_teams
 from .filters import EnrollmentFilter, SectionFilter
 from .permissions import IsCourseTeacherOfSection, IsTeacher, IsStudent
@@ -220,7 +227,66 @@ class CourseViewSet(viewsets.ModelViewSet):
             )
             serializer.is_valid(raise_exception=True)
             serializer.save()
-            return Response(serializer.data)
+        return Response(serializer.data)
+
+
+# ── Dashboard ────────────────────────────────────────────────────────
+
+
+class DashboardView(APIView):
+    """Single endpoint that returns all data needed by the dashboard."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        is_teacher = user.groups.filter(name="Teacher").exists()
+        if is_teacher:
+            return self._teacher_dashboard(user)
+        return self._student_dashboard(user)
+
+    def _teacher_dashboard(self, user):
+        courses = Course.objects.annotate(
+            enrollments_count=Count(
+                "sections__enrollments",
+                filter=Q(sections__enrollments__status=Status.APPROVED),
+            )
+        ).filter(teacher=user).order_by("-created_at")
+
+        enrollments = Enrollment.objects.filter(
+            section__course__teacher=user,
+        )
+
+        return Response({
+            "type": "teacher",
+            "courses": DashboardCourseSerializer(courses, many=True).data,
+            "enrollments": DashboardEnrollmentSerializer(enrollments, many=True).data,
+        })
+
+    def _student_dashboard(self, user):
+        enrollments = Enrollment.objects.filter(student=user)
+
+        grades = Grade.objects.select_related(
+            "assignment__course",
+        ).filter(
+            student=user,
+            assignment__course__sections__enrollments__student=user,
+            assignment__course__sections__enrollments__status=Status.APPROVED,
+            assignment__is_published=True,
+        ).distinct()
+
+        assignments = Assignment.objects.select_related("course").filter(
+            course__sections__enrollments__student=user,
+            course__sections__enrollments__status=Status.APPROVED,
+            is_published=True,
+        ).distinct()
+
+        return Response({
+            "type": "student",
+            "enrollments": DashboardEnrollmentSerializer(enrollments, many=True).data,
+            "grades": DashboardGradeSerializer(grades, many=True).data,
+            "assignments": DashboardAssignmentSerializer(assignments, many=True).data,
+        })
 
         return Response(CourseSettingsSerializer(course_settings).data)
 

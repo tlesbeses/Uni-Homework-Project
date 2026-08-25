@@ -2,7 +2,9 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from rest_framework import serializers
 
+from assignments.models import Assignment
 from course.models import Course, CourseSettings, Enrollment, Section
+from grading.models import Grade
 
 User = get_user_model()
 
@@ -200,3 +202,47 @@ class EnrollmentSerializer(serializers.ModelSerializer):
                 )
 
         return attrs
+
+
+# ── Dashboard serializers (lightweight, read-only) ──────────────────
+
+
+class DashboardCourseSerializer(serializers.ModelSerializer):
+    enrollments_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = Course
+        fields = ["id", "title", "visibility", "enrollments_count", "created_at"]
+
+
+class DashboardEnrollmentSerializer(serializers.ModelSerializer):
+    course_id = serializers.IntegerField(source="section.course.id", read_only=True)
+    course_title = serializers.CharField(source="section.course.title", read_only=True)
+
+    class Meta:
+        model = Enrollment
+        fields = ["id", "status", "course_id", "course_title"]
+
+
+class DashboardGradeSerializer(serializers.ModelSerializer):
+    assignment_title = serializers.CharField(source="assignment.title", read_only=True)
+    assignment_max_score = serializers.DecimalField(
+        source="assignment.max_score", max_digits=6, decimal_places=2, read_only=True
+    )
+    course_id = serializers.IntegerField(source="assignment.course.id", read_only=True)
+    course_title = serializers.CharField(source="assignment.course.title", read_only=True)
+
+    class Meta:
+        model = Grade
+        fields = [
+            "id", "score", "assignment_title", "assignment_max_score",
+            "course_id", "course_title", "created_at",
+        ]
+
+
+class DashboardAssignmentSerializer(serializers.ModelSerializer):
+    course_id = serializers.IntegerField(source="course.id", read_only=True)
+
+    class Meta:
+        model = Assignment
+        fields = ["id", "title", "max_score", "course_id", "is_published", "created_at"]

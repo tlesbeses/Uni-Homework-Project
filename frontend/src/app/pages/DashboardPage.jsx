@@ -1,10 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/features/auth/providers/AuthProvider";
-import { getCourses } from "@/features/courses/services/courseService";
-import { getEnrollments } from "@/features/courses/services/courseService";
-import { getGrades } from "@/features/grades/services/gradeService";
-import { getAssignments } from "@/features/assignments/services/assignmentService";
+import { getDashboard } from "@/features/courses/services/courseService";
 
 function getGreeting() {
     const hour = new Date().getHours();
@@ -51,15 +48,8 @@ export function DashboardPage() {
         async function fetchDashboardData() {
             setLoading(true);
             try {
-                if (isTeacher) {
-                    const data = await fetchTeacherStats();
-                    if (!cancelled) { setStats(data); }
-                } else if (isStudent) {
-                    const data = await fetchStudentStats();
-                    if (!cancelled) { setStats(data); }
-                } else {
-                    if (!cancelled) { setStats({ type: "empty" }); }
-                }
+                const data = await getDashboard();
+                if (!cancelled) { setStats(data); }
             } catch {
                 // Silently handle dashboard fetch errors
             } finally {
@@ -71,7 +61,7 @@ export function DashboardPage() {
         return () => {
             cancelled = true;
         };
-    }, [isTeacher, isStudent]);
+    }, []);
 
     if (loading) {
         return <DashboardSkeleton />;
@@ -134,18 +124,9 @@ function DashboardSkeleton() {
     );
 }
 
-async function fetchTeacherStats() {
-    const [coursesRes, enrollmentsRes] = await Promise.all([
-        getCourses({ page: 1, page_size: 100 }),
-        getEnrollments(null, { page: 1, page_size: 100 }),
-    ]);
-
-    const courses = Array.isArray(coursesRes)
-        ? coursesRes
-        : coursesRes?.results ?? [];
-    const enrollments = Array.isArray(enrollmentsRes)
-        ? enrollmentsRes
-        : enrollmentsRes?.results ?? [];
+function TeacherDashboard({ stats }) {
+    const courses = stats.courses ?? [];
+    const enrollments = stats.enrollments ?? [];
 
     const studentsCount = courses.reduce(
         (sum, c) => sum + (c.enrollments_count ?? 0), 0
@@ -153,64 +134,7 @@ async function fetchTeacherStats() {
     const pendingCount = enrollments.filter(
         (e) => e.status === "PENDING"
     ).length;
-    const recentCourses = [...courses]
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-        .slice(0, 5);
 
-    return {
-        type: "teacher",
-        coursesCount: courses.length,
-        studentsCount,
-        pendingCount,
-        recentCourses,
-    };
-}
-
-async function fetchStudentStats() {
-    const [enrollmentsRes, gradesRes, assignmentsRes] = await Promise.all([
-        getEnrollments(null, { page: 1, page_size: 100 }),
-        getGrades({ page: 1, page_size: 100 }),
-        getAssignments({ page: 1, page_size: 100 }),
-    ]);
-
-    const enrollments = Array.isArray(enrollmentsRes)
-        ? enrollmentsRes
-        : enrollmentsRes?.results ?? [];
-    const grades = Array.isArray(gradesRes)
-        ? gradesRes
-        : gradesRes?.results ?? [];
-    const assignments = Array.isArray(assignmentsRes)
-        ? assignmentsRes
-        : assignmentsRes?.results ?? [];
-
-    const approvedEnrollments = enrollments.filter(
-        (e) => e.status === "APPROVED"
-    );
-    const enrolledCourseIds = new Set(
-        approvedEnrollments.map((e) => e.section?.course?.id).filter(Boolean)
-    );
-
-    const gradedAssignmentIds = new Set(
-        grades.map((g) => g.assignment?.id).filter(Boolean)
-    );
-    const ungradedCount = assignments.filter(
-        (a) => !gradedAssignmentIds.has(a.id)
-    ).length;
-
-    const recentGrades = [...grades]
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-        .slice(0, 5);
-
-    return {
-        type: "student",
-        enrolledCount: enrolledCourseIds.size,
-        assignmentsCount: assignments.length,
-        ungradedCount,
-        recentGrades,
-    };
-}
-
-function TeacherDashboard({ stats }) {
     return (
         <>
             <div>
@@ -220,7 +144,7 @@ function TeacherDashboard({ stats }) {
                 <div className="grid gap-4 sm:grid-cols-3">
                     <StatCard
                         label="Cursos"
-                        value={stats.coursesCount}
+                        value={courses.length}
                         icon={
                             <path
                                 strokeLinecap="round"
@@ -232,7 +156,7 @@ function TeacherDashboard({ stats }) {
                     />
                     <StatCard
                         label="Estudiantes"
-                        value={stats.studentsCount}
+                        value={studentsCount}
                         icon={
                             <path
                                 strokeLinecap="round"
@@ -244,7 +168,7 @@ function TeacherDashboard({ stats }) {
                     />
                     <StatCard
                         label="Pendientes"
-                        value={stats.pendingCount}
+                        value={pendingCount}
                         icon={
                             <path
                                 strokeLinecap="round"
@@ -262,7 +186,7 @@ function TeacherDashboard({ stats }) {
                     <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-400">
                         Actividad reciente
                     </h2>
-                    {stats.coursesCount > 0 && (
+                    {courses.length > 0 && (
                         <Link
                             to="/courses"
                             className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
@@ -272,12 +196,12 @@ function TeacherDashboard({ stats }) {
                     )}
                 </div>
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 divide-y divide-gray-100">
-                    {stats.recentCourses.length === 0 && (
+                    {courses.length === 0 && (
                         <p className="px-5 py-8 text-center text-gray-400 text-sm">
                             No hay actividad reciente.
                         </p>
                     )}
-                    {stats.recentCourses.map((course) => (
+                    {courses.slice(0, 5).map((course) => (
                         <Link
                             key={course.id}
                             to={`/courses/${course.id}`}
@@ -323,6 +247,25 @@ function TeacherDashboard({ stats }) {
 }
 
 function StudentDashboard({ stats }) {
+    const enrollments = stats.enrollments ?? [];
+    const grades = stats.grades ?? [];
+    const assignments = stats.assignments ?? [];
+
+    const approvedCourseIds = new Set(
+        enrollments
+            .filter((e) => e.status === "APPROVED")
+            .map((e) => e.course_id)
+    );
+
+    const gradedAssignmentIds = new Set(grades.map((g) => g.id));
+    const ungradedCount = assignments.filter(
+        (a) => !gradedAssignmentIds.has(a.id)
+    ).length;
+
+    const recentGrades = [...grades]
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        .slice(0, 5);
+
     return (
         <>
             <div>
@@ -332,7 +275,7 @@ function StudentDashboard({ stats }) {
                 <div className="grid gap-4 sm:grid-cols-3">
                     <StatCard
                         label="Mis cursos"
-                        value={stats.enrolledCount}
+                        value={approvedCourseIds.size}
                         icon={
                             <path
                                 strokeLinecap="round"
@@ -344,7 +287,7 @@ function StudentDashboard({ stats }) {
                     />
                     <StatCard
                         label="Asignaciones"
-                        value={stats.assignmentsCount}
+                        value={assignments.length}
                         icon={
                             <path
                                 strokeLinecap="round"
@@ -356,7 +299,7 @@ function StudentDashboard({ stats }) {
                     />
                     <StatCard
                         label="Sin calificar"
-                        value={stats.ungradedCount}
+                        value={ungradedCount}
                         icon={
                             <path
                                 strokeLinecap="round"
@@ -374,7 +317,7 @@ function StudentDashboard({ stats }) {
                     <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-400">
                         Evaluaciones recientes
                     </h2>
-                    {stats.recentGrades.length > 0 && (
+                    {recentGrades.length > 0 && (
                         <Link
                             to="/grades"
                             className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
@@ -384,12 +327,12 @@ function StudentDashboard({ stats }) {
                     )}
                 </div>
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 divide-y divide-gray-100">
-                    {stats.recentGrades.length === 0 && (
+                    {recentGrades.length === 0 && (
                         <p className="px-5 py-8 text-center text-gray-400 text-sm">
                             Aún no tienes evaluaciones.
                         </p>
                     )}
-                    {stats.recentGrades.map((grade) => (
+                    {recentGrades.map((grade) => (
                         <div
                             key={grade.id}
                             className="flex items-center gap-4 px-5 py-3.5"
@@ -411,12 +354,12 @@ function StudentDashboard({ stats }) {
                             </div>
                             <div className="min-w-0 flex-1">
                                 <p className="text-sm font-medium text-gray-800 truncate">
-                                    {grade.assignment?.title ?? "Evaluación"}
+                                    {grade.assignment_title ?? "Evaluación"}
                                 </p>
                                 <p className="text-xs text-gray-400 truncate">
-                                    {grade.assignment?.course?.title ?? ""}
-                                    {grade.assignment?.course?.title && " · "}
-                                    Nota: {grade.score}/{grade.assignment?.max_score ?? "?"}
+                                    {grade.course_title ?? ""}
+                                    {grade.course_title && " · "}
+                                    Nota: {grade.score}/{grade.assignment_max_score ?? "?"}
                                 </p>
                             </div>
                             <span className="text-xs text-gray-400 whitespace-nowrap">
