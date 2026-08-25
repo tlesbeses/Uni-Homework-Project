@@ -30,7 +30,6 @@ export const useAllData = (fetcher) => {
             setData(all);
         } catch (err) {
             setError(getErrorMessage(err));
-            console.error("Error fetching data:", err);
         } finally {
             setLoading(false);
         }

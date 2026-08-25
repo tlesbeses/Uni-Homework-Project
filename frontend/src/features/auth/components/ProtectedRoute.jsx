@@ -5,7 +5,7 @@ export function ProtectedRoute({
     children,
     roles = [],
     permissions = [],
-    redirectTo = "/login",
+    redirectTo = "/401",
     forbiddenTo = "/403",
 }) {
     const { user, isLoading } = useAuth();

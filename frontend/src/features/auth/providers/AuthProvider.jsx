@@ -91,12 +91,10 @@ export function AuthProvider({ children }) {
         try {
             // El servidor blackliste el refresh (cookie) y limpia las cookies.
             await logoutUser();
-        } catch (error) {
-            console.error("Error al reportar el logout al servidor:", error);
+        } catch {
+            // Silently handle logout server errors
         } finally {
             tokenStorage.clear();
-            setUser(null);
-            setIsLoading(false);
             window.location.assign("/login");
         }
     }, []);

@@ -1,16 +1,13 @@
 import axios from "axios";
 import { tokenStorage } from "@/shared/storage/tokenStorage";
 import { getCsrfToken, setCsrfToken } from "@/lib/csrf";
+import { getCached, setCache, cacheKey } from "@/lib/apiCache";
 
 let isRefreshing = false;
 let failedQueue = [];
 
-// Misma configuración base para ambas instancias: respeta VITE_API_URL,
-// de modo que el refresh funcione también con API en otro origen.
 const BASE_URL = import.meta.env.VITE_API_URL || "";
 
-// Instancia SIN interceptores para las llamadas de autenticación:
-// evita recursión y hereda baseURL/withCredentials.
 export const authApi = axios.create({
     baseURL: BASE_URL,
     withCredentials: true,
@@ -28,7 +25,6 @@ const processQueue = (error, token = null) => {
     failedQueue = [];
 };
 
-// Refresca la sesión usando SOLO la cookie HttpOnly (sin cuerpo con tokens).
 export async function refreshSession() {
     const csrfToken = getCsrfToken();
 
@@ -41,7 +37,6 @@ export async function refreshSession() {
     );
 
     tokenStorage.setAccessToken(data.access);
-    // La rotación del refresh rota también el CSRF; guardamos el nuevo valor.
     setCsrfToken(data.csrfToken);
     return data.access;
 }
@@ -51,7 +46,32 @@ export const api = axios.create({
     withCredentials: true,
 });
 
-api.interceptors.request.use((config) => {
+// ── Throttle queue ──────────────────────────────────────────────────
+let throttleExpiry = 0;
+let onThrottleUpdate = null;
+
+export function setThrottleListener(listener) {
+    onThrottleUpdate = listener;
+}
+
+function enterThrottled(seconds) {
+    throttleExpiry = Date.now() + seconds * 1000;
+    if (onThrottleUpdate) {
+        onThrottleUpdate(seconds);
+    }
+    return new Promise((resolve) => {
+        setTimeout(() => {
+            throttleExpiry = 0;
+            if (onThrottleUpdate) {
+                onThrottleUpdate(0);
+            }
+            resolve();
+        }, seconds * 1000);
+    });
+}
+
+// ── Request interceptor ─────────────────────────────────────────────
+api.interceptors.request.use(async (config) => {
     const token = tokenStorage.getAccessToken();
 
     if (token) {
@@ -66,21 +86,63 @@ api.interceptors.request.use((config) => {
         }
     }
 
+    // Cache for GET requests
+    if (method === "get") {
+        const key = cacheKey("get", config.url, config.params);
+        const cached = getCached(key);
+        if (cached !== undefined) {
+            config.adapter = () =>
+                Promise.resolve({
+                    data: cached,
+                    status: 200,
+                    statusText: "OK",
+                    headers: {},
+                    config,
+                });
+        }
+    }
+
+    // Wait if currently throttled
+    if (throttleExpiry > Date.now()) {
+        const remaining = Math.ceil((throttleExpiry - Date.now()) / 1000);
+        await enterThrottled(remaining);
+    }
+
     return config;
 });
 
+// ── Response interceptor ────────────────────────────────────────────
 api.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        const method = (response.config.method || "get").toLowerCase();
+        if (method === "get") {
+            const key = cacheKey(
+                "get",
+                response.config.url,
+                response.config.params
+            );
+            setCache(key, response.data);
+        }
+        return response;
+    },
     async (error) => {
         const originalRequest = error.config;
 
-        // No hay respuesta del servidor (internet caído, timeout, etc.)
         if (!error.response) {
             return Promise.reject(error);
         }
 
-        // No es un 401, ya se intentó refrescar, o es una petición de
-        // autenticación (login/register) donde el 401 es esperado.
+        // ── 429 Throttle ────────────────────────────────────────────
+        if (error.response.status === 429) {
+            const retryAfter = parseInt(
+                error.response.headers?.["retry-after"] || "30",
+                10
+            );
+            await enterThrottled(retryAfter);
+            return api(originalRequest);
+        }
+
+        // ── 401 Auth ────────────────────────────────────────────────
         if (
             error.response.status !== 401 ||
             originalRequest._retry ||
@@ -89,7 +151,6 @@ api.interceptors.response.use(
             return Promise.reject(error);
         }
 
-        // Si ya hay un refresh en curso, espera
         if (isRefreshing) {
             return new Promise((resolve, reject) => {
                 failedQueue.push({ resolve, reject });

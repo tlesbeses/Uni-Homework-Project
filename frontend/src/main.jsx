@@ -6,6 +6,7 @@ import './index.css'
 import { AuthProvider } from "@/features/auth/providers/AuthProvider";
 import { ToastContainer } from 'react-toastify';
 import "react-toastify/dist/ReactToastify.css";
+import { ThrottleManager } from "@/shared/components/ThrottleManager";
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
@@ -15,6 +16,7 @@ createRoot(document.getElementById('root')).render(
         autoClose={3000}
         theme="colored"
       />
+      <ThrottleManager />
       <RouterProvider router={router} />
     </AuthProvider>
   </React.StrictMode>

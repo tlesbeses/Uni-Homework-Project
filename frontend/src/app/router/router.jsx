@@ -2,12 +2,13 @@ import { createBrowserRouter } from "react-router-dom";
 import AppLayout from "@/app/layouts/AppLayout";
 import AuthLayout from "@/app/layouts/AuthLayout";
 
-// Páginas de Ejemplo (Reemplaza con tus componentes reales)
 import { LandingPage } from "@/app/pages/LandingPage";
 import { LoginPage } from "@/features/auth/pages/LoginPage";
 import { RegisterPage } from "@/features/auth/pages/RegisterPage";
 import { DashboardPage } from "@/app/pages/DashboardPage";
 import { NotFoundPage } from "@/app/pages/NotFoundPage";
+import { UnauthorizedPage } from "@/app/pages/UnauthorizedPage";
+import { ForbiddenPage } from "@/app/pages/ForbiddenPage";
 import { ProtectedRoute } from "@/features/auth/components/ProtectedRoute";
 import { EditProfilePage } from "@/features/auth/pages/EditProfile";
 import { ChangePasswordProfilePage } from "@/features/auth/pages/ChangePasswordProfile";
@@ -23,6 +24,16 @@ export const router = createBrowserRouter([
   {
     path: "/",
     element: <LandingPage />,
+  },
+
+  // Páginas de error
+  {
+    path: "/401",
+    element: <UnauthorizedPage />,
+  },
+  {
+    path: "/403",
+    element: <ForbiddenPage />,
   },
 
   // Rutas de Autenticación (Login, Registro)

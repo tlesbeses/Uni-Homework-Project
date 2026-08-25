@@ -1,11 +1,11 @@
 import { Link } from "react-router-dom";
 
-export const NotFoundPage = () => (
+export const ForbiddenPage = () => (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
         <div className="max-w-md w-full text-center">
             <div className="mb-6">
                 <svg
-                    className="mx-auto w-24 h-24 text-indigo-400"
+                    className="mx-auto w-24 h-24 text-red-400"
                     fill="none"
                     stroke="currentColor"
                     strokeWidth="1"
@@ -14,16 +14,17 @@ export const NotFoundPage = () => (
                     <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"
+                        d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636"
                     />
                 </svg>
             </div>
-            <h1 className="text-6xl font-bold text-gray-800 mb-2">404</h1>
+            <h1 className="text-6xl font-bold text-gray-800 mb-2">403</h1>
             <h2 className="text-xl font-semibold text-gray-700 mb-3">
-                Página no encontrada
+                Acceso denegado
             </h2>
             <p className="text-gray-500 mb-8">
-                La página que buscas no existe o fue movida a otra ubicación.
+                No tienes permiso para acceder a esta página. Si crees que esto
+                es un error, contacta al administrador.
             </p>
             <Link
                 to="/"
