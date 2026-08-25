@@ -132,6 +132,7 @@ class GradeViewSet(viewsets.ReadOnlyModelViewSet):
                 student=user,
                 assignment__course__sections__enrollments__student=user,
                 assignment__course__sections__enrollments__status=Status.APPROVED,
+                assignment__is_published=True,
             )
             .distinct()
         )

@@ -18,7 +18,7 @@ export const useCreateAssignmentForm = ({ courseId, onSuccess } = {}) => {
             description: "",
             max_score: "",
             due_date: "",
-            is_published: false,
+            is_published: true,
         },
     });
 

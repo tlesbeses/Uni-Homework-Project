@@ -52,7 +52,16 @@ class UserCreateSerializer(DjoserUserCreateSerializer):
         return user
 
 class UserSerializer(DjoserUserSerializer):
+    roles = serializers.SerializerMethodField()
+    permissions = serializers.SerializerMethodField()
+
     class Meta(DjoserUserSerializer.Meta):
         model = User
-        fields = ('id', 'username', 'email', 'first_name', 'last_name')  
-        read_only_fields = ()   
+        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'roles', 'permissions')
+        read_only_fields = ()
+
+    def get_roles(self, obj):
+        return list(obj.groups.values_list("name", flat=True))
+
+    def get_permissions(self, obj):
+        return list(obj.get_all_permissions())

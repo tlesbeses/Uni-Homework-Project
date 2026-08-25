@@ -42,7 +42,7 @@ class Assignment(TimeStampedModel):
     )
 
     is_published = models.BooleanField(
-        default=False,
+        default=True,
         help_text="Drafts are hidden from students until published.",
     )
 

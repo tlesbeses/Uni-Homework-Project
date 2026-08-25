@@ -60,7 +60,7 @@ export const AssignmentList = ({
                                         disabled={busy}
                                         className="px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition disabled:opacity-50"
                                     >
-                                        Calificar
+                                        Evaluar
                                     </button>
                                 )}
                                 <button

@@ -7,7 +7,7 @@ export const CourseDetailHeader = ({ course, teacher, isOwner, onEdit }) => {
                         {course.title}
                     </h1>
                     <p className="text-sm text-gray-500">
-                        Profesor: {course.teacher?.username}
+                        Profesor: {course.teacher?.first_name} {course.teacher?.last_name}
                     </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">

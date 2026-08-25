@@ -358,7 +358,7 @@ export const TeacherGradingPanel = () => {
     if (assignments.length === 0) {
         return (
             <p className="text-sm text-gray-500">
-                No tienes asignaciones para calificar.
+                No tienes asignaciones para evaluar.
             </p>
         );
     }
@@ -621,7 +621,7 @@ export const TeacherGradingPanel = () => {
 
                         {gradesLoading ? (
                             <p className="text-sm text-gray-500">
-                                Cargando calificaciones...
+                                Cargando evaluaciones...
                             </p>
                         ) : selectedTeam ? (
                             <div className="bg-white rounded-xl shadow-sm border-2 border-indigo-200 overflow-hidden">
@@ -744,7 +744,7 @@ export const TeacherGradingPanel = () => {
                                         La nota del equipo se aplica a todos los
                                         integrantes; las notas individuales la
                                         reemplazan solo para ese estudiante y se
-                                        conservan al recalificar el equipo.
+                                        conservan al reevaluar el equipo.
                                     </p>
                                 </div>
                             </div>
