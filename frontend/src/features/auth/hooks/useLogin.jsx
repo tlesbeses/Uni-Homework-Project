@@ -7,39 +7,37 @@ import { loginSchema } from "@/features/auth/schemas/authSchemas";
 import { toast } from "react-toastify";
 
 export const useLogin = () => {
-    const { login } = useAuth();
-    const navigate = useNavigate();
-    const [serverError, setServerError] = useState("");
+  const { login } = useAuth();
+  const navigate = useNavigate();
+  const [serverError, setServerError] = useState("");
 
-    const {
-        register,
-        handleSubmit,
-        formState: { errors, isSubmitting }
-    } = useForm({
-        resolver: zodResolver(loginSchema)
-    });
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm({
+    resolver: zodResolver(loginSchema),
+  });
 
-    const onSubmit = async (data) => {
-        setServerError("");
-        try {
+  const onSubmit = async (data) => {
+    setServerError("");
+    try {
+      await login(data);
+      toast.success("Inicio de sesión exitoso");
+      navigate("/dashboard", { replace: true });
+    } catch {
+      const message = "Usuario o contraseña incorrectos";
+      setServerError(message);
+      toast.error(message);
+    }
+  };
 
-            await login(data);
-
-            toast.success("Inicio de sesión exitoso");
-            navigate("/dashboard", { replace: true });
-        } catch {
-            const message = "Usuario o contraseña incorrectos";
-            setServerError(message);
-            toast.error(message);
-        }
-    };
-
-    return {
-        register,
-        handleSubmit,
-        errors,
-        isSubmitting,
-        serverError,
-        onSubmit
-    };
+  return {
+    register,
+    handleSubmit,
+    errors,
+    isSubmitting,
+    serverError,
+    onSubmit,
+  };
 };
