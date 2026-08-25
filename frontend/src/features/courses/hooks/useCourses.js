@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { getCourses } from "@/features/courses/services/courseService";
-import { useAllData } from "@/features/courses/hooks/useAllData";
+import { useAllData } from "@/shared/hooks/useAllData";
 
 export const useCourses = () => {
     const fetchAll = useCallback((params) => getCourses(params), []);

@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { useAllData } from "@/features/courses/hooks/useAllData";
+import { useAllData } from "@/shared/hooks/useAllData";
 import { getGrades } from "@/features/grades/services/gradeService";
 
 export const useAssignmentGrades = (assignmentId) => {

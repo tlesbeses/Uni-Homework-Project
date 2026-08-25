@@ -5,14 +5,14 @@ import {
     getEnrollments,
     rejectEnrollment as rejectEnrollmentRequest,
 } from "@/features/courses/services/courseService";
-import { useAsyncData } from "@/features/courses/hooks/useAsyncData";
+import { useAsyncData } from "@/shared/hooks/useAsyncData";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 
 export const useEnrollments = (courseId) => {
     const [updatingEnrollmentId, setUpdatingEnrollmentId] = useState(null);
 
-    const fetchEnrollments = useCallback(async () => {
-        const data = await getEnrollments(courseId, { page_size: 100 });
+    const fetchEnrollments = useCallback(async (opts) => {
+        const data = await getEnrollments(courseId, { page_size: 100, signal: opts?.signal });
         return Array.isArray(data.results) ? data.results : Array.isArray(data) ? data : [];
     }, [courseId]);
 

@@ -1,7 +1,8 @@
 import { api } from "@/lib/axios";
 
 export const getTeams = async (params) => {
-    const response = await api.get("/api/teams/", { params });
+    const { signal, ...queryParams } = params ?? {};
+    const response = await api.get("/api/teams/", { params: queryParams, signal });
     return response.data;
 };
 
