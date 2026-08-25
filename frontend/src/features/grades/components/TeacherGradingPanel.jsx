@@ -328,9 +328,24 @@ export const TeacherGradingPanel = () => {
         }
     };
 
-    const visibleTeams = teams.filter((team) =>
-        team.name.toLowerCase().includes(teamNameQuery.trim().toLowerCase())
-    );
+    const visibleTeams = teams.filter((team) => {
+        const words = teamNameQuery
+            .trim()
+            .toLowerCase()
+            .split(/\s+/)
+            .filter(Boolean);
+        if (words.length === 0) {
+            return true;
+        }
+        const teamStr = team.name.toLowerCase();
+        if (words.every((w) => teamStr.includes(w))) {
+            return true;
+        }
+        return (team.members ?? []).some((m) => {
+            const name = studentName(m.student).toLowerCase();
+            return words.every((w) => name.includes(w));
+        });
+    });
 
     const selectedTeam = teams.find(
         (team) => String(team.id) === String(selectedTeamId)
