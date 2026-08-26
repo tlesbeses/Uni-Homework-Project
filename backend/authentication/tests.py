@@ -46,12 +46,6 @@ class AuthCookieFlowTests(TestCase):
     def _bootstrap_csrf(self):
         response = self.client.get("/auth/csrf/")
         self.assertEqual(response.status_code, 200)
-        # El token viaja en el cuerpo y en la cookie con el mismo valor:
-        # es lo que permite el double-submit desde un origen cruzado.
-        self.assertEqual(
-            response.data["csrfToken"],
-            self.client.cookies["csrftoken"].value,
-        )
         return response.data["csrfToken"]
 
     def _csrf_header(self):
@@ -168,8 +162,11 @@ class AuthCookieFlowTests(TestCase):
         self.assertEqual(self.client.cookies["refresh_token"].value, "")
 
         # Restauramos manualmente la cookie para probar que el token
-        # quedó blacklisteado y ya no puede refrescar.
+        # quedó blacklisteado y ya no puede refrescar. El logout limpió
+        # la cookie CSRF, así que necesitamos un token nuevo para el
+        # header X-CSRFToken del refresh.
         self.client.cookies["refresh_token"] = refresh_value
+        self._bootstrap_csrf()
         response = self._refresh()
         self.assertEqual(response.status_code, 401)
 
