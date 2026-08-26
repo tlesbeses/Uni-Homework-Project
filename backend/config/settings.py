@@ -225,19 +225,27 @@ if "test" in sys.argv:
 # Orígenes del frontend autorizados para CORS con credenciales. En desarrollo
 # Vite corre en :5173; si el frontend se despliega en otro origen, agreguelo
 # vía la variable CORS_ALLOWED_ORIGINS (separada por comas).
-CORS_ALLOWED_ORIGINS = os.getenv(
-    "CORS_ALLOWED_ORIGINS",
-    "http://localhost:5173,http://127.0.0.1:5173"
-).split(",")
+CORS_ALLOWED_ORIGINS = [
+    o.strip()
+    for o in os.getenv(
+        "CORS_ALLOWED_ORIGINS",
+        "http://localhost:5173,http://127.0.0.1:5173"
+    ).split(",")
+    if o.strip()
+]
 
 # Necesario para que el frontend pueda mantener las cookies de sesión
 # (refresh token + CSRF) entre dominios durante el desarrollo.
 CORS_ALLOW_CREDENTIALS = True
 
-CSRF_TRUSTED_ORIGINS = os.getenv(
-    "CSRF_TRUSTED_ORIGINS",
-    "http://localhost:5173,http://127.0.0.1:5173,https://uni-homework-project.onrender.com",
-).split(",")
+CSRF_TRUSTED_ORIGINS = [
+    o.strip()
+    for o in os.getenv(
+        "CSRF_TRUSTED_ORIGINS",
+        "http://localhost:5173,http://127.0.0.1:5173,https://uni-homework-project.onrender.com",
+    ).split(",")
+    if o.strip()
+]
 
 # Seguridad en producción: cookies Secure, HSTS, redirect a HTTPS.
 if not DEBUG:

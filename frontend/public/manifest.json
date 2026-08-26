@@ -2,11 +2,12 @@
   "name": "EduNotas",
   "short_name": "EduNotas",
   "description": "Plataforma de gestión académica",
-  "start_url": "/dashboard",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#1e1b4b",
-  "theme_color": "#6366f1",
+  "background_color": "#312e81",
+  "theme_color": "#312e81",
   "icons": [
     {
       "src": "/icon-192.png",

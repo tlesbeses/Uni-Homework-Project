@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+html, body {
+  background-color: #312e81;
+}
+
 @theme {
   --animate-pop: pop 150ms ease-out;
 
