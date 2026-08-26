@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/features/auth/providers/AuthProvider";
 import { getDashboard } from "@/features/courses/services/courseService";
@@ -251,20 +251,29 @@ function StudentDashboard({ stats }) {
     const grades = stats.grades ?? [];
     const assignments = stats.assignments ?? [];
 
-    const approvedCourseIds = new Set(
-        enrollments
-            .filter((e) => e.status === "APPROVED")
-            .map((e) => e.course_id)
+    const approvedCourseIds = useMemo(
+        () =>
+            new Set(
+                enrollments
+                    .filter((e) => e.status === "APPROVED")
+                    .map((e) => e.course_id)
+            ),
+        [enrollments]
     );
 
-    const gradedAssignmentIds = new Set(grades.map((g) => g.id));
-    const ungradedCount = assignments.filter(
-        (a) => !gradedAssignmentIds.has(a.id)
-    ).length;
+    const gradedAssignmentIds = useMemo(() => new Set(grades.map((g) => g.id)), [grades]);
+    const ungradedCount = useMemo(
+        () => assignments.filter((a) => !gradedAssignmentIds.has(a.id)).length,
+        [assignments, gradedAssignmentIds]
+    );
 
-    const recentGrades = [...grades]
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-        .slice(0, 5);
+    const recentGrades = useMemo(
+        () =>
+            [...grades]
+                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                .slice(0, 5),
+        [grades]
+    );
 
     return (
         <>

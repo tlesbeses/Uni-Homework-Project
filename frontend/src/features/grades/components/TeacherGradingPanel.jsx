@@ -210,10 +210,10 @@ export const TeacherGradingPanel = () => {
             : String(fallback);
     };
 
-    const setDraft = (key, value) =>
-        setDrafts((prev) => ({ ...prev, [key]: value }));
+    const setDraft = useCallback((key, value) =>
+        setDrafts((prev) => ({ ...prev, [key]: value })), []);
 
-    const clearDraft = (key) =>
+    const clearDraft = useCallback((key) =>
         setDrafts((prev) => {
             if (!(key in prev)) {
                 return prev;
@@ -221,7 +221,7 @@ export const TeacherGradingPanel = () => {
             const next = { ...prev };
             delete next[key];
             return next;
-        });
+        }), []);
 
     const handleSelectCourse = (e) => {
         setCourseFilter(e.target.value);

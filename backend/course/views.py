@@ -40,7 +40,9 @@ class CourseViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        queryset = Course.objects.annotate(
+        queryset = Course.objects.select_related(
+            "teacher", "settings"
+        ).annotate(
             enrollments_count=Count(
                 "sections__enrollments",
                 filter=Q(sections__enrollments__status=Status.APPROVED),
@@ -255,7 +257,7 @@ class DashboardView(APIView):
 
         enrollments = Enrollment.objects.filter(
             section__course__teacher=user,
-        )
+        ).select_related("section__course")
 
         return Response({
             "type": "teacher",
@@ -264,7 +266,9 @@ class DashboardView(APIView):
         })
 
     def _student_dashboard(self, user):
-        enrollments = Enrollment.objects.filter(student=user)
+        enrollments = Enrollment.objects.filter(
+            student=user,
+        ).select_related("section__course")
 
         grades = Grade.objects.select_related(
             "assignment__course",
@@ -287,8 +291,6 @@ class DashboardView(APIView):
             "grades": DashboardGradeSerializer(grades, many=True).data,
             "assignments": DashboardAssignmentSerializer(assignments, many=True).data,
         })
-
-        return Response(CourseSettingsSerializer(course_settings).data)
 
 
 class SectionViewSet(viewsets.ModelViewSet):
@@ -458,7 +460,9 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        queryset = Enrollment.objects.all()
+        queryset = Enrollment.objects.select_related(
+            "student", "section__course__teacher", "section__course__settings"
+        )
 
 
         if user.is_superuser:

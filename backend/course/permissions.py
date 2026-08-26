@@ -1,20 +1,26 @@
+from django.core.cache import cache
 from rest_framework.permissions import BasePermission
+
+GROUP_CACHE_TTL = 300  # 5 minutes
+
+
+def _has_group(user, group_name):
+    cache_key = f"group:{user.pk}:{group_name}"
+    result = cache.get(cache_key)
+    if result is None:
+        result = user.groups.filter(name=group_name).exists()
+        cache.set(cache_key, result, GROUP_CACHE_TTL)
+    return result
 
 
 class IsTeacher(BasePermission):
     def has_permission(self, request, view):
-        return (
-            request.user.is_superuser
-            or request.user.groups.filter(name="Teacher").exists()
-        )
+        return request.user.is_superuser or _has_group(request.user, "Teacher")
 
 
 class IsStudent(BasePermission):
     def has_permission(self, request, view):
-        return (
-            request.user.is_superuser
-            or request.user.groups.filter(name="Student").exists()
-        )
+        return request.user.is_superuser or _has_group(request.user, "Student")
 
 
 class IsCourseTeacherOfSection(BasePermission):
@@ -31,7 +37,7 @@ class IsCourseTeacherOfSection(BasePermission):
             return False
         if request.user.is_superuser:
             return True
-        return request.user.groups.filter(name="Teacher").exists()
+        return _has_group(request.user, "Teacher")
 
     def has_object_permission(self, request, view, obj) -> bool:
         if request.user.is_superuser:

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/providers/AuthProvider";
 
@@ -39,6 +39,11 @@ export function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const headerRef = useRef(null);
 
+  const visibleNavItems = useMemo(
+    () => NAV_ITEMS.filter((item) => !item.teacherOnly || isTeacher),
+    [isTeacher]
+  );
+
   useEffect(() => {
     const closeMenus = () => {
       setIsSettingsOpen(false);
@@ -68,7 +73,7 @@ export function Navbar() {
           </Link>
 
           <nav className="hidden md:flex items-center space-x-1 text-sm font-medium">
-            {NAV_ITEMS.filter((item) => !item.teacherOnly || isTeacher).map(({ to, label, end }) => (
+            {visibleNavItems.map(({ to, label, end }) => (
               <NavLink
                 key={to}
                 to={to}
@@ -264,7 +269,7 @@ export function Navbar() {
           className="md:hidden border-t border-indigo-500 px-3 pt-2 pb-3 origin-top animate-pop"
         >
           <div className="space-y-1">
-            {NAV_ITEMS.filter((item) => !item.teacherOnly || isTeacher).map(({ to, label, d, end }) => (
+            {visibleNavItems.map(({ to, label, d, end }) => (
               <NavLink
                 key={to}
                 to={to}

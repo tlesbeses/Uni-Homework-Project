@@ -123,7 +123,7 @@ api.interceptors.response.use(
             );
             setCache(key, response.data);
         } else {
-            invalidateCache();
+            invalidateCache(response.config.url);
         }
         return response;
     },
