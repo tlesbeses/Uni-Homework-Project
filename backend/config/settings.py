@@ -35,6 +35,7 @@ DEBUG = os.getenv("DEBUG", "False").lower() in ("true", "1", "yes")
 # con proxy. Usar "None" solo si frontend y API viven en sitios distintos;
 # en ese caso las cookies se marcan Secure obligatoriamente.
 AUTH_COOKIE_SAMESITE = os.getenv("AUTH_COOKIE_SAMESITE", "Lax")
+
 if AUTH_COOKIE_SAMESITE not in ("Lax", "Strict", "None"):
     raise ImproperlyConfigured(
         "AUTH_COOKIE_SAMESITE debe ser 'Lax', 'Strict' o 'None'."
@@ -83,6 +84,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'config.middleware.CspReportOnlyMiddleware',
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -140,7 +142,8 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 DATABASES = {
     "default": dj_database_url.config(
-        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}"
+        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
+        conn_max_age=600,
     )
 }
 
@@ -195,16 +198,29 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "anon": "50/minute",
         "user": "50/minute",
+        "login": "5/minute",
+        "auth": "10/minute",
     },
 
     "DEFAULT_PAGINATION_CLASS":
         "config.pagination.DefaultPagination",
+
+    "DEFAULT_RENDERER_CLASSES": (
+        "rest_framework.renderers.JSONRenderer",
+    ),
 }
+
+if DEBUG:
+    REST_FRAMEWORK["DEFAULT_RENDERER_CLASSES"] = (
+        "rest_framework.renderers.JSONRenderer",
+        "rest_framework.renderers.BrowsableAPIRenderer",
+    )
 
 # The in-memory throttle cache persists across test cases (user pks repeat
 # on every fresh test database), which makes large suites flaky with 429s.
 if "test" in sys.argv:
     REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"] = []
+    DISABLE_THROTTLE = True
 
 # Orígenes del frontend autorizados para CORS con credenciales. En desarrollo
 # Vite corre en :5173; si el frontend se despliega en otro origen, agreguelo
@@ -218,11 +234,48 @@ CORS_ALLOWED_ORIGINS = os.getenv(
 # (refresh token + CSRF) entre dominios durante el desarrollo.
 CORS_ALLOW_CREDENTIALS = True
 
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "https://uni-homework-project.onrender.com",
-]
+CSRF_TRUSTED_ORIGINS = os.getenv(
+    "CSRF_TRUSTED_ORIGINS",
+    "http://localhost:5173,http://127.0.0.1:5173,https://uni-homework-project.onrender.com",
+).split(",")
+
+# Seguridad en producción: cookies Secure, HSTS, redirect a HTTPS.
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+
+# Caché: Redis en producción, local-mem en desarrollo.
+if DEBUG:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        }
+    }
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": os.getenv("REDIS_URL", "redis://127.0.0.1:6379/1"),
+        }
+    }
+
+# CSP Report-Only: solo reporta violaciones, no bloquea.
+# Establecer CSP_REPORT_URI para activar (ej. https://tudominio.com/csp-report).
+_csp_report_uri = os.getenv("CSP_REPORT_URI")
+if _csp_report_uri:
+    CSP_REPORT_ONLY = (
+        "default-src 'self'; "
+        "script-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; "
+        f"report-uri {_csp_report_uri};"
+    )
 
 DJOSER = {
     'SERIALIZERS': {

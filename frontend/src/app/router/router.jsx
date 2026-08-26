@@ -1,58 +1,90 @@
+import { lazy, Suspense } from "react";
 import { createBrowserRouter } from "react-router-dom";
 import AppLayout from "@/app/layouts/AppLayout";
 import AuthLayout from "@/app/layouts/AuthLayout";
-
-import { LandingPage } from "@/app/pages/LandingPage";
-import { LoginPage } from "@/features/auth/pages/LoginPage";
-import { RegisterPage } from "@/features/auth/pages/RegisterPage";
-import { DashboardPage } from "@/app/pages/DashboardPage";
-import { NotFoundPage } from "@/app/pages/NotFoundPage";
-import { UnauthorizedPage } from "@/app/pages/UnauthorizedPage";
-import { ForbiddenPage } from "@/app/pages/ForbiddenPage";
 import { ProtectedRoute } from "@/features/auth/components/ProtectedRoute";
-import { EditProfilePage } from "@/features/auth/pages/EditProfile";
-import { ChangePasswordProfilePage } from "@/features/auth/pages/ChangePasswordProfile";
-import { CoursesPage } from "@/features/courses/pages/CoursesPage";
-import { CourseDetailPage } from "@/features/courses/pages/CourseDetailPage";
-import { AssignmentsPage } from "@/features/assignments/pages/AssignmentsPage";
-import { GradesPage } from "@/features/grades/pages/GradesPage";
-import { TeamsPage } from "@/features/teams/pages/TeamsPage";
-import { TeamDetailPage } from "@/features/teams/pages/TeamDetailPage";
+
+const PageSkeleton = () => (
+    <div className="flex items-center justify-center h-64">
+        <div className="animate-pulse text-gray-400">Cargando...</div>
+    </div>
+);
+
+const SuspenseWrapper = ({ children }) => (
+    <Suspense fallback={<PageSkeleton />}>{children}</Suspense>
+);
+
+const lazyPage = (importFn, name) =>
+    lazy(() => importFn().then((m) => ({ default: m[name] })));
+
+const LandingPage = lazyPage(() => import("@/app/pages/LandingPage"), "LandingPage");
+const LoginPage = lazyPage(() => import("@/features/auth/pages/LoginPage"), "LoginPage");
+const RegisterPage = lazyPage(() => import("@/features/auth/pages/RegisterPage"), "RegisterPage");
+const DashboardPage = lazyPage(() => import("@/app/pages/DashboardPage"), "DashboardPage");
+const NotFoundPage = lazyPage(() => import("@/app/pages/NotFoundPage"), "NotFoundPage");
+const UnauthorizedPage = lazyPage(() => import("@/app/pages/UnauthorizedPage"), "UnauthorizedPage");
+const ForbiddenPage = lazyPage(() => import("@/app/pages/ForbiddenPage"), "ForbiddenPage");
+const EditProfilePage = lazyPage(() => import("@/features/auth/pages/EditProfile"), "EditProfilePage");
+const ChangePasswordProfilePage = lazyPage(() => import("@/features/auth/pages/ChangePasswordProfile"), "ChangePasswordProfilePage");
+const CoursesPage = lazyPage(() => import("@/features/courses/pages/CoursesPage"), "CoursesPage");
+const CourseDetailPage = lazyPage(() => import("@/features/courses/pages/CourseDetailPage"), "CourseDetailPage");
+const AssignmentsPage = lazyPage(() => import("@/features/assignments/pages/AssignmentsPage"), "AssignmentsPage");
+const GradesPage = lazyPage(() => import("@/features/grades/pages/GradesPage"), "GradesPage");
+const GradesReportPage = lazyPage(() => import("@/features/grades/pages/GradesReportPage"), "GradesReportPage");
+const TeamsPage = lazyPage(() => import("@/features/teams/pages/TeamsPage"), "TeamsPage");
+const TeamDetailPage = lazyPage(() => import("@/features/teams/pages/TeamDetailPage"), "TeamDetailPage");
 
 export const router = createBrowserRouter([
-  // Ruta Pública: Landing Page
   {
     path: "/",
-    element: <LandingPage />,
+    element: (
+      <SuspenseWrapper>
+        <LandingPage />
+      </SuspenseWrapper>
+    ),
   },
-
-  // Páginas de error
   {
     path: "/401",
-    element: <UnauthorizedPage />,
+    element: (
+      <SuspenseWrapper>
+        <UnauthorizedPage />
+      </SuspenseWrapper>
+    ),
   },
   {
     path: "/403",
-    element: <ForbiddenPage />,
+    element: (
+      <SuspenseWrapper>
+        <ForbiddenPage />
+      </SuspenseWrapper>
+    ),
   },
-
-  // Rutas de Autenticación (Login, Registro)
   {
     element: <AuthLayout />,
     children: [
       {
         path: "/login",
-        element: <LoginPage />,
+        element: (
+          <SuspenseWrapper>
+            <LoginPage />
+          </SuspenseWrapper>
+        ),
       },
       {
         path: "/signup",
-        element: <RegisterPage />,
+        element: (
+          <SuspenseWrapper>
+            <RegisterPage />
+          </SuspenseWrapper>
+        ),
       },
       {
         path: "settings/profile",
         element: (
           <ProtectedRoute>
-            <EditProfilePage />
+            <SuspenseWrapper>
+              <EditProfilePage />
+            </SuspenseWrapper>
           </ProtectedRoute>
         ),
       },
@@ -60,14 +92,14 @@ export const router = createBrowserRouter([
         path: "settings/password",
         element: (
           <ProtectedRoute>
-            <ChangePasswordProfilePage />
+            <SuspenseWrapper>
+              <ChangePasswordProfilePage />
+            </SuspenseWrapper>
           </ProtectedRoute>
         ),
       },
     ],
   },
-
-  // Rutas Privadas / Panel de Control
   {
     element: (
       <ProtectedRoute>
@@ -77,39 +109,68 @@ export const router = createBrowserRouter([
     children: [
       {
         path: "/dashboard",
-        element: <DashboardPage />,
+        element: (
+          <SuspenseWrapper>
+            <DashboardPage />
+          </SuspenseWrapper>
+        ),
       },
       {
         path: "/courses",
-        element: <CoursesPage />,
+        element: (
+          <SuspenseWrapper>
+            <CoursesPage />
+          </SuspenseWrapper>
+        ),
       },
       {
         path: "/courses/:id",
-        element: <CourseDetailPage />,
+        element: (
+          <SuspenseWrapper>
+            <CourseDetailPage />
+          </SuspenseWrapper>
+        ),
       },
       {
         path: "/teams",
-        element: <TeamsPage />,
+        element: (
+          <SuspenseWrapper>
+            <TeamsPage />
+          </SuspenseWrapper>
+        ),
       },
       {
         path: "/teams/:id",
-        element: <TeamDetailPage />,
+        element: (
+          <SuspenseWrapper>
+            <TeamDetailPage />
+          </SuspenseWrapper>
+        ),
       },
-      //future features its comented because the assignments page is not developed yet,
-      // {
-      //   path: "/assignments",
-      //   element: <AssignmentsPage />,
-      // },
+      {
+        path: "/grades/report",
+        element: (
+          <SuspenseWrapper>
+            <GradesReportPage />
+          </SuspenseWrapper>
+        ),
+      },
       {
         path: "/grades",
-        element: <GradesPage />,
+        element: (
+          <SuspenseWrapper>
+            <GradesPage />
+          </SuspenseWrapper>
+        ),
       },
     ],
   },
-
-  // Manejo de Error 404
   {
     path: "*",
-    element: <NotFoundPage />,
+    element: (
+      <SuspenseWrapper>
+        <NotFoundPage />
+      </SuspenseWrapper>
+    ),
   },
 ]);

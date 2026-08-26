@@ -1,8 +1,17 @@
 from django.urls import include, path
+from djoser.views import UserViewSet
 from . import views
 
+# Solo los 4 endpoints de Djoser que necesitamos, en vez de incluir todos.
+djoser_patterns = [
+    path("users/", UserViewSet.as_view({"get": "list", "post": "create"}), name="user-list"),
+    path("users/me/", UserViewSet.as_view({"get": "me", "put": "me", "patch": "me"}), name="user-me"),
+    path("users/set_password/", UserViewSet.as_view({"post": "set_password"}), name="user-set-password"),
+    path("users/activation/", UserViewSet.as_view({"post": "activation"}), name="user-activation"),
+]
+
 urlpatterns = [
-    path("", include("djoser.urls")),
+    *djoser_patterns,
     path("csrf/", views.CsrfView.as_view(), name="csrf"),
     path("jwt/refresh/", views.RefreshView.as_view(), name="token_refresh"),
     path("jwt/blacklist/", views.LogoutView.as_view(), name="logout"),

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useAllAssignments } from "@/features/assignments/hooks/useAllAssignments";
 import { getEnrollments, getSections } from "@/features/courses/services/courseService";
@@ -7,12 +7,10 @@ import { useAllData } from "@/shared/hooks/useAllData";
 import { useCourses } from "@/features/courses/hooks/useCourses";
 import { useAssignmentGrades } from "@/features/grades/hooks/useAssignmentGrades";
 import {
-    exportSectionGrades,
     gradeStudent,
     gradeTeam,
 } from "@/features/grades/services/gradeService";
 import { getTeams } from "@/features/teams/services/teamService";
-import { downloadBlob } from "@/shared/utils/downloadBlob";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 
 const DOT_COLORS = [
@@ -54,11 +52,13 @@ export const TeacherGradingPanel = () => {
     );
     const [selectedTeamId, setSelectedTeamId] = useState(null);
     const [teamNameQuery, setTeamNameQuery] = useState("");
-    const [sectionFilter, setSectionFilter] = useState("");
+    const [sectionFilter, setSectionFilter] = useState(
+        () => searchParams.get("section") ?? ""
+    );
     const [overwriteIndividual, setOverwriteIndividual] = useState(false);
     const [drafts, setDrafts] = useState({});
     const [savingKey, setSavingKey] = useState(null);
-    const [exporting, setExporting] = useState(false);
+    const detailRef = useRef(null);
 
     const selectedAssignment = assignments.find(
         (item) => String(item.id) === String(selectedAssignmentId)
@@ -69,18 +69,26 @@ export const TeacherGradingPanel = () => {
     useEffect(() => {
         if (!courseId) {
             setSections([]);
+            setSectionFilter("");
             return;
         }
         let active = true;
         getSections(courseId, { page_size: 100 })
             .then((data) => {
                 if (active) {
-                    setSections(data?.results ?? data ?? []);
+                    const list = data?.results ?? data ?? [];
+                    setSections(list);
+                    setSectionFilter((current) =>
+                        current && list.some((s) => String(s.id) === String(current))
+                            ? current
+                            : (list[0]?.id ?? "")
+                    );
                 }
             })
             .catch(() => {
                 if (active) {
                     setSections([]);
+                    setSectionFilter("");
                 }
             });
         return () => {
@@ -202,10 +210,10 @@ export const TeacherGradingPanel = () => {
             : String(fallback);
     };
 
-    const setDraft = (key, value) =>
-        setDrafts((prev) => ({ ...prev, [key]: value }));
+    const setDraft = useCallback((key, value) =>
+        setDrafts((prev) => ({ ...prev, [key]: value })), []);
 
-    const clearDraft = (key) =>
+    const clearDraft = useCallback((key) =>
         setDrafts((prev) => {
             if (!(key in prev)) {
                 return prev;
@@ -213,7 +221,7 @@ export const TeacherGradingPanel = () => {
             const next = { ...prev };
             delete next[key];
             return next;
-        });
+        }), []);
 
     const handleSelectCourse = (e) => {
         setCourseFilter(e.target.value);
@@ -226,37 +234,17 @@ export const TeacherGradingPanel = () => {
     const handleSelectAssignment = (e) => {
         setSelectedAssignmentId(e.target.value);
         setSelectedTeamId(null);
+        setSectionFilter(sections[0]?.id ?? "");
         setDrafts({});
     };
 
     const handleSelectTeam = (teamId) => {
         setSelectedTeamId(teamId);
         setOverwriteIndividual(false);
-    };
-
-    const handleExportExcel = async () => {
-        if (!sectionFilter) {
-            toast.info(
-                "Selecciona un grupo de clase para exportar sus notas."
-            );
-            return;
-        }
-        setExporting(true);
-        try {
-            const blob = await exportSectionGrades(sectionFilter);
-            const section = sections.find(
-                (item) => String(item.id) === String(sectionFilter)
-            );
-            const course = courses.find((item) => item.id === courseId);
-            downloadBlob(
-                blob,
-                `notas_${course?.title ?? "curso"}_${section?.name ?? "grupo"}.xlsx`
-            );
-            toast.success("Notas exportadas a Excel.");
-        } catch (error) {
-            toast.error(getErrorMessage(error));
-        } finally {
-            setExporting(false);
+        if (window.innerWidth < 1024 && detailRef.current) {
+            setTimeout(() => {
+                detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }, 0);
         }
     };
 
@@ -346,6 +334,15 @@ export const TeacherGradingPanel = () => {
             return words.every((w) => name.includes(w));
         });
     });
+
+    const gradedTeams = useMemo(
+        () => visibleTeams.filter((t) => getTeamGrade(t) !== null),
+        [visibleTeams, getTeamGrade]
+    );
+    const ungradedTeams = useMemo(
+        () => visibleTeams.filter((t) => getTeamGrade(t) === null),
+        [visibleTeams, getTeamGrade]
+    );
 
     const selectedTeam = teams.find(
         (team) => String(team.id) === String(selectedTeamId)
@@ -505,9 +502,6 @@ export const TeacherGradingPanel = () => {
                                     }
                                     className="w-full px-3 py-2 rounded-lg border outline-none transition text-sm text-gray-700 border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                 >
-                                    <option value="">
-                                        Todos los grupos
-                                    </option>
                                     {sections.map((section) => (
                                         <option
                                             key={section.id}
@@ -517,16 +511,14 @@ export const TeacherGradingPanel = () => {
                                         </option>
                                     ))}
                                 </select>
-                                <button
-                                    type="button"
-                                    onClick={handleExportExcel}
-                                    disabled={!sectionFilter || exporting}
-                                    className="mt-2 w-full px-3 py-2 rounded-lg border border-emerald-200 bg-emerald-50 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    {exporting
-                                        ? "Exportando..."
-                                        : "⬇ Exportar Excel"}
-                                </button>
+                                {sectionFilter && (
+                                    <Link
+                                        to={`/grades/report?section=${sectionFilter}`}
+                                        className="mt-2 block w-full px-3 py-2 rounded-lg border border-emerald-200 bg-emerald-50 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 transition text-center"
+                                    >
+                                        Ver reporte
+                                    </Link>
+                                )}
                             </div>
                         )}
 
@@ -543,68 +535,143 @@ export const TeacherGradingPanel = () => {
                                 Ningún equipo coincide con el filtro.
                             </p>
                         ) : (
-                            <ul className="divide-y divide-gray-100 -mx-2">
-                                {visibleTeams.map((team, index) => {
-                                    const isSelected =
-                                        String(selectedTeamId) ===
-                                        String(team.id);
-                                    const members = team.members ?? [];
-                                    const teamGrade = getTeamGrade(team);
+                            <div className="space-y-3 -mx-2">
+                                {ungradedTeams.length > 0 && (
+                                    <div>
+                                        <p className="px-2 mb-1 text-xs font-semibold text-amber-600 uppercase tracking-wider">
+                                            Sin calificar ({ungradedTeams.length})
+                                        </p>
+                                        <ul className="divide-y divide-gray-100">
+                                            {ungradedTeams.map((team, index) => {
+                                                const isSelected =
+                                                    String(selectedTeamId) ===
+                                                    String(team.id);
+                                                const members = team.members ?? [];
+                                                const teamGrade = getTeamGrade(team);
 
-                                    return (
-                                        <li key={team.id}>
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    handleSelectTeam(team.id)
-                                                }
-                                                className={`w-full flex items-center gap-2.5 px-2 py-3 text-left transition rounded-lg ${
-                                                    isSelected
-                                                        ? "bg-indigo-50 ring-1 ring-indigo-200"
-                                                        : "hover:bg-gray-50"
-                                                }`}
-                                            >
-                                                <span
-                                                    className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                                                        DOT_COLORS[
-                                                            index %
-                                                                DOT_COLORS.length
-                                                        ]
-                                                    }`}
-                                                />
-                                                <span className="min-w-0 flex-1">
-                                                    <span className="block text-sm font-semibold text-gray-800 truncate">
-                                                        {team.name}
-                                                    </span>
-                                                    <span className="block text-xs text-gray-400 mt-0.5">
-                                                        └ {members.length}{" "}
-                                                        integrante
-                                                        {members.length === 1
-                                                            ? ""
-                                                            : "s"}
-                                                    </span>
-                                                </span>
-                                                <span
-                                                    className={`text-sm font-bold shrink-0 ${
-                                                        isSelected
-                                                            ? "text-indigo-700"
-                                                            : "text-gray-700"
-                                                    }`}
-                                                >
-                                                    {formatScore(teamGrade)}
-                                                    <span className="text-gray-400 font-normal">
-                                                        /{maxScore}
-                                                    </span>
-                                                </span>
-                                            </button>
-                                        </li>
-                                    );
-                                })}
-                            </ul>
+                                                return (
+                                                    <li key={team.id}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                handleSelectTeam(team.id)
+                                                            }
+                                                            className={`w-full flex items-center gap-2.5 px-2 py-3 text-left transition rounded-lg ${
+                                                                isSelected
+                                                                    ? "bg-indigo-50 ring-1 ring-indigo-200"
+                                                                    : "hover:bg-gray-50"
+                                                            }`}
+                                                        >
+                                                            <span
+                                                                className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                                                                    DOT_COLORS[
+                                                                        index %
+                                                                            DOT_COLORS.length
+                                                                    ]
+                                                                }`}
+                                                            />
+                                                            <span className="min-w-0 flex-1">
+                                                                <span className="block text-sm font-semibold text-gray-800 truncate">
+                                                                    {team.name}
+                                                                </span>
+                                                                <span className="block text-xs text-gray-400 mt-0.5">
+                                                                    └ {members.length}{" "}
+                                                                    integrante
+                                                                    {members.length === 1
+                                                                        ? ""
+                                                                        : "s"}
+                                                                </span>
+                                                            </span>
+                                                            <span
+                                                                className={`text-sm font-bold shrink-0 ${
+                                                                    isSelected
+                                                                        ? "text-indigo-700"
+                                                                        : "text-gray-700"
+                                                                }`}
+                                                            >
+                                                                {formatScore(teamGrade)}
+                                                                <span className="text-gray-400 font-normal">
+                                                                    /{maxScore}
+                                                                </span>
+                                                            </span>
+                                                        </button>
+                                                    </li>
+                                                );
+                                            })}
+                                        </ul>
+                                    </div>
+                                )}
+
+                                {gradedTeams.length > 0 && (
+                                    <div>
+                                        <p className="px-2 mb-1 text-xs font-semibold text-emerald-600 uppercase tracking-wider">
+                                            Calificados ({gradedTeams.length})
+                                        </p>
+                                        <ul className="divide-y divide-gray-100">
+                                            {gradedTeams.map((team, index) => {
+                                                const isSelected =
+                                                    String(selectedTeamId) ===
+                                                    String(team.id);
+                                                const members = team.members ?? [];
+                                                const teamGrade = getTeamGrade(team);
+
+                                                return (
+                                                    <li key={team.id}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                handleSelectTeam(team.id)
+                                                            }
+                                                            className={`w-full flex items-center gap-2.5 px-2 py-3 text-left transition rounded-lg ${
+                                                                isSelected
+                                                                    ? "bg-indigo-50 ring-1 ring-indigo-200"
+                                                                    : "hover:bg-gray-50"
+                                                            }`}
+                                                        >
+                                                            <span
+                                                                className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                                                                    DOT_COLORS[
+                                                                        index %
+                                                                            DOT_COLORS.length
+                                                                    ]
+                                                                }`}
+                                                            />
+                                                            <span className="min-w-0 flex-1">
+                                                                <span className="block text-sm font-semibold text-gray-800 truncate">
+                                                                    {team.name}
+                                                                </span>
+                                                                <span className="block text-xs text-gray-400 mt-0.5">
+                                                                    └ {members.length}{" "}
+                                                                    integrante
+                                                                    {members.length === 1
+                                                                        ? ""
+                                                                        : "s"}
+                                                                </span>
+                                                            </span>
+                                                            <span
+                                                                className={`text-sm font-bold shrink-0 ${
+                                                                    isSelected
+                                                                        ? "text-indigo-700"
+                                                                        : "text-gray-700"
+                                                                }`}
+                                                            >
+                                                                {formatScore(teamGrade)}
+                                                                <span className="text-gray-400 font-normal">
+                                                                    /{maxScore}
+                                                                </span>
+                                                            </span>
+                                                        </button>
+                                                    </li>
+                                                );
+                                            })}
+                                        </ul>
+                                    </div>
+                                )}
+                            </div>
                         )}
                     </aside>
 
-                    <section className="space-y-6 min-w-0">
+                    <section ref={detailRef} className="space-y-6 min-w-0">
                         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                             <h2 className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-3">
                                 Información de la asignación

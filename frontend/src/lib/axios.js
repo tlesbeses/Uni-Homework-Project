@@ -1,7 +1,7 @@
 import axios from "axios";
 import { tokenStorage } from "@/shared/storage/tokenStorage";
 import { getCsrfToken, setCsrfToken } from "@/lib/csrf";
-import { getCached, setCache, cacheKey } from "@/lib/apiCache";
+import { getCached, setCache, cacheKey, invalidateCache } from "@/lib/apiCache";
 
 let isRefreshing = false;
 let failedQueue = [];
@@ -122,6 +122,8 @@ api.interceptors.response.use(
                 response.config.params
             );
             setCache(key, response.data);
+        } else {
+            invalidateCache(response.config.url);
         }
         return response;
     },

@@ -10,8 +10,9 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
 
-from .csrf import assert_csrf, auth_cookie_secure, set_csrf_cookie
+from .csrf import CSRF_COOKIE_NAME, assert_csrf, auth_cookie_secure, set_csrf_cookie
 from .serializers import LoginSerializer
+from .throttle import AuthThrottle, LoginThrottle
 
 REFRESH_COOKIE_NAME = "refresh_token"
 REFRESH_COOKIE_PATH = "/auth/"
@@ -54,6 +55,7 @@ class CsrfView(APIView):
 
 class LoginView(TokenObtainPairView):
     serializer_class = LoginSerializer
+    throttle_classes = [LoginThrottle]
 
     def post(self, request, *args, **kwargs):
         assert_csrf(request)
@@ -77,6 +79,7 @@ class LoginView(TokenObtainPairView):
 
 
 class RefreshView(TokenRefreshView):
+    throttle_classes = [AuthThrottle]
     def post(self, request, *args, **kwargs):
         assert_csrf(request)
 
@@ -104,6 +107,7 @@ class LogoutView(APIView):
     """Blackliste el refresh token recibido por cookie y limpia las cookies."""
 
     permission_classes = [AllowAny]
+    throttle_classes = [AuthThrottle]
 
     def post(self, request):
         assert_csrf(request)
@@ -119,4 +123,5 @@ class LogoutView(APIView):
 
         response = Response({}, status=status.HTTP_200_OK)
         _clear_auth_cookies(response)
+        response.delete_cookie(CSRF_COOKIE_NAME, path="/")
         return response

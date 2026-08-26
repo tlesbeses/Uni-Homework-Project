@@ -29,3 +29,10 @@ export const exportSectionGrades = async (sectionId) => {
     );
     return response.data;
 };
+
+export const getSectionGradesReport = async (sectionId) => {
+    const response = await api.get(
+        `/api/sections/${sectionId}/grades-report/`
+    );
+    return response.data;
+};

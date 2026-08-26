@@ -16,7 +16,7 @@ import { SearchInput } from "@/shared/components/SearchInput";
 
 const MEMBER_PAGE_SIZE = 5;
 
-export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse }) => {
+export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse, selectedSectionId, onSectionChange }) => {
   const {
     enrollments,
     loading: loadingEnrollments,
@@ -27,7 +27,6 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse }) => {
 
   const [sections, setSections] = useState([]);
   const [loadingSections, setLoadingSections] = useState(true);
-  const [selectedSectionId, setSelectedSectionId] = useState(null);
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -47,7 +46,7 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse }) => {
           ? data
           : [];
       setSections(list);
-      setSelectedSectionId((current) =>
+      onSectionChange((current) =>
         current !== null && list.some((s) => s.id === current)
           ? current
           : (list[0]?.id ?? null),
@@ -57,7 +56,7 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse }) => {
     } finally {
       setLoadingSections(false);
     }
-  }, [courseId]);
+  }, [courseId, onSectionChange]);
 
   useEffect(() => {
     loadSections();
@@ -155,7 +154,7 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse }) => {
   };
 
   const selectSection = (sectionId) => {
-    setSelectedSectionId(sectionId);
+    onSectionChange(sectionId);
     setIsEditing(false);
     setMemberSearch("");
     setMemberPage(1);
@@ -221,7 +220,7 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse }) => {
     try {
       await deleteSection(selectedSection.id);
       toast.success("Sección eliminada");
-      setSelectedSectionId(null);
+      onSectionChange(null);
       await Promise.all([loadSections(), reloadCourse()]);
     } catch (err) {
       toast.error(getErrorMessage(err));

@@ -14,6 +14,7 @@ export const CourseDetailPage = () => {
   const { id } = useParams();
   const { user, isTeacher } = useAuth();
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [selectedSectionId, setSelectedSectionId] = useState(null);
 
   const { course, loading, error, reload, updateCourse } = useCourse(id);
   const { savingField, toggleAutoAccept, toggleVisibility } = useCourseSettings(
@@ -63,6 +64,7 @@ export const CourseDetailPage = () => {
               courseId={id}
               isTeacher={isTeacher}
               isOwner={isOwner}
+              selectedSectionId={selectedSectionId}
             />
           </div>
           <aside className="space-y-6">
@@ -70,6 +72,8 @@ export const CourseDetailPage = () => {
               courseId={id}
               isOwner={isOwner}
               reloadCourse={reload}
+              selectedSectionId={selectedSectionId}
+              onSectionChange={setSelectedSectionId}
             />
           </aside>
         </div>

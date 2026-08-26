@@ -7,7 +7,7 @@ from rest_framework.exceptions import PermissionDenied
 
 CSRF_COOKIE_NAME = "csrftoken"
 CSRF_HEADER_NAME = "X-CSRFToken"
-CSRF_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
+CSRF_COOKIE_MAX_AGE = 60 * 60
 
 # Debe coincidir con el formato nativo de Django (CSRF_TOKEN_LENGTH): si la
 # cookie tiene otro formato, CsrfViewMiddleware la considera inválida y en
