@@ -340,6 +340,7 @@ class SectionViewSet(viewsets.ModelViewSet):
             "partial_update",
             "destroy",
             "export_grades",
+            "grades_report",
         ):
             return [IsAuthenticated(), IsCourseTeacherOfSection()]
         return [IsAuthenticated()]
@@ -359,6 +360,75 @@ class SectionViewSet(viewsets.ModelViewSet):
             f'attachment; filename="notas_{section.course.id}_{section.id}.xlsx"'
         )
         return response
+
+    @action(detail=True, methods=["get"], url_path="grades-report")
+    def grades_report(self, request, pk=None):
+        """Return section grades as JSON for the HTML report page."""
+        section = self.get_object()
+
+        assignments = list(
+            Assignment.objects.filter(
+                course=section.course,
+                is_published=True,
+            ).order_by("due_date", "id")
+        )
+
+        enrollments = list(
+            Enrollment.objects.filter(
+                section=section,
+                status=Status.APPROVED,
+            )
+            .select_related("student")
+            .order_by(
+                "student__first_name",
+                "student__last_name",
+                "student__username",
+            )
+        )
+
+        enrollment_ids = [e.student_id for e in enrollments]
+        assignment_ids = [a.id for a in assignments]
+        scores_by_pair = {}
+        if enrollment_ids and assignment_ids:
+            for grade in Grade.objects.filter(
+                assignment_id__in=assignment_ids,
+                student_id__in=enrollment_ids,
+            ).only("student_id", "assignment_id", "score"):
+                scores_by_pair[(grade.student_id, grade.assignment_id)] = round(
+                    float(grade.score), 2
+                )
+
+        students = []
+        for enrollment in enrollments:
+            student = enrollment.student
+            name = f"{student.first_name or student.username} {student.last_name or ''}".strip()
+            grades_map = {}
+            total = 0.0
+            for assignment in assignments:
+                score = scores_by_pair.get((enrollment.student_id, assignment.id))
+                if score is not None:
+                    grades_map[str(assignment.id)] = score
+                    total += score
+            students.append({
+                "id": student.id,
+                "name": name,
+                "grades": grades_map,
+                "total": round(total, 2),
+            })
+
+        return Response({
+            "course": section.course.title,
+            "section": section.name,
+            "assignments": [
+                {
+                    "id": a.id,
+                    "title": a.title,
+                    "max_score": float(a.max_score),
+                }
+                for a in assignments
+            ],
+            "students": students,
+        })
 
     def create(self, request, *args, **kwargs):
         """Restrict section creation to the teacher that owns the course."""

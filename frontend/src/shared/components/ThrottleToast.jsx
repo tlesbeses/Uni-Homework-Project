@@ -17,7 +17,7 @@ export function ThrottleToast({ retryAfter, onDone }) {
     }
 
     return (
-        <div className="fixed bottom-6 right-6 z-50 animate-slide-up">
+        <div className="fixed bottom-6 left-4 right-4 sm:left-auto sm:right-6 sm:w-auto z-50">
             <div className="flex items-center gap-3 bg-gray-900 text-white px-5 py-3 rounded-xl shadow-lg">
                 <svg
                     className="w-5 h-5 shrink-0 text-amber-400 animate-spin"

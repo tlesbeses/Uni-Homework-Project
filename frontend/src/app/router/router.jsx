@@ -16,6 +16,7 @@ import { CoursesPage } from "@/features/courses/pages/CoursesPage";
 import { CourseDetailPage } from "@/features/courses/pages/CourseDetailPage";
 import { AssignmentsPage } from "@/features/assignments/pages/AssignmentsPage";
 import { GradesPage } from "@/features/grades/pages/GradesPage";
+import { GradesReportPage } from "@/features/grades/pages/GradesReportPage";
 import { TeamsPage } from "@/features/teams/pages/TeamsPage";
 import { TeamDetailPage } from "@/features/teams/pages/TeamDetailPage";
 
@@ -100,6 +101,10 @@ export const router = createBrowserRouter([
       //   path: "/assignments",
       //   element: <AssignmentsPage />,
       // },
+      {
+        path: "/grades/report",
+        element: <GradesReportPage />,
+      },
       {
         path: "/grades",
         element: <GradesPage />,
