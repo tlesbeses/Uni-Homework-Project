@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useCourses } from "@/features/courses/hooks/useCourses";
@@ -6,10 +12,103 @@ import { getSections } from "@/features/courses/services/courseService";
 import {
     exportSectionGrades,
     getSectionGradesReport,
+    gradeStudent,
 } from "@/features/grades/services/gradeService";
 import { downloadBlob } from "@/shared/utils/downloadBlob";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 import { SearchInput } from "@/shared/components/SearchInput";
+
+function EditableGradeCell({
+    score,
+    maxScore,
+    studentId,
+    assignmentId,
+    onSaved,
+}) {
+    const [editing, setEditing] = useState(false);
+    const [draft, setDraft] = useState("");
+    const [saving, setSaving] = useState(false);
+    const inputRef = useRef(null);
+
+    useEffect(() => {
+        if (editing && inputRef.current) {
+            inputRef.current.focus();
+            inputRef.current.select();
+        }
+    }, [editing]);
+
+    const display =
+        score !== undefined && score !== null ? String(score) : "__";
+
+    const commit = async () => {
+        const trimmed = draft.trim();
+        if (trimmed === "" || trimmed === display) {
+            setEditing(false);
+            return;
+        }
+        const num = Number(trimmed);
+        if (Number.isNaN(num) || num < 0 || num > maxScore) {
+            toast.error(`La nota debe estar entre 0 y ${maxScore}.`);
+            setEditing(false);
+            return;
+        }
+        setSaving(true);
+        try {
+            await gradeStudent(assignmentId, studentId, num);
+            onSaved(studentId, assignmentId, num);
+            toast.success("Nota guardada.");
+        } catch (err) {
+            toast.error(getErrorMessage(err));
+        } finally {
+            setSaving(false);
+            setEditing(false);
+        }
+    };
+
+    if (editing) {
+        return (
+            <td className="px-2 py-1 text-center">
+                <div className="flex items-center justify-center gap-0.5">
+                    <input
+                        ref={inputRef}
+                        type="text"
+                        inputMode="decimal"
+                        value={draft}
+                        onChange={(e) => setDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") { commit(); }
+                            if (e.key === "Escape") { setEditing(false); }
+                        }}
+                        onBlur={commit}
+                        disabled={saving}
+                        className="w-14 px-1 py-0.5 text-center text-sm border border-indigo-400 rounded outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <span className="text-xs text-gray-400">/{maxScore}</span>
+                </div>
+            </td>
+        );
+    }
+
+    return (
+        <td
+            className="px-4 py-3 text-center cursor-pointer hover:bg-indigo-50 transition rounded"
+            onClick={() => {
+                setDraft(score !== undefined ? String(score) : "");
+                setEditing(true);
+            }}
+        >
+            <span
+                className={`inline-block px-2 py-0.5 rounded text-sm ${
+                    score !== undefined && score !== null
+                        ? "font-semibold text-gray-800"
+                        : "text-gray-400"
+                }`}
+            >
+                {display} /{maxScore}
+            </span>
+        </td>
+    );
+}
 
 export const GradesReportPage = () => {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -33,7 +132,6 @@ export const GradesReportPage = () => {
     useEffect(() => {
         if (!courseId) {
             setSections([]);
-            setSectionId("");
             return;
         }
         setSectionsLoading(true);
@@ -121,6 +219,22 @@ export const GradesReportPage = () => {
             setExporting(false);
         }
     };
+
+    const handleGradeSaved = useCallback((studentId, assignmentId, newScore) => {
+        setReport((prev) => {
+            if (!prev) { return prev; }
+            const nextStudents = prev.students.map((s) => {
+                if (s.id !== studentId) { return s; }
+                const nextGrades = { ...s.grades, [String(assignmentId)]: newScore };
+                const total = Object.values(nextGrades).reduce(
+                    (sum, v) => sum + Number(v),
+                    0
+                );
+                return { ...s, grades: nextGrades, total };
+            });
+            return { ...prev, students: nextStudents };
+        });
+    }, []);
 
     const filteredStudents = useMemo(() => {
         if (!report) { return []; }
@@ -277,9 +391,6 @@ export const GradesReportPage = () => {
                                                 className="px-4 py-3 text-center font-semibold text-gray-700 whitespace-nowrap"
                                             >
                                                 {a.title}
-                                                <span className="block text-xs font-normal text-gray-400">
-                                                    /{a.max_score}
-                                                </span>
                                             </th>
                                         ))}
                                         <th className="px-4 py-3 text-center font-semibold text-gray-700">
@@ -296,20 +407,16 @@ export const GradesReportPage = () => {
                                             <td className="px-4 py-3 text-gray-800 font-medium whitespace-nowrap">
                                                 {student.name}
                                             </td>
-                                            {report.assignments.map((a) => {
-                                                const score =
-                                                    student.grades[String(a.id)];
-                                                return (
-                                                    <td
-                                                        key={a.id}
-                                                        className="px-4 py-3 text-center text-gray-600"
-                                                    >
-                                                        {score !== undefined
-                                                            ? score
-                                                            : "\u2014"}
-                                                    </td>
-                                                );
-                                            })}
+                                            {report.assignments.map((a) => (
+                                                <EditableGradeCell
+                                                    key={`${student.id}-${a.id}`}
+                                                    score={student.grades[String(a.id)]}
+                                                    maxScore={a.max_score}
+                                                    studentId={student.id}
+                                                    assignmentId={a.id}
+                                                    onSaved={handleGradeSaved}
+                                                />
+                                            ))}
                                             <td className="px-4 py-3 text-center font-bold text-gray-800">
                                                 {student.total}
                                             </td>
