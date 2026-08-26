@@ -250,18 +250,20 @@ if not DEBUG:
     SECURE_HSTS_PRELOAD = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
 
-# Caché: Redis en producción, local-mem en desarrollo.
-if DEBUG:
+# Caché: Redis en producción (si REDIS_URL está configurado), local-mem en desarrollo.
+# Para migrar a Redis: 1) pip install redis, 2) agregar REDIS_URL en Render, 3) reiniciar.
+_redis_url = os.getenv("REDIS_URL")
+if _redis_url:
     CACHES = {
         "default": {
-            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": _redis_url,
         }
     }
 else:
     CACHES = {
         "default": {
-            "BACKEND": "django.core.cache.backends.redis.RedisCache",
-            "LOCATION": os.getenv("REDIS_URL", "redis://127.0.0.1:6379/1"),
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
         }
     }
 
