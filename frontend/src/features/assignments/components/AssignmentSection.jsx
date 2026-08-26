@@ -15,7 +15,7 @@ import { SearchInput } from "@/shared/components/SearchInput";
 
 const PAGE_SIZE = 6;
 
-export const AssignmentSection = ({ courseId, isTeacher, isOwner }) => {
+export const AssignmentSection = ({ courseId, isTeacher, isOwner, selectedSectionId }) => {
     const navigate = useNavigate();
     const { assignments, loading, error, reload } = useAssignments(courseId);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -56,7 +56,11 @@ export const AssignmentSection = ({ courseId, isTeacher, isOwner }) => {
     };
 
     const handleGrade = (assignment) => {
-        navigate(`/grades?assignment=${assignment.id}`);
+        const params = new URLSearchParams({ assignment: assignment.id });
+        if (selectedSectionId) {
+            params.set("section", selectedSectionId);
+        }
+        navigate(`/grades?${params.toString()}`);
     };
 
     const handleDelete = async (assignment) => {

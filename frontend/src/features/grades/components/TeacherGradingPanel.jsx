@@ -54,7 +54,9 @@ export const TeacherGradingPanel = () => {
     );
     const [selectedTeamId, setSelectedTeamId] = useState(null);
     const [teamNameQuery, setTeamNameQuery] = useState("");
-    const [sectionFilter, setSectionFilter] = useState("");
+    const [sectionFilter, setSectionFilter] = useState(
+        () => searchParams.get("section") ?? ""
+    );
     const [overwriteIndividual, setOverwriteIndividual] = useState(false);
     const [drafts, setDrafts] = useState({});
     const [savingKey, setSavingKey] = useState(null);
@@ -70,18 +72,26 @@ export const TeacherGradingPanel = () => {
     useEffect(() => {
         if (!courseId) {
             setSections([]);
+            setSectionFilter("");
             return;
         }
         let active = true;
         getSections(courseId, { page_size: 100 })
             .then((data) => {
                 if (active) {
-                    setSections(data?.results ?? data ?? []);
+                    const list = data?.results ?? data ?? [];
+                    setSections(list);
+                    setSectionFilter((current) =>
+                        current && list.some((s) => String(s.id) === String(current))
+                            ? current
+                            : (list[0]?.id ?? "")
+                    );
                 }
             })
             .catch(() => {
                 if (active) {
                     setSections([]);
+                    setSectionFilter("");
                 }
             });
         return () => {
@@ -227,6 +237,7 @@ export const TeacherGradingPanel = () => {
     const handleSelectAssignment = (e) => {
         setSelectedAssignmentId(e.target.value);
         setSelectedTeamId(null);
+        setSectionFilter(sections[0]?.id ?? "");
         setDrafts({});
     };
 
@@ -511,9 +522,6 @@ export const TeacherGradingPanel = () => {
                                     }
                                     className="w-full px-3 py-2 rounded-lg border outline-none transition text-sm text-gray-700 border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                 >
-                                    <option value="">
-                                        Todos los grupos
-                                    </option>
                                     {sections.map((section) => (
                                         <option
                                             key={section.id}
