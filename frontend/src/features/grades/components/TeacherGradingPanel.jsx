@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useAllAssignments } from "@/features/assignments/hooks/useAllAssignments";
@@ -58,6 +58,7 @@ export const TeacherGradingPanel = () => {
     const [overwriteIndividual, setOverwriteIndividual] = useState(false);
     const [drafts, setDrafts] = useState({});
     const [savingKey, setSavingKey] = useState(null);
+    const detailRef = useRef(null);
     const [exporting, setExporting] = useState(false);
 
     const selectedAssignment = assignments.find(
@@ -232,6 +233,11 @@ export const TeacherGradingPanel = () => {
     const handleSelectTeam = (teamId) => {
         setSelectedTeamId(teamId);
         setOverwriteIndividual(false);
+        if (window.innerWidth < 1024 && detailRef.current) {
+            setTimeout(() => {
+                detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }, 0);
+        }
     };
 
     const handleExportExcel = async () => {
@@ -604,7 +610,7 @@ export const TeacherGradingPanel = () => {
                         )}
                     </aside>
 
-                    <section className="space-y-6 min-w-0">
+                    <section ref={detailRef} className="space-y-6 min-w-0">
                         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                             <h2 className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-3">
                                 Información de la asignación
