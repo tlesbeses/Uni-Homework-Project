@@ -16,6 +16,7 @@ const NAV_ITEMS = [
   {
     to: "/grades",
     label: "Evaluaciones",
+    end: true,
     d: "M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z",
   },
   {
@@ -67,10 +68,11 @@ export function Navbar() {
           </Link>
 
           <nav className="hidden md:flex items-center space-x-1 text-sm font-medium">
-            {NAV_ITEMS.filter((item) => !item.teacherOnly || isTeacher).map(({ to, label }) => (
+            {NAV_ITEMS.filter((item) => !item.teacherOnly || isTeacher).map(({ to, label, end }) => (
               <NavLink
                 key={to}
                 to={to}
+                end={end}
                 className={({ isActive }) =>
                   `rounded-lg px-3 py-2 transition-colors ${
                     isActive
@@ -262,10 +264,11 @@ export function Navbar() {
           className="md:hidden border-t border-indigo-500 px-3 pt-2 pb-3 origin-top animate-pop"
         >
           <div className="space-y-1">
-            {NAV_ITEMS.filter((item) => !item.teacherOnly || isTeacher).map(({ to, label, d }) => (
+            {NAV_ITEMS.filter((item) => !item.teacherOnly || isTeacher).map(({ to, label, d, end }) => (
               <NavLink
                 key={to}
                 to={to}
+                end={end}
                 onClick={() => setIsMobileMenuOpen(false)}
                 className={({ isActive }) =>
                   `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
