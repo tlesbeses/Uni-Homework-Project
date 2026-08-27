@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router-dom';
 import { Navbar } from '@/shared/components/Navbar';
+import { InstallBanner } from '@/shared/components/InstallBanner';
 
 export default function AppLayout() {
 
@@ -9,6 +10,7 @@ export default function AppLayout() {
             <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
                 <Outlet />
             </main>
+            <InstallBanner />
         </div>
     );
 }

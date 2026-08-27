@@ -1,6 +1,7 @@
 {
   "name": "EduNotas",
   "short_name": "EduNotas",
+  "id": "/",
   "description": "Plataforma de gestión académica",
   "start_url": "/",
   "scope": "/",
