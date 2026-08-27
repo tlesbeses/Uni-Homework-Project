@@ -15,7 +15,7 @@ urlpatterns = [
     path("api/", include("grading.urls")),
 
     re_path(
-        r"^(?!api/|admin/|static/).*$",
+        r"^(?!api/|admin/|static/|manifest\.json$|sw\.js$|workbox-.*\.js$|registerSW\.js$|favicon\.svg$|icon-.*\.png$).*$",
         TemplateView.as_view(
             template_name="index.html"
         ),
