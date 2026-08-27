@@ -15,6 +15,21 @@ export default defineConfig({
       manifest: false,
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        navigateFallback: 'index.html',
+        cleanupOutdatedCaches: true,
+        runtimeCaching: [
+          {
+            // Siempre intentar traer el HTML más reciente de la red y caer al
+            // precache solo si falla. Evita que una caché obsoleta del service
+            // worker deje atrapado un index.html sin manifest/SW actualizados.
+            urlPattern: ({ request }) => request.mode === 'navigate',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'edunotas-navigation',
+              networkTimeoutSeconds: 3,
+            },
+          },
+        ],
       },
     }),
   ],
