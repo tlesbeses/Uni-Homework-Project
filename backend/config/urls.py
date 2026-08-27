@@ -5,6 +5,8 @@ from django.views.static import serve
 from django.conf import settings
 from django.conf.urls.static import static
 
+from config.views import pwa_manifest
+
 FRONTEND_DIR = settings.FRONTEND_DIR
 
 urlpatterns = [
@@ -17,11 +19,11 @@ urlpatterns = [
     path("api/", include("assignments.urls")),
     path("api/", include("grading.urls")),
 
-    path("manifest.json", lambda r: serve(r, "manifest.json", document_root=str(FRONTEND_DIR))),
+    path("manifest.json", pwa_manifest),
     path("sw.js", lambda r: serve(r, "sw.js", document_root=str(FRONTEND_DIR))),
     path("registerSW.js", lambda r: serve(r, "registerSW.js", document_root=str(FRONTEND_DIR))),
     re_path(r"^workbox-[a-f0-9]+\.js$", lambda r: serve(r, r.path.lstrip("/"), document_root=str(FRONTEND_DIR))),
-    re_path(r"^icon-\d+\.png$", lambda r: serve(r, r.path.lstrip("/"), document_root=str(FRONTEND_DIR))),
+    re_path(r"^icon-[a-zA-Z0-9-]+\.png$", lambda r: serve(r, r.path.lstrip("/"), document_root=str(FRONTEND_DIR))),
     path("favicon.svg", lambda r: serve(r, "favicon.svg", document_root=str(FRONTEND_DIR))),
 
     re_path(
