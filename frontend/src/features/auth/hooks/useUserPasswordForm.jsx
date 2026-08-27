@@ -1,12 +1,14 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { userPasswordSchema } from "@/features/auth/schemas/userSchemas";
 import { changeUserPassword } from "@/features/auth/services/authService";
 
 export const useUserPasswordForm = () => {
     const [serverError, setServerError] = useState("");
+    const navigate = useNavigate();
 
     const {
         register,

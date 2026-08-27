@@ -42,6 +42,14 @@ export const useAllData = (fetcher) => {
                 }
             }
             if (!controller.signal.aborted) {
+                if (hasMore && page > MAX_PAGES) {
+                    // Evitar cargar cientos de páginas: el límite evita un DoS,
+                    // y la advertencia evita que el truncado pase desapercibido.
+                    console.warn(
+                        `useAllData: se alcanzó el límite de ${MAX_PAGES} páginas` +
+                            " y la lista pudo quedar incompleta."
+                    );
+                }
                 setData(all);
             }
         } catch (err) {

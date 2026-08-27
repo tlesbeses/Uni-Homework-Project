@@ -97,7 +97,7 @@ api.interceptors.request.use(async (config) => {
                     status: 200,
                     statusText: "OK",
                     headers: {},
-                    config,
+                    config: { ...config, _fromCache: true },
                 });
         }
     }
@@ -115,14 +115,17 @@ api.interceptors.request.use(async (config) => {
 api.interceptors.response.use(
     (response) => {
         const method = (response.config.method || "get").toLowerCase();
-        if (method === "get") {
+        if (method === "get" && !response.config._fromCache) {
+            // Solo re-cachear respuestas realmente obtenidas de la red. Las que
+            // vienen de caché ya tienen su expiración; al re-cachearlas con los
+            // mismos datos viejos se renovaba el TTL y la obsolescencia nunca sanaba.
             const key = cacheKey(
                 "get",
                 response.config.url,
                 response.config.params
             );
             setCache(key, response.data);
-        } else {
+        } else if (method !== "get") {
             invalidateCache(response.config.url);
         }
         return response;
@@ -140,6 +143,15 @@ api.interceptors.response.use(
                 error.response.headers?.["retry-after"] || "30",
                 10
             );
+            // Nunca reintentar peticiones de /auth (login, refresh) en bucle;
+            // y solo reintentar las demás un máximo de veces para no dejar la
+            // app bloqueada decenas de segundos.
+            const isAuth = (originalRequest.url || "").includes("/auth/");
+            const retries = (originalRequest._retryCount || 0) + 1;
+            if (isAuth || retries > 2) {
+                return Promise.reject(error);
+            }
+            originalRequest._retryCount = retries;
             await enterThrottled(retryAfter);
             return api(originalRequest);
         }

@@ -24,10 +24,23 @@ from grading.models import Grade
 
 HEADER_ROW = 4
 
+# Caracteres que Excel/CSV interpretan como inicio de formula. Prefijar con "'"
+# neutraliza el valor y evita la inyeccion de formulas al abrir el archivo.
+_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _sanitize(value) -> str:
+    text = str(value)
+    if text.startswith(_FORMULA_PREFIXES):
+        return "'" + text
+    return text
+
 
 def _student_label(enrollment) -> str:
     student = enrollment.student
-    return f"{student.first_name or student.username} {student.last_name or ''}".strip()
+    return _sanitize(
+        f"{student.first_name or student.username} {student.last_name or ''}".strip()
+    )
 
 
 def build_section_grades_workbook(*, section) -> bytes:
@@ -66,13 +79,17 @@ def build_section_grades_workbook(*, section) -> bytes:
     bold = Font(bold=True)
 
     sheet["A1"] = "Curso:"
-    sheet["B1"] = section.course.title
+    sheet["B1"] = _sanitize(section.course.title)
     sheet["A2"] = "Grupo:"
-    sheet["B2"] = section.name
+    sheet["B2"] = _sanitize(section.name)
     sheet["A1"].font = bold
     sheet["A2"].font = bold
 
-    headers = ["Estudiante", *[a.title for a in assignments], "Total"]
+    headers = [
+        "Estudiante",
+        *[_sanitize(a.title) for a in assignments],
+        "Total",
+    ]
     for column_index, header in enumerate(headers, start=1):
         sheet.cell(row=HEADER_ROW, column=column_index, value=header).font = bold
 

@@ -111,6 +111,15 @@ class ChangeLeaderSerializer(serializers.Serializer):
                 "The new leader must be an approved member of the section."
             )
 
+        other_membership = TeamMember.objects.filter(
+            student=leader,
+            course=team.section.course_id,
+        ).exclude(team=team)
+        if other_membership.exists():
+            raise serializers.ValidationError(
+                "This student already belongs to another team in this course."
+            )
+
         return leader
 
 

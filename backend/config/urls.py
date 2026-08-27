@@ -27,7 +27,7 @@ urlpatterns = [
     path("favicon.svg", lambda r: serve(r, "favicon.svg", document_root=str(FRONTEND_DIR))),
 
     re_path(
-        r"^(?!api/|admin/|static/).*$",
+        r"^(?!api/|admin/|static/|auth/).*$",
         TemplateView.as_view(
             template_name="index.html"
         ),
