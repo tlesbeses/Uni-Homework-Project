@@ -261,7 +261,10 @@ function StudentDashboard({ stats }) {
         [enrollments]
     );
 
-    const gradedAssignmentIds = useMemo(() => new Set(grades.map((g) => g.id)), [grades]);
+    const gradedAssignmentIds = useMemo(
+        () => new Set(grades.map((g) => g.assignment_id).filter(Boolean)),
+        [grades]
+    );
     const ungradedCount = useMemo(
         () => assignments.filter((a) => !gradedAssignmentIds.has(a.id)).length,
         [assignments, gradedAssignmentIds]

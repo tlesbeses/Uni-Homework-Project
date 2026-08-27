@@ -29,6 +29,7 @@ function EditableGradeCell({
     const [draft, setDraft] = useState("");
     const [saving, setSaving] = useState(false);
     const inputRef = useRef(null);
+    const busyRef = useRef(false);
 
     useEffect(() => {
         if (editing && inputRef.current) {
@@ -41,6 +42,9 @@ function EditableGradeCell({
         score !== undefined && score !== null ? String(score) : "__";
 
     const commit = async () => {
+        if (busyRef.current) {
+            return;
+        }
         const trimmed = draft.trim();
         if (trimmed === "" || trimmed === display) {
             setEditing(false);
@@ -52,6 +56,7 @@ function EditableGradeCell({
             setEditing(false);
             return;
         }
+        busyRef.current = true;
         setSaving(true);
         try {
             await gradeStudent(assignmentId, studentId, num);
@@ -62,6 +67,7 @@ function EditableGradeCell({
         } finally {
             setSaving(false);
             setEditing(false);
+            busyRef.current = false;
         }
     };
 
