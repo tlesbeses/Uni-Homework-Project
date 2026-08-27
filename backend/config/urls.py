@@ -1,8 +1,11 @@
 from django.contrib import admin
 from django.urls import include, path, re_path
 from django.views.generic import TemplateView
+from django.views.static import serve
 from django.conf import settings
 from django.conf.urls.static import static
+
+FRONTEND_DIR = settings.FRONTEND_DIR
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -14,8 +17,15 @@ urlpatterns = [
     path("api/", include("assignments.urls")),
     path("api/", include("grading.urls")),
 
+    path("manifest.json", lambda r: serve(r, "manifest.json", document_root=str(FRONTEND_DIR))),
+    path("sw.js", lambda r: serve(r, "sw.js", document_root=str(FRONTEND_DIR))),
+    path("registerSW.js", lambda r: serve(r, "registerSW.js", document_root=str(FRONTEND_DIR))),
+    re_path(r"^workbox-[a-f0-9]+\.js$", lambda r: serve(r, r.path.lstrip("/"), document_root=str(FRONTEND_DIR))),
+    re_path(r"^icon-\d+\.png$", lambda r: serve(r, r.path.lstrip("/"), document_root=str(FRONTEND_DIR))),
+    path("favicon.svg", lambda r: serve(r, "favicon.svg", document_root=str(FRONTEND_DIR))),
+
     re_path(
-        r"^(?!api/|admin/|static/|manifest\.json$|sw\.js$|workbox-.*\.js$|registerSW\.js$|favicon\.svg$|icon-.*\.png$).*$",
+        r"^(?!api/|admin/|static/).*$",
         TemplateView.as_view(
             template_name="index.html"
         ),
