@@ -145,6 +145,7 @@ export const AssignmentSection = ({ courseId, isTeacher, isOwner, selectedSectio
                             onDelete={handleDelete}
                             onTogglePublish={handleTogglePublish}
                             onGrade={canManage ? handleGrade : undefined}
+                            onOpen={handleGrade}
                             deletingId={deletingId}
                             togglingId={togglingId}
                         />

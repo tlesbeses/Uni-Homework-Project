@@ -8,6 +8,7 @@ export const AssignmentList = ({
     onDelete,
     onTogglePublish,
     onGrade,
+    onOpen,
     deletingId,
     togglingId,
 }) => {
@@ -29,7 +30,22 @@ export const AssignmentList = ({
                 return (
                     <li
                         key={assignment.id}
-                        className="py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                        onClick={onOpen ? () => onOpen(assignment) : undefined}
+                        onKeyDown={
+                            onOpen
+                                ? (e) => {
+                                      if (e.key === "Enter" || e.key === " ") {
+                                          e.preventDefault();
+                                          onOpen(assignment);
+                                      }
+                                  }
+                                : undefined
+                        }
+                        role={onOpen ? "button" : undefined}
+                        tabIndex={onOpen ? 0 : undefined}
+                        className={`py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 ${
+                            onOpen ? "cursor-pointer" : ""
+                        }`}
                     >
                         <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
@@ -52,7 +68,7 @@ export const AssignmentList = ({
                         </div>
 
                         {canManage && (
-                            <div className="flex flex-wrap justify-end items-center gap-2 shrink-0">
+                            <div className="flex flex-wrap justify-end items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
                                 {onGrade && (
                                     <button
                                         type="button"

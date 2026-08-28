@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { formatUser } from "@/features/teams/utils/formatUser";
 
 export const TeamCard = ({
@@ -9,10 +9,22 @@ export const TeamCard = ({
   deleting,
   roleLabel,
 }) => {
+  const navigate = useNavigate();
   const memberCount = team.members?.length ?? 0;
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex flex-col gap-3">
+    <div
+      onClick={() => navigate(`/teams/${team.id}`)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          navigate(`/teams/${team.id}`);
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex flex-col gap-3 cursor-pointer"
+    >
       <div className="flex items-start justify-between gap-2">
         <div>
           <h3 className="text-lg font-semibold text-gray-800">{team.name}</h3>
@@ -55,7 +67,7 @@ export const TeamCard = ({
         </Link>
 
         {canManage && (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
             <button
               type="button"
               onClick={() => onEdit(team)}

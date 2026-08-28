@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { KebabMenu } from "@/shared/components/ui/KebabMenu";
 
 export const CourseCard = ({
@@ -10,6 +10,7 @@ export const CourseCard = ({
   onEnroll,
   deleting,
 }) => {
+  const navigate = useNavigate();
   const teacherName = course.teacher
     ? `${course.teacher.first_name} ${course.teacher.last_name}`
     : "Desconocido";
@@ -42,7 +43,18 @@ export const CourseCard = ({
   ];
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex flex-col gap-3">
+    <div
+      onClick={() => navigate(`/courses/${course.id}`)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          navigate(`/courses/${course.id}`);
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex flex-col gap-3 cursor-pointer"
+    >
       <div className="flex items-start justify-between gap-2">
         <div>
           <h3 className="text-lg font-semibold text-gray-800">
@@ -82,7 +94,11 @@ export const CourseCard = ({
           Ver detalles
         </Link>
 
-        {(isTeacher || isStudent) && <KebabMenu items={menuItems} />}
+        {(isTeacher || isStudent) && (
+          <div onClick={(e) => e.stopPropagation()}>
+            <KebabMenu items={menuItems} />
+          </div>
+        )}
       </div>
     </div>
   );
