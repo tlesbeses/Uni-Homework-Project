@@ -78,26 +78,6 @@ export const router = createBrowserRouter([
           </SuspenseWrapper>
         ),
       },
-      {
-        path: "settings/profile",
-        element: (
-          <ProtectedRoute>
-            <SuspenseWrapper>
-              <EditProfilePage />
-            </SuspenseWrapper>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "settings/password",
-        element: (
-          <ProtectedRoute>
-            <SuspenseWrapper>
-              <ChangePasswordProfilePage />
-            </SuspenseWrapper>
-          </ProtectedRoute>
-        ),
-      },
     ],
   },
   {
@@ -160,6 +140,22 @@ export const router = createBrowserRouter([
         element: (
           <SuspenseWrapper>
             <GradesPage />
+          </SuspenseWrapper>
+        ),
+      },
+      {
+        path: "/settings/profile",
+        element: (
+          <SuspenseWrapper>
+            <EditProfilePage />
+          </SuspenseWrapper>
+        ),
+      },
+      {
+        path: "/settings/password",
+        element: (
+          <SuspenseWrapper>
+            <ChangePasswordProfilePage />
           </SuspenseWrapper>
         ),
       },

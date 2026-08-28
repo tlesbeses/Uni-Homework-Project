@@ -5,7 +5,7 @@ from django.views.static import serve
 from django.conf import settings
 from django.conf.urls.static import static
 
-from config.views import pwa_manifest
+from config.views import pwa_manifest, pwa_register_sw, pwa_service_worker
 
 FRONTEND_DIR = settings.FRONTEND_DIR
 
@@ -20,14 +20,14 @@ urlpatterns = [
     path("api/", include("grading.urls")),
 
     path("manifest.json", pwa_manifest),
-    path("sw.js", lambda r: serve(r, "sw.js", document_root=str(FRONTEND_DIR))),
-    path("registerSW.js", lambda r: serve(r, "registerSW.js", document_root=str(FRONTEND_DIR))),
+    path("sw.js", pwa_service_worker),
+    path("registerSW.js", pwa_register_sw),
     re_path(r"^workbox-[a-f0-9]+\.js$", lambda r: serve(r, r.path.lstrip("/"), document_root=str(FRONTEND_DIR))),
     re_path(r"^icon-[a-zA-Z0-9-]+\.png$", lambda r: serve(r, r.path.lstrip("/"), document_root=str(FRONTEND_DIR))),
     path("favicon.svg", lambda r: serve(r, "favicon.svg", document_root=str(FRONTEND_DIR))),
 
     re_path(
-        r"^(?!api/|admin/|static/).*$",
+        r"^(?!api/|admin/|static/|auth/).*$",
         TemplateView.as_view(
             template_name="index.html"
         ),

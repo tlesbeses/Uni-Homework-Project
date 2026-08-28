@@ -22,7 +22,9 @@ export const useRegister = () => {
     const onSubmit = async (data) => {
         setServerError("");
         try {
-            await registerUser(data);
+            const payload = { ...data };
+            delete payload.confirmPassword;
+            await registerUser(payload);
             toast.success("Usuario registrado con éxito");
             navigate("/login");
         } catch (error) {

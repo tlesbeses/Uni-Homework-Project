@@ -25,8 +25,16 @@ export const useLogin = () => {
       await login(data);
       toast.success("Inicio de sesión exitoso");
       navigate("/dashboard", { replace: true });
-    } catch {
-      const message = "Usuario o contraseña incorrectos";
+    } catch (error) {
+      const status = error.response?.status;
+      let message = "Error al iniciar sesión. Inténtalo de nuevo.";
+      if (status === 401) {
+        message = "Usuario o contraseña incorrectos";
+      } else if (status === 429) {
+        message = "Demasiados intentos. Espera un momento e inténtalo de nuevo.";
+      } else if (!error.response) {
+        message = "No se pudo conectar con el servidor.";
+      }
       setServerError(message);
       toast.error(message);
     }

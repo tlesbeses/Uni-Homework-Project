@@ -3,7 +3,13 @@ from django.db import transaction
 from rest_framework import serializers
 
 from assignments.models import Assignment
-from course.models import Course, CourseSettings, Enrollment, Section
+from course.models import (
+    Course,
+    CourseSettings,
+    Enrollment,
+    Section,
+    Status,
+)
 from grading.models import Grade
 
 User = get_user_model()
@@ -190,7 +196,7 @@ class EnrollmentSerializer(serializers.ModelSerializer):
             duplicates = Enrollment.objects.filter(
                 section__course_id=section.course_id,
                 student=request.user,
-            )
+            ).exclude(status=Status.REJECTED)
             if duplicates.exists():
                 raise serializers.ValidationError(
                     {
@@ -225,6 +231,7 @@ class DashboardEnrollmentSerializer(serializers.ModelSerializer):
 
 
 class DashboardGradeSerializer(serializers.ModelSerializer):
+    assignment_id = serializers.IntegerField(source="assignment.id", read_only=True)
     assignment_title = serializers.CharField(source="assignment.title", read_only=True)
     assignment_max_score = serializers.DecimalField(
         source="assignment.max_score", max_digits=6, decimal_places=2, read_only=True
@@ -235,7 +242,7 @@ class DashboardGradeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Grade
         fields = [
-            "id", "score", "assignment_title", "assignment_max_score",
+            "id", "assignment_id", "score", "assignment_title", "assignment_max_score",
             "course_id", "course_title", "created_at",
         ]
 

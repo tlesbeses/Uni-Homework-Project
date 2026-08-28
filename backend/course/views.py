@@ -3,7 +3,7 @@ from django.db.models import Count, Exists, OuterRef, Q
 from django.http import HttpResponse
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import NotFound, PermissionDenied
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -28,6 +28,7 @@ from course.serializers import (
     SectionSerializer,
 )
 from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.filters import OrderingFilter, SearchFilter
 from grading.exports import build_section_grades_workbook
 from grading.models import Grade
 from teams.services import remove_student_from_course_teams
@@ -56,6 +57,7 @@ class CourseViewSet(viewsets.ModelViewSet):
             Enrollment.objects.filter(
                 section__course=OuterRef("pk"),
                 student=user,
+                status=Status.APPROVED,
             )
         )
         return queryset.filter(
@@ -81,7 +83,18 @@ class CourseViewSet(viewsets.ModelViewSet):
     def sections(self, request, pk=None):
         """List the sections of a course."""
         course = self.get_object()
-        queryset = course.sections.all()
+        queryset = (
+            course.sections.select_related(
+                "course__teacher", "course__settings"
+            )
+            .annotate(
+                enrollments_count=Count(
+                    "enrollments",
+                    filter=Q(enrollments__status=Status.APPROVED),
+                )
+            )
+            .order_by("name")
+        )
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = SectionSerializer(
@@ -127,7 +140,7 @@ class CourseViewSet(viewsets.ModelViewSet):
         if Enrollment.objects.filter(
             section__course=course,
             student=request.user,
-        ).exists():
+        ).exclude(status=Status.REJECTED).exists():
             return Response(
                 {"detail": "You already requested to join this course."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -138,7 +151,8 @@ class CourseViewSet(viewsets.ModelViewSet):
             student=request.user,
         )
 
-        if course.settings.auto_accept_students:
+        course_settings, _ = CourseSettings.objects.get_or_create(course=course)
+        if course_settings.auto_accept_students:
             enrollment.status = Status.APPROVED
             enrollment.save()
 
@@ -229,6 +243,8 @@ class CourseViewSet(viewsets.ModelViewSet):
             )
             serializer.is_valid(raise_exception=True)
             serializer.save()
+        else:
+            serializer = CourseSettingsSerializer(course_settings)
         return Response(serializer.data)
 
 
@@ -303,7 +319,7 @@ class SectionViewSet(viewsets.ModelViewSet):
 
     serializer_class = SectionSerializer
     permission_classes = [IsAuthenticated]
-    filter_backends = [DjangoFilterBackend]
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = SectionFilter
     ordering_fields = ["name", "created_at"]
     search_fields = ["name"]
@@ -311,7 +327,7 @@ class SectionViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         queryset = (
-            Section.objects.select_related("course__teacher")
+            Section.objects.select_related("course__teacher", "course__settings")
             .annotate(
                 enrollments_count=Count(
                     "enrollments",
@@ -328,6 +344,7 @@ class SectionViewSet(viewsets.ModelViewSet):
             Enrollment.objects.filter(
                 section__course=OuterRef("course"),
                 student=user,
+                status=Status.APPROVED,
             )
         )
         return queryset.filter(
@@ -480,12 +497,35 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         section = serializer.validated_data["section"]
-        if section.course.teacher == self.request.user:
+        course = section.course
+        if course.teacher == self.request.user:
             raise PermissionDenied("A teacher cannot enroll in their own course.")
+        # El endpoint CRUD genérico equivale a "unirse a un curso público",
+        # igual que la action `enroll`. No debe servir para saltarse a cursos
+        # privados (que requieren join_code) ni a cursos inactivos.
+        if not course.is_active:
+            raise PermissionDenied("This course is not active.")
+        if course.visibility != Visibility.PUBLIC:
+            raise PermissionDenied(
+                "This course is private. Join it using its join code instead."
+            )
+
+        if Enrollment.objects.filter(
+            section__course=course,
+            student=self.request.user,
+        ).exclude(status=Status.REJECTED).exists():
+            raise ValidationError(
+                {
+                    "section": [
+                        "You already have an enrollment request for this course."
+                    ]
+                }
+            )
 
         enrollment = serializer.save(student=self.request.user)
 
-        if section.course.settings.auto_accept_students:
+        course_settings, _ = CourseSettings.objects.get_or_create(course=section.course)
+        if course_settings.auto_accept_students:
             enrollment.status = Status.APPROVED
             enrollment.save()
 

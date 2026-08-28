@@ -164,7 +164,11 @@ class TeamViewSet(viewsets.ModelViewSet):
                 section=team.section,
                 status=Status.APPROVED,
             )
-            .select_related("student")
+            .select_related(
+                "student",
+                "section__course__teacher",
+                "section__course__settings",
+            )
             .order_by("student__first_name", "student__last_name", "student__username")
         )
         serializer = EnrollmentSerializer(

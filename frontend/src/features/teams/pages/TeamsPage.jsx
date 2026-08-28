@@ -33,7 +33,7 @@ export const TeamsPage = () => {
             try {
                 const [coursesData, enrollmentsData, sectionsData] =
                     await Promise.all([
-                        getCourses(),
+                        getCourses({ page_size: 100 }),
                         getEnrollments(null, { page_size: 100 }),
                         getSections(null, { page_size: 100 }),
                     ]);
