@@ -28,46 +28,73 @@ export function setCache(key, data, ttl = DEFAULT_TTL) {
     store.set(key, { data, expiry: Date.now() + ttl });
 }
 
+// Toda mutacion sobre una entidad debe invalidar todas las representaciones
+// de lectura (GETs cacheados) que pueden mostrar esa entidad, aunque vivan
+// bajo OTRA URL (cross-namespace). P. ej. editar una asignacion invalida
+// tambien `/api/courses/{id}/assignments/` y el reporte de notas de la
+// seccion, no solo `/api/assignments/`.
+const RESOURCE_READ_PREFIXES = {
+    courses: [
+        "/api/courses/",
+        "/api/dashboard/",
+        "/api/sections/",
+        "/api/teams/",
+        "/api/enrollments/",
+    ],
+    sections: [
+        "/api/sections/",
+        "/api/courses/",
+        "/api/teams/",
+        "/api/enrollments/",
+        "/api/dashboard/",
+        "/api/grades/",
+    ],
+    assignments: [
+        "/api/assignments/",
+        "/api/courses/",
+        "/api/sections/",
+        "/api/grades/",
+        "/api/dashboard/",
+    ],
+    grades: [
+        "/api/grades/",
+        "/api/sections/",
+        "/api/assignments/",
+        "/api/dashboard/",
+    ],
+    teams: [
+        "/api/teams/",
+        "/api/courses/",
+        "/api/sections/",
+        "/api/enrollments/",
+    ],
+    enrollments: [
+        "/api/enrollments/",
+        "/api/courses/",
+        "/api/sections/",
+        "/api/dashboard/",
+    ],
+};
+
 // Regresa la lista de prefijos de URL a invalidar cuando se muta una ruta.
-// El objetivo es que editar/borrar un recurso o mutar un subrecurso invalide
-// tambien las listas padre que lo muestran (p. ej. al aprobar una inscripcion
-// se refresca el listado de inscripciones y el reporte de la seccion).
 function collectionPrefixesFor(url) {
-    const prefixes = new Set();
+    const u = url.replace(/\?.*$/, "");
 
-    // Recurso base: /api/<recurso>/ (la coleccion completa del recurso).
-    const baseMatch = url.match(/^(\/api\/[^/]+\/)/);
-    if (baseMatch) {
-        prefixes.add(baseMatch[1]);
-    }
+    // Entidad afectada = primer segmento del path bajo /api/.
+    const match = u.match(/^\/api\/([^/]+)/);
+    const resource = match ? match[1] : null;
+    const prefixes = new Set(RESOURCE_READ_PREFIXES[resource] ?? []);
 
-    const u = url;
-
-    // Mutaciones de subrecursos -> refrescar tambien las colecciones que los agregan.
-    if (/\/approve\/$|\/reject\/$|\/grade-student\/$|\/grade-team\/$/.test(u)) {
-        prefixes.add("/api/enrollments/");
-        prefixes.add("/api/grades/");
-        prefixes.add("/api/sections/");
-        prefixes.add("/api/assignments/");
-        prefixes.add("/api/dashboard/");
-        prefixes.add("/api/courses/");
-    }
-    if (/\/change-leader\/$|\/members\/$/.test(u)) {
-        prefixes.add("/api/teams/");
-        prefixes.add("/api/courses/");
-        prefixes.add("/api/sections/");
-    }
+    // Refuerzos para mutaciones de subrecursos/acciones que aun no caen en la
+    // coleccion "padre" estricta (p. ej. /auth/*, /api/dashboard/nested/...).
     if (u.includes("/course_settings/")) {
         prefixes.add("/api/courses/");
+        prefixes.add("/api/dashboard/");
     }
     if (u.includes("/enroll/") || u.includes("/join/")) {
         prefixes.add("/api/enrollments/");
         prefixes.add("/api/courses/");
-    }
-    if (u.includes("/delete-member/") || u.includes("/leave/") || u.includes("/remove-student/")) {
-        prefixes.add("/api/teams/");
-        prefixes.add("/api/enrollments/");
-        prefixes.add("/api/courses/");
+        prefixes.add("/api/dashboard/");
     }
 
     return [...prefixes];
