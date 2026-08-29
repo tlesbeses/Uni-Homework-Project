@@ -1,5 +1,6 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/providers/AuthProvider";
+import { FullScreenLoader } from "@/shared/components/FullScreenLoader";
 
 export function ProtectedRoute({
     children,
@@ -10,7 +11,7 @@ export function ProtectedRoute({
 }) {
     const { user, isLoading } = useAuth();
     if (isLoading) {
-        return null;
+        return <FullScreenLoader />;
     }
 
     if (!user) {
