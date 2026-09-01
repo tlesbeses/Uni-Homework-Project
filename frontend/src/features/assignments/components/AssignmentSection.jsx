@@ -1,15 +1,13 @@
 import { useState } from "react";
-import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import { AssignmentList } from "@/features/assignments/components/AssignmentList";
 import { CreateAssignmentModal } from "@/features/assignments/components/CreateAssignmentModal";
 import { EditAssignmentModal } from "@/features/assignments/components/EditAssignmentModal";
 import { useAssignments } from "@/features/assignments/hooks/useAssignments";
 import {
-    deleteAssignment,
-    updateAssignment,
-} from "@/features/assignments/services/assignmentService";
-import { getErrorMessage } from "@/shared/utils/getErrorMessage";
+    useDeleteAssignment,
+    useToggleAssignmentPublish,
+} from "@/features/assignments/hooks/useAssignmentMutations";
 import { Pager } from "@/shared/components/Pager";
 import { SearchInput } from "@/shared/components/SearchInput";
 
@@ -24,6 +22,9 @@ export const AssignmentSection = ({ courseId, isTeacher, isOwner, selectedSectio
     const [togglingId, setTogglingId] = useState(null);
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
+
+    const deleteMutation = useDeleteAssignment();
+    const togglePublishMutation = useToggleAssignmentPublish();
 
     const canManage = isTeacher && isOwner;
 
@@ -69,11 +70,7 @@ export const AssignmentSection = ({ courseId, isTeacher, isOwner, selectedSectio
         }
         setDeletingId(assignment.id);
         try {
-            await deleteAssignment(assignment.id);
-            toast.success("Asignación eliminada");
-            await reload();
-        } catch (err) {
-            toast.error(getErrorMessage(err));
+            await deleteMutation.mutateAsync(assignment.id);
         } finally {
             setDeletingId(null);
         }
@@ -82,17 +79,10 @@ export const AssignmentSection = ({ courseId, isTeacher, isOwner, selectedSectio
     const handleTogglePublish = async (assignment) => {
         setTogglingId(assignment.id);
         try {
-            await updateAssignment(assignment.id, {
-                is_published: !assignment.is_published,
+            await togglePublishMutation.mutateAsync({
+                assignmentId: assignment.id,
+                isPublished: !assignment.is_published,
             });
-            toast.success(
-                assignment.is_published
-                    ? "Asignación oculta"
-                    : "Asignación publicada"
-            );
-            await reload();
-        } catch (err) {
-            toast.error(getErrorMessage(err));
         } finally {
             setTogglingId(null);
         }

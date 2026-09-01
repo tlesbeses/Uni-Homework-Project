@@ -1,8 +1,8 @@
-import { api } from "@/lib/axios";
+import { api, queryApi } from "@/lib/axios";
 
 export const getGrades = async (params) => {
     const { signal, ...queryParams } = params ?? {};
-    const response = await api.get("/api/grades/", { params: queryParams, signal });
+    const response = await queryApi.get("/api/grades/", { params: queryParams, signal });
     return response.data;
 };
 
@@ -23,7 +23,7 @@ export const gradeStudent = async (assignmentId, studentId, score) => {
 };
 
 export const exportSectionGrades = async (sectionId) => {
-    const response = await api.get(
+    const response = await queryApi.get(
         `/api/sections/${sectionId}/export-grades/`,
         { responseType: "blob" }
     );
@@ -31,7 +31,7 @@ export const exportSectionGrades = async (sectionId) => {
 };
 
 export const getSectionGradesReport = async (sectionId) => {
-    const response = await api.get(
+    const response = await queryApi.get(
         `/api/sections/${sectionId}/grades-report/`
     );
     return response.data;

@@ -1,18 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
 import { useAuth } from "@/features/auth/providers/AuthProvider";
 import { useTeams } from "@/features/teams/hooks/useTeams";
+import { useDeleteTeam } from "@/features/teams/hooks/useTeamMutations";
 import { TeamCard } from "@/features/teams/components/TeamCard";
 import { CreateTeamModal } from "@/features/teams/components/CreateTeamModal";
 import { EditTeamModal } from "@/features/teams/components/EditTeamModal";
-import { deleteTeam } from "@/features/teams/services/teamService";
 import {
     getCourses,
     getEnrollments,
     getSections,
 } from "@/features/courses/services/courseService";
-import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 
 export const TeamsPage = () => {
     const { user, isTeacher } = useAuth();
@@ -26,6 +24,8 @@ export const TeamsPage = () => {
     const [courses, setCourses] = useState([]);
     const [enrollments, setEnrollments] = useState([]);
     const [sections, setSections] = useState([]);
+
+    const deleteMutation = useDeleteTeam();
 
     useEffect(() => {
         let active = true;
@@ -121,11 +121,7 @@ export const TeamsPage = () => {
         }
         setDeletingId(teamId);
         try {
-            await deleteTeam(teamId);
-            toast.success("Equipo eliminado");
-            await loadTeams();
-        } catch (err) {
-            toast.error(getErrorMessage(err));
+            await deleteMutation.mutateAsync(teamId);
         } finally {
             setDeletingId(null);
         }

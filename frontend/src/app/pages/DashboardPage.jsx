@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/features/auth/providers/AuthProvider";
-import { getDashboard } from "@/features/courses/services/courseService";
+import { useDashboard } from "@/features/courses/hooks/useDashboard";
 
 function getGreeting() {
     const hour = new Date().getHours();
@@ -39,29 +39,7 @@ function formatRelativeTime(dateStr) {
 
 export function DashboardPage() {
     const { user, isTeacher, isStudent } = useAuth();
-    const [stats, setStats] = useState(null);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        let cancelled = false;
-
-        async function fetchDashboardData() {
-            setLoading(true);
-            try {
-                const data = await getDashboard();
-                if (!cancelled) { setStats(data); }
-            } catch {
-                // Silently handle dashboard fetch errors
-            } finally {
-                if (!cancelled) { setLoading(false); }
-            }
-        }
-
-        fetchDashboardData();
-        return () => {
-            cancelled = true;
-        };
-    }, []);
+    const { stats, loading } = useDashboard();
 
     if (loading) {
         return <DashboardSkeleton />;

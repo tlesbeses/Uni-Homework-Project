@@ -1,18 +1,18 @@
-import { api } from "@/lib/axios";
+import { api, queryApi } from "@/lib/axios";
 
 export const getDashboard = async () => {
-    const response = await api.get("/api/dashboard/");
+    const response = await queryApi.get("/api/dashboard/");
     return response.data;
 };
 
 export const getCourses = async (params) => {
     const { signal, ...queryParams } = params ?? {};
-    const response = await api.get("/api/courses/", { params: queryParams, signal });
+    const response = await queryApi.get("/api/courses/", { params: queryParams, signal });
     return response.data;
 };
 
 export const getCourse = async (courseId, opts) => {
-    const response = await api.get(`/api/courses/${courseId}/`, { signal: opts?.signal });
+    const response = await queryApi.get(`/api/courses/${courseId}/`, { signal: opts?.signal });
     return response.data;
 };
 
@@ -48,7 +48,7 @@ export const enrollInCourse = async (courseId, sectionId) => {
 
 export const getSections = async (courseId, params) => {
     const { signal, ...queryParams } = params ?? {};
-    const response = await api.get("/api/sections/", {
+    const response = await queryApi.get("/api/sections/", {
         params: courseId
             ? { course: courseId, ...queryParams }
             : queryParams,
@@ -88,7 +88,7 @@ export const updateCourseSettings = async (courseId, settings) => {
 
 export const getEnrollments = async (courseId, params) => {
     const { signal, ...queryParams } = params ?? {};
-    const response = await api.get("/api/enrollments/", {
+    const response = await queryApi.get("/api/enrollments/", {
         params: courseId
             ? { course: courseId, ...queryParams }
             : queryParams,
