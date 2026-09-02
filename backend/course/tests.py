@@ -3,6 +3,7 @@ from django.contrib.auth.models import Group
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from authentication.models import EventLog
 from course.models import (
     Course,
     CourseSettings,
@@ -466,3 +467,101 @@ class CourseSettingsTests(BaseCourseTestCase):
             {"auto_accept_students": True},
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class SuperuserIsolationTests(BaseCourseTestCase):
+    """The root user (is_superuser) has no special powers in the regular views.
+
+    Admin capabilities are limited to the admin console
+    (``/auth/admin/*`` and the admin dashboard); outside of it the
+    superuser behaves like a plain (non teacher/student) user.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.superuser = User.objects.create_superuser(
+            username="root",
+            email="root@example.com",
+            password="pass",
+        )
+
+    def test_superuser_only_sees_public_active_courses(self):
+        private_course = Course.objects.create(
+            title="Private Math",
+            teacher=self.teacher,
+            visibility=Visibility.PRIVATE,
+        )
+        self.client.force_authenticate(self.superuser)
+        response = self.client.get("/api/courses/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        course_ids = {course["id"] for course in response.data["results"]}
+        self.assertIn(self.course.id, course_ids)
+        self.assertNotIn(private_course.id, course_ids)
+
+    def test_superuser_sees_no_enrollments(self):
+        Enrollment.objects.create(
+            section=self.section,
+            student=self.student,
+            status=Status.PENDING,
+        )
+        self.client.force_authenticate(self.superuser)
+        response = self.client.get("/api/enrollments/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 0)
+
+    def test_superuser_cannot_change_settings_of_foreign_course(self):
+        self.client.force_authenticate(self.superuser)
+        response = self.client.patch(
+            f"/api/courses/{self.course.id}/course_settings/",
+            {"auto_accept_students": True},
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_superuser_cannot_create_section_in_foreign_course(self):
+        self.client.force_authenticate(self.superuser)
+        response = self.client.post(
+            "/api/sections/",
+            {"name": "Hacked", "course_id": self.course.id},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_dashboard_includes_recent_impersonations(self):
+        EventLog.objects.create(
+            actor=self.superuser,
+            target=self.student,
+            action=EventLog.ACTION_IMPERSONATE,
+            entity_type="user",
+            entity_id=self.student.id,
+        )
+        self.client.force_authenticate(self.superuser)
+        response = self.client.get("/api/dashboard/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["type"], "admin")
+        impersonations = response.data["recent_impersonations"]
+        self.assertEqual(len(impersonations), 1)
+        self.assertEqual(impersonations[0]["target"]["id"], self.student.id)
+        self.assertEqual(impersonations[0]["admin"]["id"], self.superuser.id)
+        self.assertIn("timestamp", impersonations[0])
+
+    def test_admin_dashboard_includes_recent_activity(self):
+        EventLog.objects.create(
+            actor=self.superuser,
+            target=self.student,
+            action=EventLog.ACTION_IMPERSONATE,
+            entity_type="user",
+            entity_id=self.student.id,
+        )
+        EventLog.objects.create(
+            actor=self.superuser,
+            action=EventLog.ACTION_UPDATE,
+            entity_type="grade",
+        )
+        self.client.force_authenticate(self.superuser)
+        response = self.client.get("/api/dashboard/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        activity = response.data["recent_activity"]
+        self.assertEqual(len(activity), 2)
+        actions = {log["action"] for log in activity}
+        self.assertEqual(actions, {"impersonate", "update"})
+        self.assertIn("created_at", activity[0])

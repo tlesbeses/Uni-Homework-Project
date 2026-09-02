@@ -15,11 +15,7 @@ class IsCourseTeacher(BasePermission):
     def has_permission(self, request, view) -> bool:
         if not (request.user and request.user.is_authenticated):
             return False
-        if request.user.is_superuser:
-            return True
         return request.user.groups.filter(name="Teacher").exists()
 
     def has_object_permission(self, request, view, obj) -> bool:
-        if request.user.is_superuser:
-            return True
         return obj.course.teacher_id == request.user.id

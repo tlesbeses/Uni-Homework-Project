@@ -10,6 +10,7 @@ import {
 } from "@/features/assignments/hooks/useAssignmentMutations";
 import { Pager } from "@/shared/components/Pager";
 import { SearchInput } from "@/shared/components/SearchInput";
+import { ConfirmModal } from "@/shared/components/ConfirmModal";
 
 const PAGE_SIZE = 6;
 
@@ -22,6 +23,7 @@ export const AssignmentSection = ({ courseId, isTeacher, isOwner, selectedSectio
     const [togglingId, setTogglingId] = useState(null);
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
+    const [pendingDelete, setPendingDelete] = useState(null);
 
     const deleteMutation = useDeleteAssignment();
     const togglePublishMutation = useToggleAssignmentPublish();
@@ -64,10 +66,9 @@ export const AssignmentSection = ({ courseId, isTeacher, isOwner, selectedSectio
         navigate(`/grades?${params.toString()}`);
     };
 
-    const handleDelete = async (assignment) => {
-        if (!window.confirm(`¿Eliminar "${assignment.title}"?`)) {
-            return;
-        }
+    const confirmDelete = async () => {
+        const assignment = pendingDelete;
+        setPendingDelete(null);
         setDeletingId(assignment.id);
         try {
             await deleteMutation.mutateAsync(assignment.id);
@@ -132,7 +133,7 @@ export const AssignmentSection = ({ courseId, isTeacher, isOwner, selectedSectio
                             assignments={visibleAssignments}
                             canManage={canManage}
                             onEdit={setEditingAssignment}
-                            onDelete={handleDelete}
+                            onDelete={setPendingDelete}
                             onTogglePublish={handleTogglePublish}
                             onGrade={canManage ? handleGrade : undefined}
                             onOpen={handleGrade}
@@ -167,6 +168,20 @@ export const AssignmentSection = ({ courseId, isTeacher, isOwner, selectedSectio
                     setEditingAssignment(null);
                     reload();
                 }}
+            />
+
+            <ConfirmModal
+                open={Boolean(pendingDelete)}
+                title="Eliminar asignación"
+                description={
+                    pendingDelete
+                        ? `¿Eliminar "${pendingDelete.title}"? Esta acción no se puede deshacer.`
+                        : ""
+                }
+                confirmLabel="Eliminar"
+                onCancel={() => setPendingDelete(null)}
+                onConfirm={confirmDelete}
+                busy={Boolean(deletingId)}
             />
         </div>
     );

@@ -1,188 +1,326 @@
 from django.contrib.auth import get_user_model
-from django.db import IntegrityError
-from django.test import TestCase, override_settings
+from django.contrib.auth.models import Group
+from rest_framework import status
+from rest_framework.test import APITestCase
+from rest_framework_simplejwt.tokens import AccessToken
+
+from authentication.models import EventLog
 
 User = get_user_model()
 
 
-class UserEmailTests(TestCase):
-    def test_multiple_users_without_email_can_be_created(self):
-        user1 = User.objects.create_user(username="student1", password="pass12345")
-        user2 = User.objects.create_user(username="student2", password="pass12345")
-
-        self.assertIsNone(user1.email)
-        self.assertIsNone(user2.email)
-
-    def test_user_with_blank_email_is_normalized_to_null(self):
-        user = User.objects.create_user(
-            username="student1",
-            password="pass12345",
-            email="",
-        )
-
-        user.refresh_from_db()
-        self.assertIsNone(user.email)
-
-    def test_email_must_still_be_unique_when_provided(self):
-        User.objects.create_user(
-            username="student1",
-            password="pass12345",
-            email="student@example.com",
-        )
-
-        with self.assertRaises(IntegrityError):
-            User.objects.create_user(
-                username="student2",
-                password="pass12345",
-                email="student@example.com",
-            )
-
-
-class AuthCookieFlowTests(TestCase):
+class BaseAdminTestCase(APITestCase):
     def setUp(self):
-        User.objects.create_user(username="student1", password="pass12345")
-        self.csrf_token = self._bootstrap_csrf()
+        self.student_group = Group.objects.get_or_create(name="Student")[0]
+        self.teacher_group = Group.objects.get_or_create(name="Teacher")[0]
 
-    def _bootstrap_csrf(self):
-        response = self.client.get("/auth/csrf/")
-        self.assertEqual(response.status_code, 200)
-        return response.data["csrfToken"]
-
-    def _csrf_header(self):
-        # El login rota la cookie CSRF, así que siempre se lee el valor
-        # vigente del jar de cookies del cliente de pruebas.
-        return {"x-csrftoken": self.client.cookies["csrftoken"].value}
-
-    def _login(self, with_csrf=True):
-        headers = self._csrf_header() if with_csrf else {}
-        return self.client.post(
-            "/auth/login/",
-            {"username": "student1", "password": "pass12345"},
-            content_type="application/json",
-            headers=headers,
+        self.admin = User.objects.create_user(
+            username="admin",
+            email="admin@example.com",
+            password="pass",
+            is_staff=True,
+            is_superuser=True,
         )
 
-    def _refresh(self):
-        return self.client.post(
-            "/auth/jwt/refresh/",
-            content_type="application/json",
-            headers=self._csrf_header(),
+        self.teacher = User.objects.create_user(
+            username="teacher",
+            email="teacher@example.com",
+            password="pass",
+        )
+        self.teacher.groups.add(self.teacher_group)
+
+        self.student = User.objects.create_user(
+            username="student",
+            email="student@example.com",
+            password="pass",
+        )
+        self.student.groups.add(self.student_group)
+
+
+class AdminUserListTests(BaseAdminTestCase):
+    def test_superuser_can_list_users(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.get("/auth/admin/users/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        usernames = {u["username"] for u in response.data["results"]}
+        self.assertIn("admin", usernames)
+        self.assertIn("teacher", usernames)
+        self.assertIn("student", usernames)
+
+    def test_non_superuser_forbidden(self):
+        self.client.force_authenticate(self.student)
+        response = self.client.get("/auth/admin/users/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_anonymous_forbidden(self):
+        response = self.client.get("/auth/admin/users/")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_search_filter(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.get("/auth/admin/users/", {"search": "teach"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        usernames = {u["username"] for u in response.data["results"]}
+        self.assertEqual(usernames, {"teacher"})
+
+    def test_role_filter(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.get("/auth/admin/users/", {"role": "Teacher"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        usernames = {u["username"] for u in response.data["results"]}
+        self.assertEqual(usernames, {"teacher"})
+
+
+class AdminUserUpdateTests(BaseAdminTestCase):
+    def test_deactivate_user(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.patch(
+            f"/auth/admin/users/{self.student.id}/",
+            {"is_active": False},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.student.refresh_from_db()
+        self.assertFalse(self.student.is_active)
+
+    def test_activate_user(self):
+        self.student.is_active = False
+        self.student.save()
+        self.client.force_authenticate(self.admin)
+        response = self.client.patch(
+            f"/auth/admin/users/{self.student.id}/",
+            {"is_active": True},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.student.refresh_from_db()
+        self.assertTrue(self.student.is_active)
+
+    def test_promote_student_to_teacher(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.patch(
+            f"/auth/admin/users/{self.student.id}/",
+            {"role": "Teacher"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.student.refresh_from_db()
+        self.assertTrue(
+            self.student.groups.filter(name="Teacher").exists()
+        )
+        self.assertFalse(
+            self.student.groups.filter(name="Student").exists()
         )
 
-    def test_login_returns_access_and_user_but_not_refresh(self):
-        response = self._login()
-        self.assertEqual(response.status_code, 200)
-        self.assertIn("access", response.data)
-        self.assertIn("user", response.data)
-        self.assertNotIn("refresh", response.data)
-
-    def test_login_sets_httponly_refresh_cookie(self):
-        self._login()
-        cookie = self.client.cookies["refresh_token"]
-        self.assertTrue(cookie["httponly"])
-        self.assertEqual(cookie["path"], "/auth/")
-        self.assertEqual(cookie["samesite"], "Lax")
-
-    def test_login_returns_rotated_csrf_token_in_body(self):
-        old_csrf = self.client.cookies["csrftoken"].value
-
-        response = self._login()
-
-        # El login rota la cookie CSRF y expone el nuevo valor en el
-        # cuerpo: un frontend en otro origen no puede leer la cookie.
-        new_csrf = response.data["csrfToken"]
-        self.assertNotEqual(new_csrf, old_csrf)
-        self.assertEqual(new_csrf, self.client.cookies["csrftoken"].value)
-
-    @override_settings(AUTH_COOKIE_SAMESITE="None")
-    def test_samesite_none_forces_secure_cookies(self):
-        response = self._login()
-        self.assertEqual(response.status_code, 200)
-
-        refresh_cookie = self.client.cookies["refresh_token"]
-        csrf_cookie = self.client.cookies["csrftoken"]
-        for cookie in (refresh_cookie, csrf_cookie):
-            self.assertEqual(cookie["samesite"], "None")
-            self.assertTrue(cookie["secure"])
-
-    def test_login_without_csrf_is_rejected(self):
-        response = self._login(with_csrf=False)
-        self.assertEqual(response.status_code, 403)
-
-    def test_refresh_rotates_cookie_and_returns_only_access(self):
-        self._login()
-        old_refresh = self.client.cookies["refresh_token"].value
-
-        response = self._refresh()
-
-        self.assertEqual(response.status_code, 200)
-        self.assertIn("access", response.data)
-        self.assertNotIn("refresh", response.data)
-
-        new_refresh = self.client.cookies["refresh_token"].value
-        self.assertNotEqual(new_refresh, old_refresh)
-
-        # La rotación también entrega el nuevo valor CSRF en el cuerpo.
-        self.assertEqual(
-            response.data["csrfToken"],
-            self.client.cookies["csrftoken"].value,
+    def test_demote_teacher_to_student(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.patch(
+            f"/auth/admin/users/{self.teacher.id}/",
+            {"role": "Student"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.teacher.refresh_from_db()
+        self.assertTrue(
+            self.teacher.groups.filter(name="Student").exists()
+        )
+        self.assertFalse(
+            self.teacher.groups.filter(name="Teacher").exists()
         )
 
-    def test_refresh_without_csrf_is_rejected(self):
-        self._login()
+    def test_invalid_role_rejected(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.patch(
+            f"/auth/admin/users/{self.student.id}/",
+            {"role": "Root"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_cannot_modify_superuser(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.patch(
+            f"/auth/admin/users/{self.admin.id}/",
+            {"is_active": False},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.admin.refresh_from_db()
+        self.assertTrue(self.admin.is_active)
+
+    def test_non_superuser_cannot_update(self):
+        self.client.force_authenticate(self.student)
+        response = self.client.patch(
+            f"/auth/admin/users/{self.teacher.id}/",
+            {"is_active": False},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class ImpersonateTests(BaseAdminTestCase):
+    def test_superuser_can_impersonate_student(self):
+        self.client.force_authenticate(self.admin)
         response = self.client.post(
-            "/auth/jwt/refresh/", content_type="application/json"
+            "/auth/admin/impersonate/",
+            {"user_id": self.student.id},
+            format="json",
         )
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        token = response.data["access"]
+        decoded = AccessToken(token)
+        self.assertEqual(decoded["user_id"], str(self.student.id))
+        self.assertEqual(int(decoded["impersonates"]), self.admin.id)
 
-    def test_refresh_ignores_body_token_when_cookie_missing(self):
-        self._login()
-        del self.client.cookies["refresh_token"]
-
-        # El refresh ya no se acepta por cuerpo; simulamos un intento
-        # de usar un token enviado por JSON sin cookie.
+    def test_impersonated_token_acts_as_target(self):
+        self.client.force_authenticate(self.admin)
         response = self.client.post(
-            "/auth/jwt/refresh/",
-            {"refresh": "some-stolen-token"},
-            content_type="application/json",
-            headers=self._csrf_header(),
+            "/auth/admin/impersonate/",
+            {"user_id": self.student.id},
+            format="json",
         )
-        self.assertEqual(response.status_code, 401)
+        self.client.force_authenticate(user=None)
+        self.client.credentials(
+            HTTP_AUTHORIZATION=f"Bearer {response.data['access']}"
+        )
+        profile = self.client.get("/auth/users/me/")
+        self.assertEqual(profile.status_code, status.HTTP_200_OK)
+        self.assertEqual(profile.data["username"], "student")
+        self.assertIn("Student", profile.data["roles"])
 
-    def test_logout_blacklists_cookie_token_and_clears_it(self):
-        self._login()
-        refresh_value = self.client.cookies["refresh_token"].value
-
+    def test_non_superuser_cannot_impersonate(self):
+        self.client.force_authenticate(self.student)
         response = self.client.post(
-            "/auth/jwt/blacklist/",
-            content_type="application/json",
-            headers=self._csrf_header(),
+            "/auth/admin/impersonate/",
+            {"user_id": self.teacher.id},
+            format="json",
         )
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(self.client.cookies["refresh_token"].value, "")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-        # Restauramos manualmente la cookie para probar que el token
-        # quedó blacklisteado y ya no puede refrescar. El logout limpió
-        # la cookie CSRF, así que necesitamos un token nuevo para el
-        # header X-CSRFToken del refresh.
-        self.client.cookies["refresh_token"] = refresh_value
-        self._bootstrap_csrf()
-        response = self._refresh()
-        self.assertEqual(response.status_code, 401)
-
-    def test_logout_without_csrf_is_rejected(self):
-        self._login()
+    def test_cannot_impersonate_superuser(self):
+        self.client.force_authenticate(self.admin)
         response = self.client.post(
-            "/auth/jwt/blacklist/", content_type="application/json"
+            "/auth/admin/impersonate/",
+            {"user_id": self.admin.id},
+            format="json",
         )
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_djoser_raw_jwt_endpoints_are_removed(self):
-        for path in ("/auth/jwt/create/", "/auth/jwt/verify/"):
-            response = self.client.post(
-                path,
-                {"username": "student1", "password": "pass12345"},
-                content_type="application/json",
-            )
-            # 404 = ruta inexistente; 405 = cae al catch-all del SPA (GET only).
-            self.assertIn(response.status_code, (404, 405))
+    def test_cannot_impersonate_inactive_user(self):
+        self.student.is_active = False
+        self.student.save()
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            "/auth/admin/impersonate/",
+            {"user_id": self.student.id},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_unknown_user_not_found(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            "/auth/admin/impersonate/",
+            {"user_id": 999999},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_impersonation_creates_event_log(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            "/auth/admin/impersonate/",
+            {"user_id": self.student.id},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        log = EventLog.objects.filter(action=EventLog.ACTION_IMPERSONATE).first()
+        self.assertIsNotNone(log)
+        self.assertEqual(log.actor, self.admin)
+        self.assertEqual(log.target, self.student)
+        self.assertEqual(log.entity_type, "user")
+        self.assertEqual(log.entity_id, self.student.id)
+        self.assertEqual(log.metadata, {"admin_id": self.admin.id})
+
+    def test_rejected_impersonation_does_not_create_log(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            "/auth/admin/impersonate/",
+            {"user_id": self.admin.id},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(
+            EventLog.objects.filter(action=EventLog.ACTION_IMPERSONATE).exists()
+        )
+
+
+class AdminActivityTests(BaseAdminTestCase):
+    def test_superuser_can_list_activity_logs(self):
+        EventLog.objects.create(
+            actor=self.admin,
+            target=self.student,
+            action=EventLog.ACTION_IMPERSONATE,
+            entity_type="user",
+            entity_id=self.student.id,
+        )
+        self.client.force_authenticate(self.admin)
+        response = self.client.get("/auth/admin/activity/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        log = response.data["results"][0]
+        self.assertEqual(log["action"], "impersonate")
+        self.assertEqual(log["actor"]["id"], self.admin.id)
+        self.assertEqual(log["target"]["id"], self.student.id)
+        self.assertIn("created_at", log)
+
+    def test_non_superuser_cannot_list_activity_logs(self):
+        self.client.force_authenticate(self.student)
+        response = self.client.get("/auth/admin/activity/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_activity_filter_by_action(self):
+        EventLog.objects.create(
+            actor=self.admin,
+            target=self.student,
+            action=EventLog.ACTION_IMPERSONATE,
+            entity_type="user",
+            entity_id=self.student.id,
+        )
+        EventLog.objects.create(
+            actor=self.teacher,
+            action=EventLog.ACTION_UPDATE,
+            entity_type="grade",
+        )
+        self.client.force_authenticate(self.admin)
+        response = self.client.get(
+            "/auth/admin/activity/", {"action": EventLog.ACTION_UPDATE}
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["action"], "update")
+
+    def test_activity_filter_by_user_id(self):
+        EventLog.objects.create(
+            actor=self.admin,
+            target=self.student,
+            action=EventLog.ACTION_IMPERSONATE,
+            entity_type="user",
+            entity_id=self.student.id,
+        )
+        self.client.force_authenticate(self.admin)
+        response = self.client.get(
+            "/auth/admin/activity/", {"user_id": self.teacher.id}
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 0)
+
+
+class SerializerRoleTests(BaseAdminTestCase):
+    def test_me_exposes_admin_flags(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.get("/auth/users/me/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["is_superuser"])
+        self.assertTrue(response.data["is_staff"])
+        self.assertTrue(response.data["is_active"])

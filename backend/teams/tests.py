@@ -593,3 +593,32 @@ class TeamCleanupOnEnrollmentRemovalTests(TeamAPITestCase):
         self.assertFalse(
             team.members.filter(student=self.student_two).exists()
         )
+
+class SuperuserIsolationTests(TeamAPITestCase):
+    """The superuser has no special powers in the regular team views."""
+
+    def setUp(self):
+        super().setUp()
+        self.superuser = self.create_user("root")
+        self.superuser.is_superuser = True
+        self.superuser.save()
+
+    def test_superuser_sees_no_teams(self):
+        self.create_team(course=self.course, name="Team A", leader=self.student)
+        self.authenticate(self.superuser)
+
+        response = self.client.get("/api/teams/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 0)
+
+    def test_superuser_cannot_create_team_without_approved_enrollment(self):
+        self.authenticate(self.superuser)
+
+        response = self.client.post(
+            "/api/teams/",
+            {"name": "Hacked", "section_id": self.section.id},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

@@ -11,6 +11,7 @@ import {
     getEnrollments,
     getSections,
 } from "@/features/courses/services/courseService";
+import { ConfirmModal } from "@/shared/components/ConfirmModal";
 
 export const TeamsPage = () => {
     const { user, isTeacher } = useAuth();
@@ -24,6 +25,7 @@ export const TeamsPage = () => {
     const [courses, setCourses] = useState([]);
     const [enrollments, setEnrollments] = useState([]);
     const [sections, setSections] = useState([]);
+    const [pendingDelete, setPendingDelete] = useState(null);
 
     const deleteMutation = useDeleteTeam();
 
@@ -115,10 +117,9 @@ export const TeamsPage = () => {
         setFilterSection("");
     };
 
-    const handleDelete = async (teamId) => {
-        if (!window.confirm("¿Eliminar este equipo y todos sus miembros?")) {
-            return;
-        }
+    const confirmDelete = async () => {
+        const teamId = pendingDelete;
+        setPendingDelete(null);
         setDeletingId(teamId);
         try {
             await deleteMutation.mutateAsync(teamId);
@@ -239,7 +240,10 @@ export const TeamsPage = () => {
                         key={team.id}
                         team={team}
                         canManage={isTeacher || team.leader?.id === user?.id}
-                        onDelete={handleDelete}
+                        onDelete={(teamId) => {
+                            const team = visibleTeams.find(t => t.id === teamId);
+                            setPendingDelete(team || { id: teamId, name: "" });
+                        }}
                         onEdit={setEditingTeam}
                         deleting={deletingId === team.id}
                         roleLabel={
@@ -279,6 +283,20 @@ export const TeamsPage = () => {
                     await loadTeams();
                     setEditingTeam(null);
                 }}
+            />
+
+            <ConfirmModal
+                open={Boolean(pendingDelete)}
+                title="Eliminar equipo"
+                description={
+                    pendingDelete
+                        ? `¿Eliminar el equipo "${pendingDelete.name}" y todos sus miembros? Esta acción no se puede deshacer.`
+                        : ""
+                }
+                confirmLabel="Eliminar"
+                onCancel={() => setPendingDelete(null)}
+                onConfirm={confirmDelete}
+                busy={Boolean(deletingId)}
             />
         </div>
     );

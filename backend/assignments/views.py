@@ -19,8 +19,6 @@ def get_assignments_for_user(user):
     sections) is approved.
     """
     queryset = Assignment.objects.select_related("course__teacher")
-    if user.is_superuser:
-        return queryset
     if user.groups.filter(name="Teacher").exists():
         return queryset.filter(course__teacher=user)
     return queryset.filter(
@@ -55,7 +53,7 @@ class AssignmentViewSet(viewsets.ModelViewSet):
             except Course.DoesNotExist:
                 raise NotFound("Course not found.")
             user = request.user
-            if not user.is_superuser and course.teacher_id != user.id:
+            if course.teacher_id != user.id:
                 raise PermissionDenied(
                     "You can only create assignments for your own courses."
                 )
