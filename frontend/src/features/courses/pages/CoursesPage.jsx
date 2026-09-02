@@ -1,14 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
 import { useAuth } from "@/features/auth/providers/AuthProvider";
 import { usePaginatedCourses } from "@/features/courses/hooks/usePaginatedCourses";
+import { useDeleteCourse } from "@/features/courses/hooks/useCourseMutations";
 import { CourseCard } from "@/features/courses/components/CourseCard";
 import { CreateCourseModal } from "@/features/courses/components/CreateCourseModal";
 import { EditCourseModal } from "@/features/courses/components/EditCourseModal";
 import { JoinCourseForm } from "@/features/courses/components/JoinCourseForm";
-import { deleteCourse } from "@/features/courses/services/courseService";
-import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 import { Pager } from "@/shared/components/Pager";
 import { ConfirmModal } from "@/shared/components/ConfirmModal";
 
@@ -29,16 +27,14 @@ export const CoursesPage = () => {
     const [editingCourse, setEditingCourse] = useState(null);
     const [pendingDelete, setPendingDelete] = useState(null);
 
+    const deleteMutation = useDeleteCourse();
+
     const confirmDelete = async () => {
         const courseId = pendingDelete;
         setPendingDelete(null);
         setDeletingId(courseId);
         try {
-            await deleteCourse(courseId);
-            toast.success("Curso eliminado");
-            await reload();
-        } catch (err) {
-            toast.error(getErrorMessage(err));
+            await deleteMutation.mutateAsync(courseId);
         } finally {
             setDeletingId(null);
         }

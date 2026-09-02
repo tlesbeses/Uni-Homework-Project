@@ -1,70 +1,59 @@
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 import {
     changeTeamLeader,
     getTeam,
     removeTeamMember,
 } from "@/features/teams/services/teamService";
+import { queryKeys, invalidateScope } from "@/lib/queryKeys";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 
 export const useTeamDetail = (teamId) => {
-    const [team, setTeam] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
+    const queryClient = useQueryClient();
     const [removingId, setRemovingId] = useState(null);
 
-    const load = useCallback(async () => {
-        setLoading(true);
-        setError("");
-        try {
-            setTeam(await getTeam(teamId));
-        } catch (err) {
-            setError(getErrorMessage(err));
-        } finally {
-            setLoading(false);
-        }
-    }, [teamId]);
+    const { data, isLoading, error, refetch } = useQuery({
+        queryKey: queryKeys.teams.detail(teamId),
+        queryFn: () => getTeam(teamId),
+        enabled: Boolean(teamId),
+    });
 
-    useEffect(() => {
-        load();
-    }, [load]);
-
-    const handleRemoveMember = useCallback(
-        async (studentId) => {
+    const removeMutation = useMutation({
+        mutationFn: (studentId) => removeTeamMember(teamId, studentId),
+        onMutate: (studentId) => {
             setRemovingId(studentId);
-            try {
-                await removeTeamMember(teamId, studentId);
-                toast.success("Estudiante eliminado del equipo");
-                await load();
-            } catch (err) {
-                toast.error(getErrorMessage(err));
-            } finally {
-                setRemovingId(null);
-            }
         },
-        [teamId, load]
-    );
+        onSuccess: () => {
+            toast.success("Estudiante eliminado del equipo");
+            invalidateScope(queryClient, "teams");
+        },
+        onError: (err) => {
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            setRemovingId(null);
+        },
+    });
 
-    const handleChangeLeader = useCallback(
-        async (studentId) => {
-            try {
-                await changeTeamLeader(teamId, studentId);
-                toast.success("Líder del equipo actualizado");
-                await load();
-            } catch (err) {
-                toast.error(getErrorMessage(err));
-            }
+    const leaderMutation = useMutation({
+        mutationFn: (studentId) => changeTeamLeader(teamId, studentId),
+        onSuccess: () => {
+            toast.success("Líder del equipo actualizado");
+            invalidateScope(queryClient, "teams");
         },
-        [teamId, load]
-    );
+        onError: (err) => {
+            toast.error(getErrorMessage(err));
+        },
+    });
 
     return {
-        team,
-        loading,
-        error,
-        reload: load,
-        handleRemoveMember,
+        team: data,
+        loading: isLoading,
+        error: error ? getErrorMessage(error) : "",
+        reload: () => refetch(),
+        handleRemoveMember: (studentId) => removeMutation.mutateAsync(studentId),
         removingId,
-        handleChangeLeader,
+        handleChangeLeader: (studentId) => leaderMutation.mutateAsync(studentId),
     };
 };
