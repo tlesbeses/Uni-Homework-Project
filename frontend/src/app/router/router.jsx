@@ -33,6 +33,7 @@ const GradesPage = lazyPage(() => import("@/features/grades/pages/GradesPage"), 
 const GradesReportPage = lazyPage(() => import("@/features/grades/pages/GradesReportPage"), "GradesReportPage");
 const TeamsPage = lazyPage(() => import("@/features/teams/pages/TeamsPage"), "TeamsPage");
 const TeamDetailPage = lazyPage(() => import("@/features/teams/pages/TeamDetailPage"), "TeamDetailPage");
+const AdminUsersPage = lazyPage(() => import("@/features/admin/pages/AdminUsersPage"), "AdminUsersPage");
 
 export const router = createBrowserRouter([
   {
@@ -125,6 +126,16 @@ export const router = createBrowserRouter([
           <SuspenseWrapper>
             <TeamDetailPage />
           </SuspenseWrapper>
+        ),
+      },
+      {
+        path: "/admin/users",
+        element: (
+          <ProtectedRoute superuserOnly>
+            <SuspenseWrapper>
+              <AdminUsersPage />
+            </SuspenseWrapper>
+          </ProtectedRoute>
         ),
       },
       {

@@ -15,12 +15,12 @@ def _has_group(user, group_name):
 
 class IsTeacher(BasePermission):
     def has_permission(self, request, view):
-        return request.user.is_superuser or _has_group(request.user, "Teacher")
+        return _has_group(request.user, "Teacher")
 
 
 class IsStudent(BasePermission):
     def has_permission(self, request, view):
-        return request.user.is_superuser or _has_group(request.user, "Student")
+        return _has_group(request.user, "Student")
 
 
 class IsCourseTeacherOfSection(BasePermission):
@@ -35,11 +35,7 @@ class IsCourseTeacherOfSection(BasePermission):
     def has_permission(self, request, view) -> bool:
         if not (request.user and request.user.is_authenticated):
             return False
-        if request.user.is_superuser:
-            return True
         return _has_group(request.user, "Teacher")
 
     def has_object_permission(self, request, view, obj) -> bool:
-        if request.user.is_superuser:
-            return True
         return obj.course.teacher_id == request.user.id

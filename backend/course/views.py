@@ -9,6 +9,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from assignments.models import Assignment
+from authentication.models import User
+from authentication.serializers import AdminUserSerializer
 from course.models import (
     Course,
     CourseSettings,
@@ -258,10 +260,41 @@ class DashboardView(APIView):
 
     def get(self, request):
         user = request.user
+        if user.is_superuser:
+            return self._admin_dashboard()
         is_teacher = user.groups.filter(name="Teacher").exists()
         if is_teacher:
             return self._teacher_dashboard(user)
         return self._student_dashboard(user)
+
+    def _admin_dashboard(self):
+        users = User.objects.all()
+        courses = Course.objects.all()
+        pending_enrollments = Enrollment.objects.filter(
+            status=Status.PENDING
+        ).count()
+
+        recent_users = users.order_by("-date_joined")[:8]
+        recent_courses = courses.annotate(
+            enrollments_count=Count(
+                "sections__enrollments",
+                filter=Q(sections__enrollments__status=Status.APPROVED),
+            )
+        ).order_by("-created_at")[:8]
+
+        return Response({
+            "type": "admin",
+            "stats": {
+                "users_total": users.count(),
+                "users_active": users.filter(is_active=True).count(),
+                "students": users.filter(groups__name="Student").count(),
+                "teachers": users.filter(groups__name="Teacher").count(),
+                "courses": courses.count(),
+                "pending_enrollments": pending_enrollments,
+            },
+            "recent_users": AdminUserSerializer(recent_users, many=True).data,
+            "recent_courses": DashboardCourseSerializer(recent_courses, many=True).data,
+        })
 
     def _teacher_dashboard(self, user):
         courses = Course.objects.annotate(

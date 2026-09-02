@@ -1,18 +1,24 @@
 from django.conf import settings
-from rest_framework import status
+from django.contrib.auth.models import Group
+from rest_framework import status, viewsets
+from rest_framework.filters import SearchFilter
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.serializers import TokenBlacklistSerializer
+from rest_framework_simplejwt.tokens import AccessToken
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
 
 from .csrf import CSRF_COOKIE_NAME, assert_csrf, auth_cookie_secure, set_csrf_cookie
-from .serializers import LoginSerializer
+from .permissions import IsSuperuser
+from .serializers import AdminUserSerializer, LoginSerializer
 from .throttle import AuthThrottle, LoginThrottle
+from authentication.models import User
 
 REFRESH_COOKIE_NAME = "refresh_token"
 REFRESH_COOKIE_PATH = "/auth/"
@@ -125,3 +131,83 @@ class LogoutView(APIView):
         _clear_auth_cookies(response)
         response.delete_cookie(CSRF_COOKIE_NAME, path="/")
         return response
+
+
+class AdminUserViewSet(viewsets.ModelViewSet):
+    """Consola de administración: listar y moderar cuentas (solo superuser)."""
+
+    permission_classes = [IsSuperuser]
+    serializer_class = AdminUserSerializer
+    filter_backends = [SearchFilter]
+    search_fields = ["username", "email", "first_name", "last_name"]
+    http_method_names = ["get", "patch", "head", "options"]
+
+    def get_queryset(self):
+        qs = User.objects.prefetch_related("groups")
+        role = self.request.query_params.get("role")
+        if role in ("Student", "Teacher"):
+            qs = qs.filter(groups__name=role)
+        return qs.order_by("-date_joined")
+
+    def partial_update(self, request, *args, **kwargs):
+        instance = self.get_object()
+
+        if instance.is_superuser:
+            raise PermissionDenied(
+                "No se puede modificar una cuenta de superusuario."
+            )
+
+        if "is_active" in request.data:
+            instance.is_active = bool(request.data["is_active"])
+
+        role = request.data.get("role")
+        if role is not None:
+            if role not in ("Student", "Teacher"):
+                raise ValidationError(
+                    {"role": "El rol debe ser 'Student' o 'Teacher'."}
+                )
+            student_group = Group.objects.get(name="Student")
+            teacher_group = Group.objects.get(name="Teacher")
+            if role == "Teacher":
+                instance.groups.remove(student_group)
+                instance.groups.add(teacher_group)
+            else:
+                instance.groups.remove(teacher_group)
+                instance.groups.add(student_group)
+
+        instance.save()
+        return Response(AdminUserSerializer(instance).data)
+
+
+class ImpersonateView(APIView):
+    """Emitir un access token del usuario objetivo para probar el sistema.
+
+    Solo se emite el access token (sin refresh): vive en memoria del frontend,
+    caduca con su lifetime normal y expira al recargar la página. La acción no
+    cambia el estado del usuario objetivo (no hace login ni guarda sesiones).
+    """
+
+    permission_classes = [IsSuperuser]
+
+    def post(self, request):
+        user_id = request.data.get("user_id")
+        if not user_id:
+            raise ValidationError({"user_id": "Este campo es obligatorio."})
+
+        try:
+            target = User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            raise NotFound("Usuario no encontrado.")
+
+        if target.is_superuser:
+            raise PermissionDenied(
+                "No se puede impersonar a otro superusuario."
+            )
+        if not target.is_active:
+            raise PermissionDenied(
+                "El usuario está desactivado y no puede iniciar sesión."
+            )
+
+        token = AccessToken.for_user(target)
+        token["impersonates"] = request.user.id
+        return Response({"access": str(token)})

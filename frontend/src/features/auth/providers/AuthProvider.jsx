@@ -11,16 +11,22 @@ import { tokenStorage, clearLegacyTokens } from "@/shared/storage/tokenStorage";
 import {
     ensureCsrfToken,
     getUserProfile,
+    impersonateUser,
     loginUser,
     logoutUser,
 } from "@/features/auth/services/authService";
 import { refreshSession } from "@/lib/axios";
+import { impersonation } from "@/lib/impersonation";
+import { invalidateCache } from "@/lib/apiCache";
+import { getErrorMessage } from "@/shared/utils/getErrorMessage";
+import { toast } from "react-toastify";
 
 const AuthContext = createContext(undefined);
 
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [impersonatedUser, setImpersonatedUser] = useState(null);
 
     useEffect(() => {
         let cancelled = false;
@@ -70,6 +76,8 @@ export function AuthProvider({ children }) {
         (role) => role === "Student"
     ) ?? false;
 
+    const isAdmin = user?.is_superuser ?? false;
+
     const login = useCallback(async (credentials) => {
         setIsLoading(true);
         try {
@@ -103,16 +111,89 @@ export function AuthProvider({ children }) {
         setUser(updatedUser);
     }, []);
 
+    const restoreAdminSession = useCallback(() => {
+        const { adminAccessToken, adminProfile } = impersonation.getState();
+        impersonation.clear();
+        if (adminAccessToken) {
+            tokenStorage.setAccessToken(adminAccessToken);
+        }
+        invalidateCache();
+        setUser(adminProfile);
+        setImpersonatedUser(null);
+    }, []);
+
+    const stopImpersonation = useCallback(() => {
+        restoreAdminSession();
+        toast.info("Impersonación terminada. Volviste a tu cuenta.");
+    }, [restoreAdminSession]);
+
+    // Si el access token impersonado caduca, el interceptor refresca con la
+    // cookie del admin y detecta la pérdida de la sesión de prueba: se vuelve
+    // al perfil y tokens del admin sin intervención del usuario.
+    useEffect(() => {
+        impersonation.setLostHandler(() => {
+            restoreAdminSession();
+            toast.warn(
+                "La sesión de prueba expiró. Volviste a tu cuenta de administrador."
+            );
+        });
+        return () => impersonation.setLostHandler(null);
+    }, [restoreAdminSession]);
+
+    // Intercambia SOLO el access token en memoria: la app entera pasa a ver
+    // y actuar como el usuario objetivo hasta recargar/terminar la vista.
+    const startImpersonation = useCallback(async (targetUser) => {
+        const adminAccessToken = tokenStorage.getAccessToken();
+        const adminProfile = user;
+
+        try {
+            const { access } = await impersonateUser(targetUser.id);
+            impersonation.start({
+                adminAccessToken,
+                adminProfile,
+                impersonatedUserId: targetUser.id,
+                impersonatedUser: targetUser,
+            });
+            tokenStorage.setAccessToken(access);
+            invalidateCache();
+            const profile = await getUserProfile();
+            setUser(profile);
+            setImpersonatedUser(targetUser);
+            return true;
+        } catch (err) {
+            impersonation.clear();
+            toast.error(getErrorMessage(err));
+            return false;
+        }
+    }, [user]);
+
     const value = useMemo(() => ({
         user,
         isLoading,
         isAuthenticated: user !== null,
         isTeacher,
         isStudent,
+        isAdmin,
+        impersonatedAs: impersonatedUser,
+        isImpersonating: impersonatedUser !== null,
         login,
         logout,
-        updateUser
-    }), [user, isLoading, isTeacher, isStudent, login, logout, updateUser]);
+        updateUser,
+        startImpersonation,
+        stopImpersonation,
+    }), [
+        user,
+        isLoading,
+        isTeacher,
+        isStudent,
+        isAdmin,
+        impersonatedUser,
+        login,
+        logout,
+        updateUser,
+        startImpersonation,
+        stopImpersonation,
+    ]);
 
     return (
         <AuthContext.Provider value={value}>

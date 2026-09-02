@@ -6,6 +6,7 @@ export function ProtectedRoute({
     children,
     roles = [],
     permissions = [],
+    superuserOnly = false,
     redirectTo = "/login",
     forbiddenTo = "/403",
 }) {
@@ -16,6 +17,10 @@ export function ProtectedRoute({
 
     if (!user) {
         return <Navigate to={redirectTo} replace />;
+    }
+
+    if (superuserOnly && !user?.is_superuser) {
+        return <Navigate to={forbiddenTo} replace />;
     }
 
     if (roles.length > 0 && !user?.roles?.some(role => roles.includes(role))) {

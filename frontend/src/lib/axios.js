@@ -2,6 +2,7 @@ import axios from "axios";
 import { tokenStorage } from "@/shared/storage/tokenStorage";
 import { getCsrfToken, setCsrfToken } from "@/lib/csrf";
 import { getCached, setCache, cacheKey, invalidateCache } from "@/lib/apiCache";
+import { impersonation } from "@/lib/impersonation";
 
 let isRefreshing = false;
 let failedQueue = [];
@@ -179,6 +180,17 @@ api.interceptors.response.use(
 
         try {
             const newAccessToken = await refreshSession();
+
+            // Un refresh durante la impersonación usa la cookie del admin y
+            // devuelve su token (sin claim `impersonates`): la sesión de
+            // prueba caducó. Se restaura al admin de forma transparente
+            // (el handler lee el estado antes de limpiarlo).
+            if (
+                impersonation.isActive() &&
+                !impersonation.tokenStillImpersonating(newAccessToken)
+            ) {
+                impersonation.notifyLost();
+            }
 
             processQueue(null, newAccessToken);
 

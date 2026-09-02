@@ -17,9 +17,13 @@ class LoginUserSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "email",
+            "is_staff",
+            "is_superuser",
+            "is_active",
             "roles",
             "permissions",
         )
+        read_only_fields = ("is_staff", "is_superuser", "is_active")
 
     def get_roles(self, obj):
         return list(obj.groups.values_list("name", flat=True))
@@ -57,11 +61,37 @@ class UserSerializer(DjoserUserSerializer):
 
     class Meta(DjoserUserSerializer.Meta):
         model = User
-        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'roles', 'permissions')
-        read_only_fields = ()
+        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'is_staff', 'is_superuser', 'is_active', 'roles', 'permissions')
+        read_only_fields = ('is_staff', 'is_superuser', 'is_active',)
 
     def get_roles(self, obj):
         return list(obj.groups.values_list("name", flat=True))
 
     def get_permissions(self, obj):
         return list(obj.get_all_permissions())
+
+
+class AdminUserSerializer(serializers.ModelSerializer):
+    """Representación ligera de un usuario para la consola de administración."""
+
+    roles = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = (
+            "id",
+            "username",
+            "email",
+            "first_name",
+            "last_name",
+            "is_active",
+            "is_staff",
+            "is_superuser",
+            "roles",
+            "date_joined",
+            "last_login",
+        )
+        read_only_fields = fields
+
+    def get_roles(self, obj):
+        return list(obj.groups.values_list("name", flat=True))

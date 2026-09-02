@@ -16,4 +16,15 @@ urlpatterns = [
     path("jwt/refresh/", views.RefreshView.as_view(), name="token_refresh"),
     path("jwt/blacklist/", views.LogoutView.as_view(), name="logout"),
     path("login/", views.LoginView.as_view(), name="login"),
+    path(
+        "admin/users/",
+        views.AdminUserViewSet.as_view({"get": "list"}),
+        name="admin-user-list",
+    ),
+    path(
+        "admin/users/<int:pk>/",
+        views.AdminUserViewSet.as_view({"patch": "partial_update"}),
+        name="admin-user-detail",
+    ),
+    path("admin/impersonate/", views.ImpersonateView.as_view(), name="admin-impersonate"),
 ]
