@@ -15,6 +15,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from assignments.models import Assignment
+from authentication.models import EventLog
 from course.models import Course, Enrollment, Section, Status
 from grading.models import Grade
 from teams.models import Team, TeamMember
@@ -288,6 +289,42 @@ class GradeStudentTests(GradingAPITestCase):
             self.assertEqual(grade.score, Decimal("100.00"))
             self.assertFalse(grade.is_individual)
 
+    def test_individual_grade_creates_event_log(self):
+        response = self.grade_student(
+            self.assignment, self.student, "80.00", self.teacher
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        grade = Grade.objects.get(assignment=self.assignment, student=self.student)
+        log = EventLog.objects.filter(
+            action=EventLog.ACTION_UPDATE, entity_type="grade"
+        ).first()
+        self.assertIsNotNone(log)
+        self.assertEqual(log.actor, self.teacher)
+        self.assertEqual(log.target, self.student)
+        self.assertEqual(log.entity_id, grade.id)
+        self.assertEqual(log.metadata["assignment_id"], self.assignment.id)
+        self.assertEqual(log.metadata["score"], "80.00")
+        self.assertTrue(log.metadata["is_individual"])
+
+    def test_team_grade_creates_event_log(self):
+        response = self.grade_team(self.assignment, self.team, "95.00", self.teacher)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        log = EventLog.objects.filter(
+            action=EventLog.ACTION_UPDATE, entity_type="grade"
+        ).first()
+        self.assertIsNotNone(log)
+        self.assertEqual(log.actor, self.teacher)
+        self.assertIsNone(log.target)
+        self.assertEqual(log.metadata["assignment_id"], self.assignment.id)
+        self.assertEqual(log.metadata["score"], "95.00")
+        self.assertEqual(log.metadata["affected"], 2)
+        self.assertEqual(
+            set(log.metadata["member_ids"]),
+            {self.student.id, self.student2.id},
+        )
+
 
 class GradeAccessTests(GradingAPITestCase):
     def test_student_cannot_create_grades(self):
@@ -453,6 +490,26 @@ class GradeValidationTests(GradingAPITestCase):
                 score="90.00",
                 graded_by=self.teacher,
             )
+
+    def test_failed_grading_does_not_create_event_log(self):
+        response = self.grade_student(
+            self.assignment, self.unapproved_student, "50.00", self.teacher
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(
+            EventLog.objects.filter(
+                action=EventLog.ACTION_UPDATE, entity_type="grade"
+            ).exists()
+        )
+        response = self.grade_team(
+            self.assignment, self.foreign_team, "95.00", self.teacher
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(
+            EventLog.objects.filter(
+                action=EventLog.ACTION_UPDATE, entity_type="grade"
+            ).exists()
+        )
 
 
 class SectionGradesExportTests(GradingAPITestCase):

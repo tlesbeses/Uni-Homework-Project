@@ -3,6 +3,8 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import get_user_model
 from djoser.serializers import UserCreateSerializer as DjoserUserCreateSerializer, UserSerializer as DjoserUserSerializer
 
+from authentication.models import EventLog
+
 User = get_user_model()
 
 class LoginUserSerializer(serializers.ModelSerializer):
@@ -95,3 +97,20 @@ class AdminUserSerializer(serializers.ModelSerializer):
 
     def get_roles(self, obj):
         return list(obj.groups.values_list("name", flat=True))
+
+
+class ImpersonationLogSerializer(serializers.ModelSerializer):
+    """Registro de impersonación para el dashboard admin."""
+
+    target = AdminUserSerializer(read_only=True)
+    admin = serializers.SerializerMethodField()
+    timestamp = serializers.DateTimeField(source="created_at", read_only=True)
+
+    class Meta:
+        model = EventLog
+        fields = ("id", "target", "admin", "timestamp")
+
+    def get_admin(self, obj):
+        if obj.actor is None:
+            return None
+        return AdminUserSerializer(obj.actor).data

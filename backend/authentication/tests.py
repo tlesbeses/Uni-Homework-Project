@@ -4,6 +4,8 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import AccessToken
 
+from authentication.models import EventLog
+
 User = get_user_model()
 
 
@@ -223,6 +225,34 @@ class ImpersonateTests(BaseAdminTestCase):
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_impersonation_creates_event_log(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            "/auth/admin/impersonate/",
+            {"user_id": self.student.id},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        log = EventLog.objects.filter(action=EventLog.ACTION_IMPERSONATE).first()
+        self.assertIsNotNone(log)
+        self.assertEqual(log.actor, self.admin)
+        self.assertEqual(log.target, self.student)
+        self.assertEqual(log.entity_type, "user")
+        self.assertEqual(log.entity_id, self.student.id)
+        self.assertEqual(log.metadata, {"admin_id": self.admin.id})
+
+    def test_rejected_impersonation_does_not_create_log(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            "/auth/admin/impersonate/",
+            {"user_id": self.admin.id},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(
+            EventLog.objects.filter(action=EventLog.ACTION_IMPERSONATE).exists()
+        )
 
 
 class SerializerRoleTests(BaseAdminTestCase):

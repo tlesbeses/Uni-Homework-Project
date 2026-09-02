@@ -38,7 +38,7 @@ function formatRelativeTime(dateStr) {
 }
 
 export function DashboardPage() {
-    const { user, isTeacher, isStudent } = useAuth();
+    const { user, isTeacher, isStudent, isAdmin, isImpersonating } = useAuth();
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
 
@@ -61,7 +61,9 @@ export function DashboardPage() {
         return () => {
             cancelled = true;
         };
-    }, []);
+        // Refetch al cambiar de identidad: al impersonar o terminar la vista,
+        // el access token cambia y el dashboard debe reflejar al usuario real.
+    }, [user?.id, isImpersonating]);
 
     if (loading) {
         return <DashboardSkeleton />;
@@ -69,7 +71,10 @@ export function DashboardPage() {
 
     const userName = user?.first_name || user?.username || "";
 
-    const isAdminStats = stats?.type === "admin";
+    // El panel admin solo debe verse si el usuario es realmente root y el
+    // backend lo identificó como tal; durante una impersonación nunca debe
+    // filtrarse aunque un `stats` quedara con datos viejos.
+    const isAdminStats = stats?.type === "admin" && isAdmin;
 
     return (
         <div className="space-y-8">
@@ -131,6 +136,7 @@ function DashboardSkeleton() {
 function AdminDashboard({ stats }) {
     const s = stats.stats ?? {};
     const recentUsers = stats.recent_users ?? [];
+    const recentImpersonations = stats.recent_impersonations ?? [];
     const recentCourses = stats.recent_courses ?? [];
 
     return (
@@ -218,7 +224,7 @@ function AdminDashboard({ stats }) {
             <div>
                 <div className="flex items-center justify-between mb-3">
                     <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-400">
-                        Usuarios recientes
+                        Registrados recientemente
                     </h2>
                     <Link
                         to="/admin/users"
@@ -234,31 +240,50 @@ function AdminDashboard({ stats }) {
                         </p>
                     )}
                     {recentUsers.slice(0, 5).map((u) => (
-                        <div
+                        <UserRow
                             key={u.id}
-                            className="flex items-center gap-4 px-5 py-3.5"
-                        >
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600 text-sm font-semibold">
-                                {(u.first_name?.charAt(0) ||
-                                    u.username?.charAt(0) ||
-                                    "?").toUpperCase()}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                                <p className="text-sm font-medium text-gray-800 truncate">
-                                    {u.first_name && u.last_name
-                                        ? `${u.first_name} ${u.last_name}`
-                                        : u.username}
-                                </p>
-                                <p className="text-xs text-gray-400 truncate">
-                                    @{u.username}
-                                    {u.email ? ` · ${u.email}` : ""}
-                                </p>
-                            </div>
-                            <span className="text-xs text-gray-400 whitespace-nowrap">
-                                {formatRelativeTime(u.date_joined)}
-                            </span>
-                        </div>
+                            name={
+                                u.first_name && u.last_name
+                                    ? `${u.first_name} ${u.last_name}`
+                                    : u.username
+                            }
+                            subtitle={`@${u.username}${u.email ? ` · ${u.email}` : ""}`}
+                            time={formatRelativeTime(u.date_joined)}
+                        />
                     ))}
+                </div>
+            </div>
+
+            <div>
+                <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-400 mb-3">
+                    Impersonados recientemente
+                </h2>
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 divide-y divide-gray-100">
+                    {recentImpersonations.length === 0 && (
+                        <p className="px-5 py-8 text-center text-gray-400 text-sm">
+                            No hay impersonaciones registradas.
+                        </p>
+                    )}
+                    {recentImpersonations.slice(0, 5).map((log) => {
+                        const t = log.target ?? {};
+                        const adminName = log.admin
+                            ? log.admin.first_name && log.admin.last_name
+                                ? `${log.admin.first_name} ${log.admin.last_name}`
+                                : log.admin.username
+                            : "administrador";
+                        return (
+                            <UserRow
+                                key={log.id}
+                                name={
+                                    t.first_name && t.last_name
+                                        ? `${t.first_name} ${t.last_name}`
+                                        : t.username || "Usuario"
+                                }
+                                subtitle={`por ${adminName}`}
+                                time={formatRelativeTime(log.timestamp)}
+                            />
+                        );
+                    })}
                 </div>
             </div>
 
@@ -622,6 +647,25 @@ function StatCard({ label, value, icon, color }) {
                 <p className="text-2xl font-bold text-gray-800">{value}</p>
                 <p className="text-sm text-gray-500">{label}</p>
             </div>
+        </div>
+    );
+}
+
+function UserRow({ name, subtitle, time }) {
+    return (
+        <div className="flex items-center gap-4 px-5 py-3.5">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600 text-sm font-semibold">
+                {(name?.charAt(0) || "?").toUpperCase()}
+            </div>
+            <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-gray-800 truncate">
+                    {name}
+                </p>
+                <p className="text-xs text-gray-400 truncate">{subtitle}</p>
+            </div>
+            <span className="text-xs text-gray-400 whitespace-nowrap">
+                {time}
+            </span>
         </div>
     );
 }

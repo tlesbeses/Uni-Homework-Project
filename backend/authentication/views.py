@@ -17,8 +17,9 @@ from rest_framework_simplejwt.views import (
 from .csrf import CSRF_COOKIE_NAME, assert_csrf, auth_cookie_secure, set_csrf_cookie
 from .permissions import IsSuperuser
 from .serializers import AdminUserSerializer, LoginSerializer
+from .services import log_event
 from .throttle import AuthThrottle, LoginThrottle
-from authentication.models import User
+from authentication.models import EventLog, User
 
 REFRESH_COOKIE_NAME = "refresh_token"
 REFRESH_COOKIE_PATH = "/auth/"
@@ -210,4 +211,14 @@ class ImpersonateView(APIView):
 
         token = AccessToken.for_user(target)
         token["impersonates"] = request.user.id
+
+        log_event(
+            actor=request.user,
+            action=EventLog.ACTION_IMPERSONATE,
+            entity_type="user",
+            entity_id=target.id,
+            target=target,
+            metadata={"admin_id": request.user.id},
+        )
+
         return Response({"access": str(token)})

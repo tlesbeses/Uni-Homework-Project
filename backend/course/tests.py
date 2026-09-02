@@ -3,6 +3,7 @@ from django.contrib.auth.models import Group
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from authentication.models import EventLog
 from course.models import (
     Course,
     CourseSettings,
@@ -524,3 +525,21 @@ class SuperuserIsolationTests(BaseCourseTestCase):
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_dashboard_includes_recent_impersonations(self):
+        EventLog.objects.create(
+            actor=self.superuser,
+            target=self.student,
+            action=EventLog.ACTION_IMPERSONATE,
+            entity_type="user",
+            entity_id=self.student.id,
+        )
+        self.client.force_authenticate(self.superuser)
+        response = self.client.get("/api/dashboard/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["type"], "admin")
+        impersonations = response.data["recent_impersonations"]
+        self.assertEqual(len(impersonations), 1)
+        self.assertEqual(impersonations[0]["target"]["id"], self.student.id)
+        self.assertEqual(impersonations[0]["admin"]["id"], self.superuser.id)
+        self.assertIn("timestamp", impersonations[0])
