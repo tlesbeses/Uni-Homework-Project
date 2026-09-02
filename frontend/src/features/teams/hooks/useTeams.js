@@ -1,28 +1,32 @@
-import { useCallback, useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getTeams } from "@/features/teams/services/teamService";
+import { queryKeys } from "@/lib/queryKeys";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 
 export const useTeams = () => {
-    const [teams, setTeams] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
+    const queryClient = useQueryClient();
 
-    const loadTeams = useCallback(async () => {
-        setLoading(true);
-        setError("");
-        try {
-            const data = await getTeams({ page_size: 100 });
-            setTeams(Array.isArray(data.results) ? data.results : Array.isArray(data) ? data : []);
-        } catch (err) {
-            setError(getErrorMessage(err));
-        } finally {
-            setLoading(false);
-        }
-    }, []);
+    const { data, isLoading, error, refetch } = useQuery({
+        queryKey: queryKeys.teams.list({ all: true }),
+        queryFn: () =>
+            getTeams({ page_size: 100 }).then((data) =>
+                Array.isArray(data.results)
+                    ? data.results
+                    : Array.isArray(data)
+                      ? data
+                      : []
+            ),
+    });
 
-    useEffect(() => {
-        loadTeams();
-    }, [loadTeams]);
+    const loadTeams = () => {
+        queryClient.invalidateQueries({ queryKey: queryKeys.teams.all });
+        return refetch();
+    };
 
-    return { teams, loading, error, loadTeams };
+    return {
+        teams: data ?? [],
+        loading: isLoading,
+        error: error ? getErrorMessage(error) : "",
+        loadTeams,
+    };
 };

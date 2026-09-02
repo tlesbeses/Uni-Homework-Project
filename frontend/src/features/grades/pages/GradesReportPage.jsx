@@ -12,8 +12,8 @@ import { getSections } from "@/features/courses/services/courseService";
 import {
     exportSectionGrades,
     getSectionGradesReport,
-    gradeStudent,
 } from "@/features/grades/services/gradeService";
+import { useGradeStudent } from "@/features/grades/hooks/useGradeMutations";
 import { downloadBlob } from "@/shared/utils/downloadBlob";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 import { SearchInput } from "@/shared/components/SearchInput";
@@ -30,6 +30,8 @@ function EditableGradeCell({
     const [saving, setSaving] = useState(false);
     const inputRef = useRef(null);
     const busyRef = useRef(false);
+
+    const gradeStudentMutation = useGradeStudent();
 
     useEffect(() => {
         if (editing && inputRef.current) {
@@ -59,7 +61,11 @@ function EditableGradeCell({
         busyRef.current = true;
         setSaving(true);
         try {
-            await gradeStudent(assignmentId, studentId, num);
+            await gradeStudentMutation.mutateAsync({
+                assignmentId,
+                studentId,
+                score: num,
+            });
             onSaved(studentId, assignmentId, num);
             toast.success("Nota guardada.");
         } catch (err) {

@@ -1,13 +1,13 @@
-import { api } from "@/lib/axios";
+import { api, queryApi } from "@/lib/axios";
 
 export const getAssignments = async (params) => {
     const { signal, ...queryParams } = params ?? {};
-    const response = await api.get("/api/assignments/", { params: queryParams, signal });
+    const response = await queryApi.get("/api/assignments/", { params: queryParams, signal });
     return response.data;
 };
 
 export const getCourseAssignments = async (courseId, opts) => {
-    const response = await api.get(`/api/courses/${courseId}/assignments/`, { signal: opts?.signal });
+    const response = await queryApi.get(`/api/courses/${courseId}/assignments/`, { signal: opts?.signal });
     return response.data;
 };
 

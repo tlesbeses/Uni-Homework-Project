@@ -1,18 +1,18 @@
-import { api } from "@/lib/axios";
+import { api, queryApi } from "@/lib/axios";
 
 export const getTeams = async (params) => {
     const { signal, ...queryParams } = params ?? {};
-    const response = await api.get("/api/teams/", { params: queryParams, signal });
+    const response = await queryApi.get("/api/teams/", { params: queryParams, signal });
     return response.data;
 };
 
 export const getTeam = async (teamId) => {
-    const response = await api.get(`/api/teams/${teamId}/`);
+    const response = await queryApi.get(`/api/teams/${teamId}/`);
     return response.data;
 };
 
 export const getAvailableStudents = async (teamId) => {
-    const response = await api.get(`/api/teams/${teamId}/available-students/`);
+    const response = await queryApi.get(`/api/teams/${teamId}/available-students/`);
     return response.data;
 };
 

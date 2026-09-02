@@ -6,6 +6,7 @@ import {
     useContext,
     useEffect
 } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { tokenStorage, clearLegacyTokens } from "@/shared/storage/tokenStorage";
 import {
@@ -21,6 +22,7 @@ const AuthContext = createContext(undefined);
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
+    const queryClient = useQueryClient();
 
     useEffect(() => {
         let cancelled = false;
@@ -95,9 +97,12 @@ export function AuthProvider({ children }) {
             // Silently handle logout server errors
         } finally {
             tokenStorage.clear();
+            // Limpia el cache de TanStack para no filtrar datos de la sesión
+            // cerrada al siguiente usuario que inicie sesión en este navegador.
+            queryClient.clear();
             window.location.assign("/login");
         }
-    }, []);
+    }, [queryClient]);
 
     const updateUser = useCallback((updatedUser) => {
         setUser(updatedUser);
