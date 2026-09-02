@@ -10,6 +10,7 @@ import {
 import { SearchInput } from "@/shared/components/SearchInput";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 import { formatUser } from "@/features/teams/utils/formatUser";
+import { ConfirmModal } from "@/shared/components/ConfirmModal";
 
 const ROLE_STYLES = {
     Teacher: "bg-indigo-100 text-indigo-700",
@@ -40,6 +41,7 @@ export const AdminUsersPage = () => {
     const [busyId, setBusyId] = useState(null);
     const [impersonatingId, setImpersonatingId] = useState(null);
     const [pendingDeactivate, setPendingDeactivate] = useState(null);
+    const [pendingRoleChange, setPendingRoleChange] = useState(null);
 
     const { users, loading, error, reload } = useAdminUsers({ search, role });
 
@@ -95,10 +97,12 @@ export const AdminUsersPage = () => {
         }
     };
 
-    const handleRoleChange = async (targetUser) => {
+    const handleRoleChange = async () => {
+        const targetUser = pendingRoleChange;
         const nextRole = targetUser.roles.includes("Teacher")
             ? "Student"
             : "Teacher";
+        setPendingRoleChange(null);
         setBusyId(targetUser.id);
         try {
             await setUserRole(targetUser.id, nextRole);
@@ -116,6 +120,10 @@ export const AdminUsersPage = () => {
     };
 
     const handleImpersonate = async (targetUser) => {
+        // Navegar ANTES de cambiar el perfil de usuario: la ruta actual
+        // (/admin/users) tiene un guard superuserOnly; si cambiamos el
+        // usuario estando aún en ella, el guard redirigiría a /403.
+        navigate("/dashboard");
         setImpersonatingId(targetUser.id);
         const ok = await startImpersonation(targetUser);
         setImpersonatingId(null);
@@ -123,7 +131,8 @@ export const AdminUsersPage = () => {
             toast.success(
                 `Probando el sistema como ${formatUser(targetUser)}.`
             );
-            navigate("/dashboard");
+        } else {
+            navigate("/admin/users");
         }
     };
 
@@ -291,7 +300,7 @@ export const AdminUsersPage = () => {
                                                 <button
                                                     type="button"
                                                     onClick={() =>
-                                                        handleRoleChange(u)
+                                                        setPendingRoleChange(u)
                                                     }
                                                     disabled={busy}
                                                     className="px-3 py-1.5 rounded-lg text-xs font-medium text-indigo-600 border border-indigo-200 hover:bg-indigo-50 transition disabled:opacity-50"
@@ -358,6 +367,27 @@ export const AdminUsersPage = () => {
                     </div>
                 </div>
             )}
+
+            <ConfirmModal
+                open={Boolean(pendingRoleChange)}
+                title="Cambiar rol de usuario"
+                description={
+                    pendingRoleChange
+                        ? `¿Cambiar el rol de ${formatUser(
+                              pendingRoleChange
+                          )} a ${
+                              pendingRoleChange.roles.includes("Teacher")
+                                  ? "Estudiante"
+                                  : "Profesor"
+                          }?`
+                        : ""
+                }
+                confirmLabel="Cambiar rol"
+                confirmClassName="bg-indigo-600 hover:bg-indigo-700"
+                onCancel={() => setPendingRoleChange(null)}
+                onConfirm={handleRoleChange}
+                busy={Boolean(busyId)}
+            />
         </div>
     );
 };

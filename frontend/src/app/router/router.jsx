@@ -99,33 +99,41 @@ export const router = createBrowserRouter([
       {
         path: "/courses",
         element: (
-          <SuspenseWrapper>
-            <CoursesPage />
-          </SuspenseWrapper>
+          <ProtectedRoute blockSuperuser>
+            <SuspenseWrapper>
+              <CoursesPage />
+            </SuspenseWrapper>
+          </ProtectedRoute>
         ),
       },
       {
         path: "/courses/:id",
         element: (
-          <SuspenseWrapper>
-            <CourseDetailPage />
-          </SuspenseWrapper>
+          <ProtectedRoute blockSuperuser>
+            <SuspenseWrapper>
+              <CourseDetailPage />
+            </SuspenseWrapper>
+          </ProtectedRoute>
         ),
       },
       {
         path: "/teams",
         element: (
-          <SuspenseWrapper>
-            <TeamsPage />
-          </SuspenseWrapper>
+          <ProtectedRoute blockSuperuser>
+            <SuspenseWrapper>
+              <TeamsPage />
+            </SuspenseWrapper>
+          </ProtectedRoute>
         ),
       },
       {
         path: "/teams/:id",
         element: (
-          <SuspenseWrapper>
-            <TeamDetailPage />
-          </SuspenseWrapper>
+          <ProtectedRoute blockSuperuser>
+            <SuspenseWrapper>
+              <TeamDetailPage />
+            </SuspenseWrapper>
+          </ProtectedRoute>
         ),
       },
       {
@@ -141,17 +149,21 @@ export const router = createBrowserRouter([
       {
         path: "/grades/report",
         element: (
-          <SuspenseWrapper>
-            <GradesReportPage />
-          </SuspenseWrapper>
+          <ProtectedRoute blockSuperuser>
+            <SuspenseWrapper>
+              <GradesReportPage />
+            </SuspenseWrapper>
+          </ProtectedRoute>
         ),
       },
       {
         path: "/grades",
         element: (
-          <SuspenseWrapper>
-            <GradesPage />
-          </SuspenseWrapper>
+          <ProtectedRoute blockSuperuser>
+            <SuspenseWrapper>
+              <GradesPage />
+            </SuspenseWrapper>
+          </ProtectedRoute>
         ),
       },
       {

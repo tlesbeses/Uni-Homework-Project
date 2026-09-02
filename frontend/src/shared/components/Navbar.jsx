@@ -46,9 +46,15 @@ export function Navbar() {
   const headerRef = useRef(null);
 
   const visibleNavItems = useMemo(
-    () => NAV_ITEMS.filter((item) =>
-      (!item.teacherOnly || isTeacher) && (!item.adminOnly || isAdmin)
-    ),
+    () =>
+      NAV_ITEMS.filter((item) => {
+        if (isAdmin) {
+          return !item.teacherOnly && (item.adminOnly || item.to === "/dashboard");
+        }
+        return (
+          (!item.teacherOnly || isTeacher) && (!item.adminOnly || isAdmin)
+        );
+      }),
     [isTeacher, isAdmin]
   );
 

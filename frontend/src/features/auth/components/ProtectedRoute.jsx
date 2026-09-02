@@ -7,10 +7,11 @@ export function ProtectedRoute({
     roles = [],
     permissions = [],
     superuserOnly = false,
+    blockSuperuser = false,
     redirectTo = "/login",
     forbiddenTo = "/403",
 }) {
-    const { user, isLoading } = useAuth();
+    const { user, isLoading, isImpersonating } = useAuth();
     if (isLoading) {
         return <FullScreenLoader />;
     }
@@ -20,6 +21,14 @@ export function ProtectedRoute({
     }
 
     if (superuserOnly && !user?.is_superuser) {
+        return <Navigate to={forbiddenTo} replace />;
+    }
+
+    if (
+        blockSuperuser &&
+        user?.is_superuser &&
+        !isImpersonating
+    ) {
         return <Navigate to={forbiddenTo} replace />;
     }
 

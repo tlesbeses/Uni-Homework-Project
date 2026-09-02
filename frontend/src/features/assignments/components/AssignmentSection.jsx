@@ -179,6 +179,20 @@ export const AssignmentSection = ({ courseId, isTeacher, isOwner, selectedSectio
                     reload();
                 }}
             />
+
+            <ConfirmModal
+                open={Boolean(pendingDelete)}
+                title="Eliminar asignación"
+                description={
+                    pendingDelete
+                        ? `¿Eliminar "${pendingDelete.title}"? Esta acción no se puede deshacer.`
+                        : ""
+                }
+                confirmLabel="Eliminar"
+                onCancel={() => setPendingDelete(null)}
+                onConfirm={confirmDelete}
+                busy={Boolean(deletingId)}
+            />
         </div>
     );
 };
