@@ -51,8 +51,6 @@ class CourseViewSet(viewsets.ModelViewSet):
                 filter=Q(sections__enrollments__status=Status.APPROVED),
             )
         ).order_by("-created_at")
-        if user.is_superuser:
-            return queryset
         if self.is_teacher(user):
             return queryset.filter(teacher=user)
         is_enrolled = Exists(
@@ -228,9 +226,7 @@ class CourseViewSet(viewsets.ModelViewSet):
     def course_settings(self, request, pk=None):
         course = self.get_object()
         if request.method == "PATCH":
-            if not (
-                request.user.is_superuser or request.user == course.teacher
-            ):
+            if request.user != course.teacher:
                 raise PermissionDenied(
                     "Only the course teacher can change course settings."
                 )
