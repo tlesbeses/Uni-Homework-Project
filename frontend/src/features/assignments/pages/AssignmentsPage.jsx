@@ -13,6 +13,7 @@ import { formatDateTime } from "@/features/assignments/utils/formatDate";
 import { useAuth } from "@/features/auth/providers/AuthProvider";
 import { useCourses } from "@/features/courses/hooks/useCourses";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
+import { ConfirmModal } from "@/shared/components/ConfirmModal";
 
 export const AssignmentsPage = () => {
     const { isTeacher } = useAuth();
@@ -23,6 +24,7 @@ export const AssignmentsPage = () => {
     const [deletingId, setDeletingId] = useState(null);
     const [togglingId, setTogglingId] = useState(null);
     const [courseFilter, setCourseFilter] = useState("");
+    const [pendingDelete, setPendingDelete] = useState(null);
 
     const filteredAssignments = courseFilter
         ? assignments.filter(
@@ -31,10 +33,9 @@ export const AssignmentsPage = () => {
           )
         : assignments;
 
-    const handleDelete = async (assignment) => {
-        if (!window.confirm(`¿Eliminar "${assignment.title}"?`)) {
-            return;
-        }
+    const confirmDelete = async () => {
+        const assignment = pendingDelete;
+        setPendingDelete(null);
         setDeletingId(assignment.id);
         try {
             await deleteAssignment(assignment.id);
@@ -202,7 +203,7 @@ export const AssignmentsPage = () => {
                                             <button
                                                 type="button"
                                                 onClick={() =>
-                                                    handleDelete(assignment)
+                                                    setPendingDelete(assignment)
                                                 }
                                                 disabled={busy}
                                                 className="px-3 py-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition disabled:opacity-50"
@@ -236,6 +237,20 @@ export const AssignmentsPage = () => {
                     setEditingAssignment(null);
                     reload();
                 }}
+            />
+
+            <ConfirmModal
+                open={Boolean(pendingDelete)}
+                title="Eliminar asignación"
+                description={
+                    pendingDelete
+                        ? `¿Eliminar "${pendingDelete.title}"? Esta acción no se puede deshacer.`
+                        : ""
+                }
+                confirmLabel="Eliminar"
+                onCancel={() => setPendingDelete(null)}
+                onConfirm={confirmDelete}
+                busy={Boolean(deletingId)}
             />
         </div>
     );

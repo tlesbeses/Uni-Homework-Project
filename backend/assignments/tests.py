@@ -273,3 +273,43 @@ class AssignmentWriteTests(AssignmentAPITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class SuperuserIsolationTests(AssignmentAPITestCase):
+    """The superuser has no special powers in the regular assignment views."""
+
+    def setUp(self):
+        super().setUp()
+        self.superuser = self.create_user("root")
+        self.superuser.is_superuser = True
+        self.superuser.save()
+
+    def test_superuser_sees_no_assignments(self):
+        self.authenticate(self.superuser)
+
+        response = self.client.get("/api/assignments/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 0)
+
+    def test_superuser_cannot_create_assignment_for_foreign_course(self):
+        self.authenticate(self.superuser)
+
+        response = self.client.post(
+            "/api/assignments/",
+            self.assignment_payload(),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_superuser_cannot_edit_assignment(self):
+        self.authenticate(self.superuser)
+
+        response = self.client.patch(
+            reverse("assignment-detail", args=[self.assignment.id]),
+            {"title": "Hacked"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

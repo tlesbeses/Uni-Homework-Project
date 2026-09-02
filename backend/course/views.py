@@ -365,8 +365,6 @@ class SectionViewSet(viewsets.ModelViewSet):
             )
             .order_by("name")
         )
-        if user.is_superuser:
-            return queryset
         if user.groups.filter(name="Teacher").exists():
             return queryset.filter(course__teacher=user)
         is_enrolled = Exists(
@@ -486,10 +484,7 @@ class SectionViewSet(viewsets.ModelViewSet):
                 course = Course.objects.get(pk=course_id)
             except Course.DoesNotExist:
                 raise NotFound("Course not found.")
-            if not (
-                request.user.is_superuser
-                or course.teacher_id == request.user.id
-            ):
+            if course.teacher_id != request.user.id:
                 raise PermissionDenied(
                     "You can only create sections for your own courses."
                 )
@@ -511,8 +506,6 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         )
 
 
-        if user.is_superuser:
-            return queryset
         if user.groups.filter(name="Teacher").exists():
             return queryset.filter(section__course__teacher=user)
         return queryset.filter(student=user)

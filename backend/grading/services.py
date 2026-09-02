@@ -16,7 +16,7 @@ from grading.models import Grade
 
 def _validate_grade_params(assignment, score, graded_by):
     """Shared guards used by every grading entry point."""
-    if not (graded_by.is_superuser or assignment.course.teacher_id == graded_by.id):
+    if assignment.course.teacher_id != graded_by.id:
         raise PermissionDenied(
             "Only the teacher of the course can grade this assignment."
         )

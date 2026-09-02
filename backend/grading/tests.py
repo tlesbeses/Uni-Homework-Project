@@ -536,3 +536,46 @@ class SectionGradesExportTests(GradingAPITestCase):
         response = self.client.get(self.export_url())
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+class SuperuserIsolationTests(GradingAPITestCase):
+    """The superuser has no special powers in the regular grading views."""
+
+    def setUp(self):
+        super().setUp()
+        self.superuser = self.create_user("root")
+        self.superuser.is_superuser = True
+        self.superuser.save()
+
+    def test_superuser_sees_no_grades(self):
+        Grade.objects.create(
+            assignment=self.assignment,
+            student=self.student,
+            score=Decimal("95.00"),
+            graded_by=self.teacher,
+        )
+        self.authenticate(self.superuser)
+
+        response = self.client.get("/api/grades/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 0)
+
+    def test_superuser_cannot_grade_foreign_assignment(self):
+        response = self.grade_student(
+            self.foreign_assignment,
+            self.student2,
+            "50.00",
+            self.superuser,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_superuser_cannot_grade_team_of_foreign_course(self):
+        response = self.grade_team(
+            self.foreign_assignment,
+            self.foreign_team,
+            "50.00",
+            self.superuser,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
