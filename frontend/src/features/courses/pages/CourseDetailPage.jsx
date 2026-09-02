@@ -9,6 +9,7 @@ import { EnrollmentSection } from "@/features/courses/components/EnrollmentSecti
 import { QuickSettingsBar } from "@/features/courses/components/QuickSettingsBar";
 import { useCourse } from "@/features/courses/hooks/useCourse";
 import { useCourseSettings } from "@/features/courses/hooks/useCourseSettings";
+import { ConfirmModal } from "@/shared/components/ConfirmModal";
 
 export const CourseDetailPage = () => {
   const { id } = useParams();
@@ -17,9 +18,14 @@ export const CourseDetailPage = () => {
   const [selectedSectionId, setSelectedSectionId] = useState(null);
 
   const { course, loading, error, reload, updateCourse } = useCourse(id);
-  const { savingField, toggleAutoAccept, toggleVisibility } = useCourseSettings(
-    { course, updateCourse },
-  );
+  const {
+    savingField,
+    toggleAutoAccept,
+    toggleVisibility,
+    pendingActive,
+    setPendingActive,
+    confirmToggleActive,
+  } = useCourseSettings({ course, updateCourse });
 
   if (loading) {
     return <p className="text-gray-500">Cargando curso...</p>;
@@ -59,6 +65,7 @@ export const CourseDetailPage = () => {
               savingField={savingField}
               onToggleAutoAccept={toggleAutoAccept}
               onToggleVisibility={toggleVisibility}
+              onToggleActive={setPendingActive}
             />
             <AssignmentSection
               courseId={id}
@@ -101,6 +108,25 @@ export const CourseDetailPage = () => {
           await reload();
           setIsEditOpen(false);
         }}
+      />
+
+      <ConfirmModal
+        open={pendingActive}
+        title={course.is_active ? "Deshabilitar curso" : "Habilitar curso"}
+        description={
+          course.is_active
+            ? "¿Deshabilitar este curso? Los estudiantes dejarán de poder inscribirse y no aparecerá en la búsqueda, pero los datos se conservan."
+            : "¿Habilitar este curso? Los estudiantes podrán volver a encontrarlo e inscribirse."
+        }
+        confirmLabel={course.is_active ? "Deshabilitar" : "Habilitar"}
+        confirmClassName={
+          course.is_active
+            ? "bg-red-600 hover:bg-red-700"
+            : "bg-emerald-600 hover:bg-emerald-700"
+        }
+        onCancel={() => setPendingActive(false)}
+        onConfirm={confirmToggleActive}
+        busy={savingField === "is_active"}
       />
     </div>
   );

@@ -1,11 +1,23 @@
-import { useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getCourses } from "@/features/courses/services/courseService";
-import { useAllData } from "@/shared/hooks/useAllData";
+import { queryKeys } from "@/lib/queryKeys";
+import { fetchAllPages } from "@/shared/utils/fetchAllPages";
+import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 
 export const useCourses = () => {
-    const fetchAll = useCallback((params) => getCourses(params), []);
+    const queryClient = useQueryClient();
+    const { data, isLoading, error, refetch } = useQuery({
+        queryKey: queryKeys.courses.list({ all: true }),
+        queryFn: () => fetchAllPages(getCourses),
+    });
 
-    const { data, loading, error, reload } = useAllData(fetchAll);
-
-    return { courses: data ?? [], loading, error, loadCourses: reload };
+    return {
+        courses: data ?? [],
+        loading: isLoading,
+        error: error ? getErrorMessage(error) : "",
+        loadCourses: () => {
+            queryClient.invalidateQueries({ queryKey: queryKeys.courses.all });
+            return refetch();
+        },
+    };
 };

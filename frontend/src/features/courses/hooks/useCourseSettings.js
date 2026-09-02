@@ -8,6 +8,7 @@ import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 
 export const useCourseSettings = ({ course, updateCourse } = {}) => {
     const [savingField, setSavingField] = useState(null);
+    const [pendingActive, setPendingActive] = useState(false);
 
     const toggleAutoAccept = useCallback(
         async (checked) => {
@@ -67,20 +68,28 @@ export const useCourseSettings = ({ course, updateCourse } = {}) => {
         [patchCourseField]
     );
 
-    const toggleActive = useCallback(
-        (isActive) =>
-            patchCourseField(
+    const confirmToggleActive = useCallback(
+        async () => {
+            if (!course) {
+                return;
+            }
+            const nextActive = !course.is_active;
+            setPendingActive(false);
+            await patchCourseField(
                 "is_active",
-                { is_active: isActive },
-                isActive ? "Curso activado" : "Curso desactivado"
-            ),
-        [patchCourseField]
+                { is_active: nextActive },
+                nextActive ? "Curso activado" : "Curso desactivado"
+            );
+        },
+        [course, patchCourseField]
     );
 
     return {
         savingField,
         toggleAutoAccept,
         toggleVisibility,
-        toggleActive,
+        pendingActive,
+        setPendingActive,
+        confirmToggleActive,
     };
 };

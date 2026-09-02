@@ -1,62 +1,66 @@
-import { useCallback, useState } from "react";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 import {
     approveEnrollment as approveEnrollmentRequest,
     getEnrollments,
     rejectEnrollment as rejectEnrollmentRequest,
 } from "@/features/courses/services/courseService";
-import { useAsyncData } from "@/shared/hooks/useAsyncData";
+import { queryKeys, invalidateScope } from "@/lib/queryKeys";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 
 export const useEnrollments = (courseId) => {
+    const queryClient = useQueryClient();
     const [updatingEnrollmentId, setUpdatingEnrollmentId] = useState(null);
 
-    const fetchEnrollments = useCallback(async (opts) => {
-        const data = await getEnrollments(courseId, { page_size: 100, signal: opts?.signal });
-        return Array.isArray(data.results) ? data.results : Array.isArray(data) ? data : [];
-    }, [courseId]);
-
-    const { data, loading, error, reload } = useAsyncData(fetchEnrollments);
-
-    const updateStatus = useCallback(
-        async (enrollmentId, action) => {
-            setUpdatingEnrollmentId(enrollmentId);
-            try {
-                if (action === "approve") {
-                    await approveEnrollmentRequest(enrollmentId);
-                    toast.success("Inscripción aprobada");
-
-                } else {
-                    await rejectEnrollmentRequest(enrollmentId);
-                    toast.success("Inscripción rechazada");
-                }
-
-                //meter un delete de la inscripcion en el backend para que se pueda volver a inscribir
-                await reload();
-            } catch (err) {
-                toast.error(getErrorMessage(err));
-            } finally {
-                setUpdatingEnrollmentId(null);
-            }
+    const { data, isLoading, error, refetch } = useQuery({
+        queryKey: queryKeys.courses.enrollments(courseId),
+        queryFn: async () => {
+            const res = await getEnrollments(courseId, { page_size: 100 });
+            return Array.isArray(res.results)
+                ? res.results
+                : Array.isArray(res)
+                  ? res
+                  : [];
         },
-        [reload]
-    );
+        enabled: Boolean(courseId),
+    });
 
-    const approveEnrollment = useCallback(
-        (enrollmentId) => updateStatus(enrollmentId, "approve"),
-        [updateStatus]
-    );
+    const mutation = useMutation({
+        mutationFn: ({ enrollmentId, action }) =>
+            action === "approve"
+                ? approveEnrollmentRequest(enrollmentId)
+                : rejectEnrollmentRequest(enrollmentId),
+        onMutate: ({ enrollmentId }) => {
+            setUpdatingEnrollmentId(enrollmentId);
+        },
+        onSuccess: (_data, { action }) => {
+            toast.success(
+                action === "approve"
+                    ? "Inscripción aprobada"
+                    : "Inscripción rechazada"
+            );
+            invalidateScope(queryClient, "enrollments");
+        },
+        onError: (err) => {
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            setUpdatingEnrollmentId(null);
+        },
+    });
 
-    const rejectEnrollment = useCallback(
-        (enrollmentId) => updateStatus(enrollmentId, "reject"),
-        [updateStatus]
-    );
+    const approveEnrollment = (enrollmentId) =>
+        mutation.mutateAsync({ enrollmentId, action: "approve" });
+
+    const rejectEnrollment = (enrollmentId) =>
+        mutation.mutateAsync({ enrollmentId, action: "reject" });
 
     return {
         enrollments: data ?? [],
-        loading,
-        error,
-        reload,
+        loading: isLoading,
+        error: error ? getErrorMessage(error) : "",
+        reload: () => refetch(),
         approveEnrollment,
         rejectEnrollment,
         updatingEnrollmentId,

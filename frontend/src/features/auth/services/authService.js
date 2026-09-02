@@ -40,3 +40,12 @@ export const changeUserPassword = async (passwordData) => {
     const response = await api.post("/auth/users/set_password/", passwordData);
     return response.data;
 };
+
+// Solo superuser: emite un access token del usuario objetivo (sin refresh)
+// para probar el sistema como ese usuario desde el mismo navegador.
+export const impersonateUser = async (userId) => {
+    const response = await api.post("/auth/admin/impersonate/", {
+        user_id: userId,
+    });
+    return response.data;
+};
