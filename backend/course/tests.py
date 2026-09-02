@@ -543,3 +543,25 @@ class SuperuserIsolationTests(BaseCourseTestCase):
         self.assertEqual(impersonations[0]["target"]["id"], self.student.id)
         self.assertEqual(impersonations[0]["admin"]["id"], self.superuser.id)
         self.assertIn("timestamp", impersonations[0])
+
+    def test_admin_dashboard_includes_recent_activity(self):
+        EventLog.objects.create(
+            actor=self.superuser,
+            target=self.student,
+            action=EventLog.ACTION_IMPERSONATE,
+            entity_type="user",
+            entity_id=self.student.id,
+        )
+        EventLog.objects.create(
+            actor=self.superuser,
+            action=EventLog.ACTION_UPDATE,
+            entity_type="grade",
+        )
+        self.client.force_authenticate(self.superuser)
+        response = self.client.get("/api/dashboard/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        activity = response.data["recent_activity"]
+        self.assertEqual(len(activity), 2)
+        actions = {log["action"] for log in activity}
+        self.assertEqual(actions, {"impersonate", "update"})
+        self.assertIn("created_at", activity[0])

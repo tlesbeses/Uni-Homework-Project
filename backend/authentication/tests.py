@@ -255,6 +255,67 @@ class ImpersonateTests(BaseAdminTestCase):
         )
 
 
+class AdminActivityTests(BaseAdminTestCase):
+    def test_superuser_can_list_activity_logs(self):
+        EventLog.objects.create(
+            actor=self.admin,
+            target=self.student,
+            action=EventLog.ACTION_IMPERSONATE,
+            entity_type="user",
+            entity_id=self.student.id,
+        )
+        self.client.force_authenticate(self.admin)
+        response = self.client.get("/auth/admin/activity/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        log = response.data["results"][0]
+        self.assertEqual(log["action"], "impersonate")
+        self.assertEqual(log["actor"]["id"], self.admin.id)
+        self.assertEqual(log["target"]["id"], self.student.id)
+        self.assertIn("created_at", log)
+
+    def test_non_superuser_cannot_list_activity_logs(self):
+        self.client.force_authenticate(self.student)
+        response = self.client.get("/auth/admin/activity/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_activity_filter_by_action(self):
+        EventLog.objects.create(
+            actor=self.admin,
+            target=self.student,
+            action=EventLog.ACTION_IMPERSONATE,
+            entity_type="user",
+            entity_id=self.student.id,
+        )
+        EventLog.objects.create(
+            actor=self.teacher,
+            action=EventLog.ACTION_UPDATE,
+            entity_type="grade",
+        )
+        self.client.force_authenticate(self.admin)
+        response = self.client.get(
+            "/auth/admin/activity/", {"action": EventLog.ACTION_UPDATE}
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["action"], "update")
+
+    def test_activity_filter_by_user_id(self):
+        EventLog.objects.create(
+            actor=self.admin,
+            target=self.student,
+            action=EventLog.ACTION_IMPERSONATE,
+            entity_type="user",
+            entity_id=self.student.id,
+        )
+        self.client.force_authenticate(self.admin)
+        response = self.client.get(
+            "/auth/admin/activity/", {"user_id": self.teacher.id}
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 0)
+
+
 class SerializerRoleTests(BaseAdminTestCase):
     def test_me_exposes_admin_flags(self):
         self.client.force_authenticate(self.admin)

@@ -137,6 +137,7 @@ function AdminDashboard({ stats }) {
     const s = stats.stats ?? {};
     const recentUsers = stats.recent_users ?? [];
     const recentImpersonations = stats.recent_impersonations ?? [];
+    const recentActivity = stats.recent_activity ?? [];
     const recentCourses = stats.recent_courses ?? [];
 
     return (
@@ -221,69 +222,71 @@ function AdminDashboard({ stats }) {
                 </div>
             </div>
 
-            <div>
-                <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-400">
-                        Registrados recientemente
-                    </h2>
-                    <Link
-                        to="/admin/users"
-                        className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
-                    >
-                        Gestionar usuarios →
-                    </Link>
-                </div>
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 divide-y divide-gray-100">
-                    {recentUsers.length === 0 && (
-                        <p className="px-5 py-8 text-center text-gray-400 text-sm">
-                            No hay usuarios registrados.
-                        </p>
-                    )}
-                    {recentUsers.slice(0, 5).map((u) => (
-                        <UserRow
-                            key={u.id}
-                            name={
-                                u.first_name && u.last_name
-                                    ? `${u.first_name} ${u.last_name}`
-                                    : u.username
-                            }
-                            subtitle={`@${u.username}${u.email ? ` · ${u.email}` : ""}`}
-                            time={formatRelativeTime(u.date_joined)}
-                        />
-                    ))}
-                </div>
-            </div>
-
-            <div>
-                <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-400 mb-3">
-                    Impersonados recientemente
-                </h2>
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 divide-y divide-gray-100">
-                    {recentImpersonations.length === 0 && (
-                        <p className="px-5 py-8 text-center text-gray-400 text-sm">
-                            No hay impersonaciones registradas.
-                        </p>
-                    )}
-                    {recentImpersonations.slice(0, 5).map((log) => {
-                        const t = log.target ?? {};
-                        const adminName = log.admin
-                            ? log.admin.first_name && log.admin.last_name
-                                ? `${log.admin.first_name} ${log.admin.last_name}`
-                                : log.admin.username
-                            : "administrador";
-                        return (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                    <div className="flex items-center justify-between mb-3">
+                        <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-400">
+                            Registrados recientemente
+                        </h2>
+                        <Link
+                            to="/admin/users"
+                            className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
+                        >
+                            Gestionar usuarios →
+                        </Link>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 divide-y divide-gray-100">
+                        {recentUsers.length === 0 && (
+                            <p className="px-5 py-8 text-center text-gray-400 text-sm">
+                                No hay usuarios registrados.
+                            </p>
+                        )}
+                        {recentUsers.slice(0, 5).map((u) => (
                             <UserRow
-                                key={log.id}
+                                key={u.id}
                                 name={
-                                    t.first_name && t.last_name
-                                        ? `${t.first_name} ${t.last_name}`
-                                        : t.username || "Usuario"
+                                    u.first_name && u.last_name
+                                        ? `${u.first_name} ${u.last_name}`
+                                        : u.username
                                 }
-                                subtitle={`por ${adminName}`}
-                                time={formatRelativeTime(log.timestamp)}
+                                subtitle={`@${u.username}${u.email ? ` · ${u.email}` : ""}`}
+                                time={formatRelativeTime(u.date_joined)}
                             />
-                        );
-                    })}
+                        ))}
+                    </div>
+                </div>
+
+                <div>
+                    <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-400 mb-3">
+                        Impersonados recientemente
+                    </h2>
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 divide-y divide-gray-100">
+                        {recentImpersonations.length === 0 && (
+                            <p className="px-5 py-8 text-center text-gray-400 text-sm">
+                                No hay impersonaciones registradas.
+                            </p>
+                        )}
+                        {recentImpersonations.slice(0, 5).map((log) => {
+                            const t = log.target ?? {};
+                            const adminName = log.admin
+                                ? log.admin.first_name && log.admin.last_name
+                                    ? `${log.admin.first_name} ${log.admin.last_name}`
+                                    : log.admin.username
+                                : "administrador";
+                            return (
+                                <UserRow
+                                    key={log.id}
+                                    name={
+                                        t.first_name && t.last_name
+                                            ? `${t.first_name} ${t.last_name}`
+                                            : t.username || "Usuario"
+                                    }
+                                    subtitle={`por ${adminName}`}
+                                    time={formatRelativeTime(log.timestamp)}
+                                />
+                            );
+                        })}
+                    </div>
                 </div>
             </div>
 
@@ -335,6 +338,77 @@ function AdminDashboard({ stats }) {
                             </span>
                         </div>
                     ))}
+                </div>
+            </div>
+
+            <div>
+                <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-400">
+                        Actividad reciente
+                    </h2>
+                    <Link
+                        to="/admin/activity"
+                        className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
+                    >
+                        Ver toda la actividad →
+                    </Link>
+                </div>
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 divide-y divide-gray-100">
+                    {recentActivity.length === 0 && (
+                        <p className="px-5 py-8 text-center text-gray-400 text-sm">
+                            No hay actividad registrada.
+                        </p>
+                    )}
+                    {recentActivity.slice(0, 5).map((log) => {
+                        const actionLabel =
+                            log.action === "impersonate"
+                                ? "Impersonación"
+                                : log.action === "update"
+                                  ? "Nota"
+                                  : log.action;
+                        const className =
+                            log.action === "impersonate"
+                                ? "bg-violet-100 text-violet-700"
+                                : "bg-sky-100 text-sky-700";
+                        const actorName =
+                            log.actor && (log.actor.first_name || log.actor.username)
+                                ? log.actor.first_name
+                                    ? `${log.actor.first_name} ${log.actor.last_name ?? ""}`.trim()
+                                    : log.actor.username
+                                : "Sistema";
+                        const targetName =
+                            log.target && log.target.username
+                                ? log.target.first_name
+                                    ? `${log.target.first_name} ${log.target.last_name ?? ""}`.trim()
+                                    : log.target.username
+                                : null;
+                        return (
+                            <div
+                                key={log.id}
+                                className="flex items-center gap-4 px-5 py-3.5"
+                            >
+                                <span
+                                    className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${className}`}
+                                >
+                                    {actionLabel}
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-medium text-gray-800 truncate">
+                                        {actorName}
+                                        {targetName
+                                            ? ` → ${targetName}`
+                                            : ""}
+                                    </p>
+                                    <p className="text-xs text-gray-400 truncate">
+                                        {log.entity_type || "sistema"}
+                                    </p>
+                                </div>
+                                <span className="text-xs text-gray-400 whitespace-nowrap">
+                                    {formatRelativeTime(log.created_at)}
+                                </span>
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
         </>

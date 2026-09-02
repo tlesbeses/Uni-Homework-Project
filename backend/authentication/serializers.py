@@ -114,3 +114,24 @@ class ImpersonationLogSerializer(serializers.ModelSerializer):
         if obj.actor is None:
             return None
         return AdminUserSerializer(obj.actor).data
+
+
+class EventLogSerializer(serializers.ModelSerializer):
+    """Registro de actividad para la consola de administración."""
+
+    actor = AdminUserSerializer(read_only=True)
+    target = AdminUserSerializer(read_only=True)
+
+    class Meta:
+        model = EventLog
+        fields = (
+            "id",
+            "action",
+            "entity_type",
+            "entity_id",
+            "actor",
+            "target",
+            "metadata",
+            "created_at",
+        )
+        read_only_fields = fields

@@ -10,7 +10,11 @@ from rest_framework.views import APIView
 
 from assignments.models import Assignment
 from authentication.models import EventLog, User
-from authentication.serializers import AdminUserSerializer, ImpersonationLogSerializer
+from authentication.serializers import (
+    AdminUserSerializer,
+    EventLogSerializer,
+    ImpersonationLogSerializer,
+)
 from course.models import (
     Course,
     CourseSettings,
@@ -284,6 +288,11 @@ class DashboardView(APIView):
             .order_by("-created_at")[:8]
         )
 
+        recent_activity = (
+            EventLog.objects.select_related("actor", "target")
+            .order_by("-created_at")[:8]
+        )
+
         return Response({
             "type": "admin",
             "stats": {
@@ -298,6 +307,7 @@ class DashboardView(APIView):
             "recent_impersonations": ImpersonationLogSerializer(
                 recent_impersonations, many=True
             ).data,
+            "recent_activity": EventLogSerializer(recent_activity, many=True).data,
             "recent_courses": DashboardCourseSerializer(recent_courses, many=True).data,
         })
 

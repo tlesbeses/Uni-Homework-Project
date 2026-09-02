@@ -1,7 +1,9 @@
 from django.conf import settings
 from django.contrib.auth.models import Group
+from django.db.models import Q
 from rest_framework import status, viewsets
 from rest_framework.filters import SearchFilter
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
@@ -16,7 +18,11 @@ from rest_framework_simplejwt.views import (
 
 from .csrf import CSRF_COOKIE_NAME, assert_csrf, auth_cookie_secure, set_csrf_cookie
 from .permissions import IsSuperuser
-from .serializers import AdminUserSerializer, LoginSerializer
+from .serializers import (
+    AdminUserSerializer,
+    EventLogSerializer,
+    LoginSerializer,
+)
 from .services import log_event
 from .throttle import AuthThrottle, LoginThrottle
 from authentication.models import EventLog, User
@@ -222,3 +228,50 @@ class ImpersonateView(APIView):
         )
 
         return Response({"access": str(token)})
+
+
+class ActivityPagination(PageNumberPagination):
+    page_size = 15
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
+
+class AdminActivityView(APIView):
+    """Historial de actividad (EventLog) para la consola de administración.
+
+    Solo superusuarios. Filtros opcionales: action, entity_type, user_id
+    (actor o target) y rango de fechas (from/to en ISO).
+    """
+
+    permission_classes = [IsSuperuser]
+    pagination_class = ActivityPagination
+
+    def get(self, request):
+        qs = EventLog.objects.select_related("actor", "target")
+
+        action = request.query_params.get("action")
+        if action:
+            qs = qs.filter(action=action)
+
+        entity_type = request.query_params.get("entity_type")
+        if entity_type:
+            qs = qs.filter(entity_type=entity_type)
+
+        user_id = request.query_params.get("user_id")
+        if user_id:
+            qs = qs.filter(Q(actor_id=user_id) | Q(target_id=user_id))
+
+        date_from = request.query_params.get("from")
+        if date_from:
+            qs = qs.filter(created_at__date__gte=date_from)
+
+        date_to = request.query_params.get("to")
+        if date_to:
+            qs = qs.filter(created_at__date__lte=date_to)
+
+        qs = qs.order_by("-created_at")
+
+        paginator = ActivityPagination()
+        page = paginator.paginate_queryset(qs, request)
+        payload = EventLogSerializer(page, many=True).data
+        return paginator.get_paginated_response(payload)

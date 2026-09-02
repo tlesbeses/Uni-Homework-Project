@@ -27,4 +27,5 @@ urlpatterns = [
         name="admin-user-detail",
     ),
     path("admin/impersonate/", views.ImpersonateView.as_view(), name="admin-impersonate"),
+    path("admin/activity/", views.AdminActivityView.as_view(), name="admin-activity"),
 ]
