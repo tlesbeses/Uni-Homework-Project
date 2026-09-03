@@ -45,11 +45,9 @@ export const QuickSettingsBar = ({
   savingField,
   onToggleAutoAccept,
   onToggleVisibility,
-  onToggleActive,
 }) => {
   const autoAccept = Boolean(course.settings?.auto_accept_students);
   const isPublic = course.visibility === "PUBLIC";
-  const isActive = Boolean(course.is_active);
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 divide-y divide-gray-100">
@@ -80,21 +78,6 @@ export const QuickSettingsBar = ({
         checked={isPublic}
         disabled={savingField === "visibility"}
         onChange={onToggleVisibility}
-      />
-      <ToggleRow
-        title="Estado del curso"
-        description={
-          isActive
-            ? "El curso está habilitado para los estudiantes."
-            : "El curso está deshabilitado y no acepta inscripciones."
-        }
-        badgeLabel={isActive ? "Habilitado" : "Deshabilitado"}
-        badgeClassName={
-          isActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"
-        }
-        checked={isActive}
-        disabled={savingField === "is_active"}
-        onChange={onToggleActive}
       />
     </div>
   );

@@ -43,6 +43,37 @@ function userName(user) {
         : user.username;
 }
 
+function detailLines(log) {
+    const meta = log.metadata ?? {};
+    const lines = [];
+
+    if (log.entity_type === "grade") {
+        if (meta.score !== undefined && meta.score !== null) {
+            lines.push(`Nota: ${meta.score}`);
+        }
+        if (meta.assignment_id !== undefined) {
+            lines.push(`Tarea #${meta.assignment_id}`);
+        }
+        if (meta.team_name) {
+            lines.push(`Equipo: ${meta.team_name}`);
+        }
+        if (meta.is_individual) {
+            lines.push("Individual");
+        }
+        if (meta.affected !== undefined) {
+            lines.push(`Miembros: ${meta.affected}`);
+        } else if (Array.isArray(meta.member_ids)) {
+            lines.push(`Miembros: ${meta.member_ids.length}`);
+        }
+    } else if (log.entity_type === "user") {
+        if (meta.admin_id !== undefined) {
+            lines.push(`Admin #${meta.admin_id}`);
+        }
+    }
+
+    return lines;
+}
+
 export const AdminActivityPage = () => {
     const [action, setAction] = useState("");
     const [entityType, setEntityType] = useState("");
@@ -176,6 +207,7 @@ export const AdminActivityPage = () => {
                             <th className="px-5 py-3">Entidad</th>
                             <th className="px-5 py-3">Actor</th>
                             <th className="px-5 py-3">Objetivo</th>
+                            <th className="px-5 py-3">Detalle</th>
                             <th className="px-5 py-3">Fecha</th>
                         </tr>
                     </thead>
@@ -183,7 +215,7 @@ export const AdminActivityPage = () => {
                         {loading && logs.length === 0 && (
                             <tr>
                                 <td
-                                    colSpan={5}
+                                    colSpan={6}
                                     className="px-5 py-10 text-center text-gray-400"
                                 >
                                     Cargando actividad...
@@ -193,7 +225,7 @@ export const AdminActivityPage = () => {
                         {!loading && logs.length === 0 && (
                             <tr>
                                 <td
-                                    colSpan={5}
+                                    colSpan={6}
                                     className="px-5 py-10 text-center text-gray-400"
                                 >
                                     No se encontraron eventos de actividad.
@@ -220,6 +252,17 @@ export const AdminActivityPage = () => {
                                 </td>
                                 <td className="px-5 py-3 text-gray-800">
                                     {userName(log.target)}
+                                </td>
+                                <td className="px-5 py-3 text-gray-700">
+                                    {detailLines(log).length > 0 ? (
+                                        <ul className="space-y-0.5">
+                                            {detailLines(log).map((line) => (
+                                                <li key={line}>{line}</li>
+                                            ))}
+                                        </ul>
+                                    ) : (
+                                        <span className="text-gray-400">—</span>
+                                    )}
                                 </td>
                                 <td className="px-5 py-3 text-gray-600 whitespace-nowrap">
                                     {formatDate(log.created_at)}

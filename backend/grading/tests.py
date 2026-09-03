@@ -316,10 +316,12 @@ class GradeStudentTests(GradingAPITestCase):
         ).first()
         self.assertIsNotNone(log)
         self.assertEqual(log.actor, self.teacher)
-        self.assertIsNone(log.target)
+        self.assertEqual(log.target, self.team.leader)
         self.assertEqual(log.metadata["assignment_id"], self.assignment.id)
         self.assertEqual(log.metadata["score"], "95.00")
         self.assertEqual(log.metadata["affected"], 2)
+        self.assertEqual(log.metadata["team_id"], self.team.id)
+        self.assertEqual(log.metadata["team_name"], self.team.name)
         self.assertEqual(
             set(log.metadata["member_ids"]),
             {self.student.id, self.student2.id},

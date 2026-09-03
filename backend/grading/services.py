@@ -132,8 +132,11 @@ def grade_team(
         action=EventLog.ACTION_UPDATE,
         entity_type="grade",
         entity_id=assignment.id,
+        target=team.leader,
         metadata={
             "assignment_id": assignment.id,
+            "team_id": team.id,
+            "team_name": team.name,
             "score": str(score),
             "member_ids": sorted(approved_member_ids),
             "affected": len(grades_to_create) + grades_updated,
