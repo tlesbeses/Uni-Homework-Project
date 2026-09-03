@@ -9,6 +9,8 @@ export const useCourses = () => {
     const { data, isLoading, error, refetch } = useQuery({
         queryKey: queryKeys.courses.list({ all: true }),
         queryFn: () => fetchAllPages(getCourses),
+        // Re-sincroniza la lista de cursos cada 30s (solo pestaña enfocada).
+        refetchInterval: 30_000,
     });
 
     return {

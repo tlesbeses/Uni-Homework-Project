@@ -11,6 +11,8 @@ export const useCourse = (courseId) => {
         queryKey: queryKeys.courses.detail(courseId),
         queryFn: () => getCourse(courseId),
         enabled: Boolean(courseId),
+        // Re-sincroniza el detalle del curso cada 30s (solo pestaña enfocada).
+        refetchInterval: 30_000,
     });
 
     // Escritura optimista en el cache de TanStack: mantiene la misma API que
