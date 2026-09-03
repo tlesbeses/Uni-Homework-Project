@@ -1,8 +1,8 @@
 # EduNotas
 
-Aplicación web de gestión académica para profesores y estudiantes: cursos, secciones, equipos, tareas y calificaciones. Incluye soporte PWA, exportación de notas a Excel y autenticación por roles (Estudiante / Profesor / Admin).
+Aplicación web de gestión académica para profesores y estudiantes: cursos, secciones, equipos, tareas y calificaciones. Incluye soporte PWA, exportación de notas a Excel, autenticación por roles (Estudiante / Profesor / Admin), **impersonación de superusuario**, **registro de actividad** y un **panel de administración** de usuarios y eventos.
 
-**Frontend:** React 19 + Vite + Tailwind CSS 4 (SPA en español)
+**Frontend:** React 19 + Vite + Tailwind CSS 4 + TanStack Query (SPA en español)
 
 **Backend:** Django 6 + Django REST Framework (API REST)
 
@@ -23,6 +23,7 @@ Aplicación web de gestión académica para profesores y estudiantes: cursos, se
 - [API](#api)
 - [Modelos de datos](#modelos-de-datos)
 - [Autenticación y seguridad](#autenticación-y-seguridad)
+- [Impersonación y auditoría](#impersonación-y-auditoría)
 - [Despliegue a producción](#despliegue-a-producción)
   - [Render (backend)](#render-backend)
   - [Frontend en otro origen](#frontend-en-otro-origen)
@@ -39,10 +40,14 @@ Aplicación web de gestión académica para profesores y estudiantes: cursos, se
 - **Tareas (assignments)** — Los profesores crean tareas por curso con título, descripción, puntuación máxima, fecha límite opcional y estado publicado/borrador (los borradores se ocultan a los estudiantes).
 - **Equipos** — Dentro de cada sección, los estudiantes forman equipos liderados por un líder. El sistema garantiza **un equipo por estudiante por curso**. Líderes y profesores pueden añadir/quitar miembros y cambiar el liderazgo.
 - **Calificación** — Los profesores califican a un **equipo completo** (una nota aplicada a todos los miembros, con anulaciones individuales preservadas) o a un **estudiante individual**. Las notas están restringidas a `0 <= nota <= max_score`.
+- **Autoguardado de notas** — Las calificaciones se guardan **automáticamente** al salir de cada campo (blur) y al cambiar de evaluación o de curso, de modo que las notas tecleadas nunca se pierdan aunque el usuario no pulse el botón guardar. El botón "✓" (individual) y "Aplicar a todos" (equipo) se mantienen; el valor `0` se guarda como nota válida y un campo vacío **no** borra una nota existente.
 - **Informes / Exportación** — Los profesores ven un informe por sección (matriz de estudiantes × tareas con totales) y lo **exportan a Excel (.xlsx)**.
 - **Paneles de control** — Paneles específicos por rol (profesor vs. estudiante) con cursos, inscripciones, notas y tareas.
 - **PWA** — Progressive Web App con banner de instalación, splash screen, manifest personalizado y service worker servido por Django.
 - **Control de acceso por roles** — Los usuarios pertenecen a grupos de Django (`Student`, `Teacher`, `Admin`). Los superusuarios omiten todas las comprobaciones de permisos.
+- **Impersonación de superusuario** — Un superusuario puede **ver la aplicación como otro usuario** (banner de impersonación persistente), para depurar y revisar el sistema desde otras cuentas.
+- **Registro de actividad (auditoría)** — Cada acción relevante (login, impersonación, gestión de cursos/equipos/tareas/notas, cambios en usuarios) genera un **EventLog** con autor, acción, destino y metadatos.
+- **Panel de administración** — Los superusuarios gestionan usuarios (activar/desactivar, asignar roles) y revisan el **historial de actividad** con filtros.
 
 ---
 
@@ -54,9 +59,10 @@ Aplicación web de gestión académica para profesores y estudiantes: cursos, se
 │                      │  /api  │                              │
 │  react-router-dom    │───── ─▶│  SimpleJWT + Djoser (auth)   │
 │  react-hook-form+zod │  /auth │  REST framework              │
-│  axios (interceptors)│        │  PostgreSQL / SQLite         │
-│  Tailwind CSS 4      │        │  openpyxl (export xlsx)      │
-│  vite-plugin-pwa     │        │  Whitenoise + Gunicorn       │
+│  TanStack Query      │        │  PostgreSQL / SQLite         │
+│  axios (interceptors)│        │  openpyxl (export xlsx)      │
+│  Tailwind CSS 4      │        │  Whitenoise + Gunicorn       │
+│  vite-plugin-pwa     │        │  impersonation + EventLog    │
 └──────────────────────┘        └──────────────────────────────┘
          │                                  │
          └──────── same-origin (prod) ──────┘
@@ -80,6 +86,7 @@ En producción Django sirve el build del SPA (`frontend/dist`) same-origin: las 
 | @hookform/resolvers  | ^5.5.7  | Validación react-hook-form |
 | zod                  | ^4.4.3  | Validación de esquemas     |
 | axios                | ^1.18.1 | Cliente HTTP               |
+| @tanstack/react-query| ^5.x   | Fetching / caché de datos   |
 | react-toastify       | ^11.1.0 | Notificaciones             |
 | tailwindcss          | ^4.3.3  | CSS utility-first          |
 | @tailwindcss/vite    | ^4.3.3  | Plugin Tailwind para Vite  |
@@ -135,7 +142,7 @@ Uni-Homework-Project/
 │   │   ├── middleware.py             # CSP Report-Only
 │   │   ├── pagination.py             # Paginación (page size 9)
 │   │   └── views.py                  # Manifest / Service worker
-│   ├── authentication/               # Usuario + JWT + Djoser + CSRF
+│   ├── authentication/               # Usuario + JWT + Djoser + CSRF + EventLog
 │   ├── course/                       # Cursos, Secciones, Matrículas
 │   ├── assignments/                  # Tareas
 │   ├── teams/                        # Equipos y miembros
@@ -147,12 +154,12 @@ Uni-Homework-Project/
     ├── vite.config.js                # Build, proxy, PWA, chunks
     ├── public/                       # manifest, iconos, registerSW
     └── src/
-        ├── main.jsx                  # Entry point
+        ├── main.jsx                  # Entry point + QueryClientProvider
         ├── app/                      # Layouts, páginas genéricas, router
         ├── pages/                    # Lazy-loaded pages
-        ├── features/                 # auth, courses, assignments, teams, grades
-        ├── lib/                      # axios, csrf, apiCache
-        └── shared/                   # componentes, hooks, storage, utils
+        ├── features/                 # auth, admin, courses, assignments, teams, grades
+        ├── lib/                      # axios, impersonation, queryClient, queryKeys
+        └── shared/                   # componentes, hooks, storage, utils, ConfirmModal, FullScreenLoader
 ```
 
 ---
@@ -257,6 +264,15 @@ En desarrollo el proxy de Vite elimina la necesidad de esta variable.
 | POST              | `/auth/jwt/blacklist/`      | Logout (invalida refresh, limpia cookies)           |
 | POST              | `/auth/login/`              | Login (devuelve access token + usuario + csrfToken) |
 
+### Administración e impersonación (`/auth/admin/`)
+
+| Método   | Ruta                        | Propósito                                              |
+| -------- | --------------------------- | ----------------------------------------------------- |
+| GET      | `/auth/admin/users/`        | Listar usuarios (superusuario)                        |
+| PATCH    | `/auth/admin/users/{id}/`   | Activar/desactivar y asignar roles (superusuario)     |
+| POST     | `/auth/admin/impersonate/`  | Iniciar/terminar impersonación (superusuario)         |
+| GET      | `/auth/admin/activity/`     | Historial de eventos (EventLog), filtrar sin paginar  |
+
 ### Cursos (`/api/`)
 
 | Método      | Ruta                                          | Propósito                                            |
@@ -319,6 +335,7 @@ En desarrollo el proxy de Vite elimina la necesidad de esta variable.
 | **Team**           | teams          | `name` (único por sección), `section`, `leader` (PROTECT)                                                   |
 | **TeamMember**     | teams          | `team`, `student`, `course` (denormalizado), `joined_at`                                                    |
 | **Grade**          | grading        | `assignment`, `student`, `score`, `is_individual`, `graded_by` (PROTECT)                                    |
+| **EventLog**       | authentication | `actor`, `action`, `target_type` / `target_id` / `target_label`, `metadata` (JSON)                          |
 
 Reglas de negocio clave:
 
@@ -338,6 +355,36 @@ Reglas de negocio clave:
 - **Roles:** grupos de Django (`Student`, `Teacher`, `Admin`). Los nuevos usuarios se asignan automáticamente al grupo `Student` (signal post-save). `User.me` devuelve `roles` y `permissions`.
 - **Throttling:** `LoginThrottle` (5/min), `AuthThrottle` (10/min) y throttles globales anónimos/autenticados (50/min). El frontend maneja los errores `429` con UI dedicada.
 - **Caché de permisos:** comprobación de pertenencia a grupo cacheada (TTL 5 min) con invalidación vía señal al cambiar grupos.
+- **Impersonación restringida a superusuarios:** solo `is_superuser` puede ver como otro usuario; nunca se registra como la identidad real y se muestra un **banner** persistente mientras dure la impersonación.
+
+---
+
+## Impersonación y auditoría
+
+### Impersonación de superusuario
+
+Permite a un **superusuario** iniciar sesión efectiva como otro usuario para inspeccionar el sistema desde su perspectiva (dashboard, cursos, calificaciones, etc.).
+
+- Se inicia desde el **panel de administración** (o accionando sobre un usuario) seleccionando una cuenta objetivo.
+- Mientras dura, una **banner fijo** indica "Viendo como <usuario>" con la opción de **terminar la impersonación**.
+- Solo los superusuarios tienen el permiso; el resto recibe error `403`.
+- La impersonación se registra como evento de auditoría (`action=impersonate_start` / `impersonate_stop`).
+
+### Registro de actividad (EventLog)
+
+Toda acción relevante queda registrada en el modelo **EventLog**, que guarda:
+
+- **actor** — usuario que realizó la acción.
+- **action** — verbo normalizado (`login`, `logout`, `course_create`, `team_update`, `grade_save`, `user_activate`, `impersonate_start`, …).
+- **target** — entidad afectada (`target_type`, `target_id`, `target_label`).
+- **metadata** — datos extra en JSON (p. ej. `score`, `overwrite_individual`).
+
+### Panel de administración
+
+Accesible solo para superusuarios vía el menú de administración, incluye:
+
+- **Gestión de usuarios**: activar/desactivar cuentas y asignar/revocar roles.
+- **Historial de actividad**: tabla paginada y filtrable de los últimos eventos del sistema.
 
 ---
 
