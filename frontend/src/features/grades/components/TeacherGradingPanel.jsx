@@ -58,6 +58,7 @@ export const TeacherGradingPanel = () => {
     const [overwriteIndividual, setOverwriteIndividual] = useState(false);
     const [drafts, setDrafts] = useState({});
     const [savingKey, setSavingKey] = useState(null);
+    const inFlightRef = useRef(new Set());
     const detailRef = useRef(null);
 
     const selectedAssignment = assignments.find(
@@ -223,16 +224,244 @@ export const TeacherGradingPanel = () => {
             return next;
         }), []);
 
+    const beginSave = useCallback((key) => {
+        if (inFlightRef.current.has(key)) {
+            return false;
+        }
+        inFlightRef.current.add(key);
+        return true;
+    }, []);
+
+    const endSave = useCallback((key) => {
+        inFlightRef.current.delete(key);
+    }, []);
+
+    const isValidScore = (raw) => {
+        if (raw === "" || raw === null || raw === undefined) {
+            return false;
+        }
+        const value = Number(raw);
+        return (
+            Number.isFinite(value) &&
+            value >= 0 &&
+            value <= maxScore
+        );
+    };
+
+    const studentPersistedScore = (studentId) => {
+        const grade = gradesByStudentId.get(String(studentId));
+        return grade?.score === null || grade?.score === undefined
+            ? null
+            : Number(grade.score);
+    };
+
+    const autosaveMemberKey = useCallback(
+        async (key) => {
+            const raw = drafts[key];
+            if (!selectedAssignmentId || raw === "" || raw === undefined) {
+                return;
+            }
+            if (!isValidScore(raw)) {
+                return;
+            }
+            const studentId =
+                key.startsWith("m:")
+                    ? key.split(":").pop()
+                    : key.startsWith("u:")
+                      ? key.slice(2)
+                      : null;
+            if (!studentId) {
+                return;
+            }
+            const persisted = studentPersistedScore(studentId);
+            if (persisted !== null && Number(raw) === persisted) {
+                clearDraft(key);
+                return;
+            }
+            if (!beginSave(key)) {
+                return;
+            }
+            setSavingKey(key);
+            try {
+                await gradeStudent(selectedAssignmentId, studentId, raw);
+                clearDraft(key);
+                await reloadGrades();
+            } catch (err) {
+                toast.error(getErrorMessage(err));
+            } finally {
+                setSavingKey(null);
+                endSave(key);
+            }
+        },
+        [
+            drafts,
+            selectedAssignmentId,
+            gradesByStudentId,
+            beginSave,
+            endSave,
+            clearDraft,
+            reloadGrades,
+            maxScore,
+        ]
+    );
+
+    const autosaveTeamKey = useCallback(
+        async (key) => {
+            if (!selectedAssignmentId || !key.startsWith("t:")) {
+                return;
+            }
+            const teamId = key.slice(2);
+            const team = teams.find(
+                (item) => String(item.id) === String(teamId)
+            );
+            if (!team) {
+                return;
+            }
+            const raw = drafts[key];
+            if (!raw) {
+                return;
+            }
+            if (!isValidScore(raw)) {
+                return;
+            }
+            const persisted = getTeamGrade(team);
+            if (persisted !== null && Number(raw) === persisted) {
+                clearDraft(key);
+                return;
+            }
+            if (!beginSave(key)) {
+                return;
+            }
+            setSavingKey(key);
+            try {
+                await gradeTeam(selectedAssignmentId, team.id, raw, {
+                    overwrite_individual: overwriteIndividual,
+                });
+                clearDraft(key);
+                await reloadGrades();
+            } catch (err) {
+                toast.error(getErrorMessage(err));
+            } finally {
+                setSavingKey(null);
+                endSave(key);
+            }
+        },
+        [
+            drafts,
+            selectedAssignmentId,
+            teams,
+            overwriteIndividual,
+            getTeamGrade,
+            beginSave,
+            endSave,
+            clearDraft,
+            reloadGrades,
+            maxScore,
+        ]
+    );
+
+    const flushPendingDrafts = useCallback(async () => {
+        const pending = [];
+        for (const [key, raw] of Object.entries(drafts)) {
+            if (!isValidScore(raw)) {
+                continue;
+            }
+            if (key.startsWith("t:")) {
+                const teamId = key.slice(2);
+                const team = teams.find(
+                    (item) => String(item.id) === String(teamId)
+                );
+                if (!team) {
+                    continue;
+                }
+                const persisted = getTeamGrade(team);
+                if (persisted !== null && Number(raw) === persisted) {
+                    clearDraft(key);
+                    continue;
+                }
+                pending.push(
+                    (async () => {
+                        if (!beginSave(key)) {
+                            return;
+                        }
+                        try {
+                            await gradeTeam(selectedAssignmentId, team.id, raw, {
+                                overwrite_individual: overwriteIndividual,
+                            });
+                            clearDraft(key);
+                        } catch (err) {
+                            toast.error(getErrorMessage(err));
+                        } finally {
+                            endSave(key);
+                        }
+                    })()
+                );
+                continue;
+            }
+            const studentId =
+                key.startsWith("m:")
+                    ? key.split(":").pop()
+                    : key.startsWith("u:")
+                      ? key.slice(2)
+                      : null;
+            if (!studentId) {
+                continue;
+            }
+            const persisted = studentPersistedScore(studentId);
+            if (persisted !== null && Number(raw) === persisted) {
+                clearDraft(key);
+                continue;
+            }
+            pending.push(
+                (async () => {
+                    if (!beginSave(key)) {
+                        return;
+                    }
+                    try {
+                        await gradeStudent(selectedAssignmentId, studentId, raw);
+                        clearDraft(key);
+                    } catch (err) {
+                        toast.error(getErrorMessage(err));
+                    } finally {
+                        endSave(key);
+                    }
+                })()
+            );
+        }
+        if (pending.length > 0) {
+            try {
+                await Promise.all(pending);
+                await reloadGrades();
+            } catch {
+                await reloadGrades();
+            }
+        }
+    }, [
+        drafts,
+        teams,
+        selectedAssignmentId,
+        overwriteIndividual,
+        gradesByStudentId,
+        getTeamGrade,
+        beginSave,
+        endSave,
+        clearDraft,
+        reloadGrades,
+        maxScore,
+    ]);
+
     const handleSelectCourse = (e) => {
         setCourseFilter(e.target.value);
         setSelectedAssignmentId("");
         setSelectedTeamId(null);
         setSectionFilter("");
+        flushPendingDrafts();
         setDrafts({});
     };
 
     const handleSelectAssignment = (e) => {
         setSelectedAssignmentId(e.target.value);
+        flushPendingDrafts();
         setDrafts({});
     };
 
@@ -264,6 +493,9 @@ export const TeacherGradingPanel = () => {
             return;
         }
 
+        if (!beginSave(key)) {
+            return;
+        }
         setSavingKey(key);
         try {
             await gradeTeam(selectedAssignmentId, team.id, raw, {
@@ -289,6 +521,7 @@ export const TeacherGradingPanel = () => {
             toast.error(getErrorMessage(err));
         } finally {
             setSavingKey(null);
+            endSave(key);
         }
     };
 
@@ -301,6 +534,9 @@ export const TeacherGradingPanel = () => {
         if (!selectedAssignmentId || !studentId || !raw) {
             return;
         }
+        if (!beginSave(key)) {
+            return;
+        }
         setSavingKey(key);
         try {
             await gradeStudent(selectedAssignmentId, studentId, raw);
@@ -311,6 +547,7 @@ export const TeacherGradingPanel = () => {
             toast.error(getErrorMessage(err));
         } finally {
             setSavingKey(null);
+            endSave(key);
         }
     };
 
@@ -392,6 +629,7 @@ export const TeacherGradingPanel = () => {
                         max={maxScore}
                         value={inputValue(key, fallback)}
                         onChange={(e) => setDraft(key, e.target.value)}
+                        onBlur={() => autosaveMemberKey(key)}
                         className="w-16 px-2 py-1.5 rounded-lg border outline-none transition text-right text-sm text-gray-700 border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                         placeholder="__"
                     />
@@ -771,6 +1009,13 @@ export const TeacherGradingPanel = () => {
                                                             selectedTeam.id
                                                         ),
                                                         e.target.value
+                                                    )
+                                                }
+                                                onBlur={() =>
+                                                    autosaveTeamKey(
+                                                        teamDraftKey(
+                                                            selectedTeam.id
+                                                        )
                                                     )
                                                 }
                                                 className="w-20 px-2 py-1.5 rounded-lg border outline-none transition text-right text-sm font-semibold text-gray-700 border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
