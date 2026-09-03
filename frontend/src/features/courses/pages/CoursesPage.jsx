@@ -18,6 +18,8 @@ export const CoursesPage = () => {
         page,
         totalPages,
         setPage,
+        pageSize,
+        handlePageSizeChange,
         loading,
         error,
         reload,
@@ -91,7 +93,14 @@ export const CoursesPage = () => {
             </div>
 
             {!loading && !error && (
-                <Pager page={page} totalPages={totalPages} onChange={setPage} />
+                <Pager
+                    page={page}
+                    totalPages={totalPages}
+                    onChange={setPage}
+                    pageSize={pageSize}
+                    onPageSizeChange={handlePageSizeChange}
+                    defaultPageSize={9}
+                />
             )}
 
             <CreateCourseModal

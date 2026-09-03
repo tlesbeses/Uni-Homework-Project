@@ -15,7 +15,7 @@ import { Pager } from "@/shared/components/Pager";
 import { SearchInput } from "@/shared/components/SearchInput";
 import { ConfirmModal } from "@/shared/components/ConfirmModal";
 
-const MEMBER_PAGE_SIZE = 5;
+const DEFAULT_MEMBER_PAGE_SIZE = 5;
 
 export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse, selectedSectionId, onSectionChange }) => {
   const {
@@ -38,6 +38,9 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse, selectedS
   const [pendingDeleteSection, setPendingDeleteSection] = useState(false);
   const [memberSearch, setMemberSearch] = useState("");
   const [memberPage, setMemberPage] = useState(1);
+  const [memberPageSize, setMemberPageSize] = useState(
+    DEFAULT_MEMBER_PAGE_SIZE,
+  );
 
   const loadSections = useCallback(async () => {
     setLoadingSections(true);
@@ -99,16 +102,21 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse, selectedS
 
   const memberTotalPages = Math.max(
     1,
-    Math.ceil(filteredMembers.length / MEMBER_PAGE_SIZE),
+    Math.ceil(filteredMembers.length / memberPageSize),
   );
   const safeMemberPage = Math.min(memberPage, memberTotalPages);
   const visibleMembers = filteredMembers.slice(
-    (safeMemberPage - 1) * MEMBER_PAGE_SIZE,
-    safeMemberPage * MEMBER_PAGE_SIZE,
+    (safeMemberPage - 1) * memberPageSize,
+    safeMemberPage * memberPageSize,
   );
 
   const handleMemberSearchChange = (value) => {
     setMemberSearch(value);
+    setMemberPage(1);
+  };
+
+  const handleMemberPageSizeChange = (size) => {
+    setMemberPageSize(size);
     setMemberPage(1);
   };
 
@@ -363,7 +371,7 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse, selectedS
                       type="text"
                       value={editingName}
                       onChange={(event) => setEditingName(event.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                       autoFocus
                     />
                     <div className="flex items-center gap-2">
@@ -488,6 +496,9 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse, selectedS
                           totalPages={memberTotalPages}
                           onChange={setMemberPage}
                           compact
+                          pageSize={memberPageSize}
+                          onPageSizeChange={handleMemberPageSizeChange}
+                          defaultPageSize={DEFAULT_MEMBER_PAGE_SIZE}
                         />
                       </>
                     )}
@@ -512,7 +523,7 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse, selectedS
                 value={newName}
                 onChange={(event) => setNewName(event.target.value)}
                 placeholder="Ej. 1TS1"
-                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
               />
             </div>
             <button
