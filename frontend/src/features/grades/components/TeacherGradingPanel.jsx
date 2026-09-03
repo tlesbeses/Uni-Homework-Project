@@ -402,6 +402,7 @@ export const TeacherGradingPanel = () => {
                         max={maxScore}
                         value={inputValue(key, fallback)}
                         onChange={(e) => setDraft(key, e.target.value)}
+                        onFocus={(e) => e.target.select()}
                         className="w-16 px-2 py-1.5 rounded-lg border outline-none transition text-right text-sm text-gray-700 border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                         placeholder="__"
                     />
@@ -783,6 +784,7 @@ export const TeacherGradingPanel = () => {
                                                         e.target.value
                                                     )
                                                 }
+                                                onFocus={(e) => e.target.select()}
                                                 className="w-20 px-2 py-1.5 rounded-lg border outline-none transition text-right text-sm font-semibold text-gray-700 border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                                 placeholder="__"
                                             />

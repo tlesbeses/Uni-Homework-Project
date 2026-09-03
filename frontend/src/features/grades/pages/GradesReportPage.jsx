@@ -93,7 +93,7 @@ function EditableGradeCell({
                         }}
                         onBlur={commit}
                         disabled={saving}
-                        className="w-14 px-1 py-0.5 text-center text-sm border border-indigo-400 rounded outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-14 px-1 py-0.5 text-center text-sm text-gray-700 border border-indigo-400 rounded outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                     <span className="text-xs text-gray-400">/{maxScore}</span>
                 </div>

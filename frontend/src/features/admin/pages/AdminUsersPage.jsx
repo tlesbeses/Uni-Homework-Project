@@ -161,7 +161,7 @@ export const AdminUsersPage = () => {
                 <select
                     value={role}
                     onChange={(event) => setRole(event.target.value)}
-                    className="sm:w-48 px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                    className="sm:w-48 px-3 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                 >
                     <option value="">Todos los roles</option>
                     <option value="Teacher">Profesores</option>
