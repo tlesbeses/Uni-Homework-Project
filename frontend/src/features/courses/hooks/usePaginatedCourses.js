@@ -26,6 +26,9 @@ export const usePaginatedCourses = () => {
             }),
         // Mantiene visible la página anterior al navegar, sin spinner.
         placeholderData: keepPreviousData,
+        // Re-sincroniza la lista de cursos cada 30s (solo pestaña enfocada),
+        // para que los cambios de otros usuarios (p. ej. visibilidad) se reflejen sin recargar.
+        refetchInterval: 30_000,
     });
 
     const courses = data?.items ?? [];
