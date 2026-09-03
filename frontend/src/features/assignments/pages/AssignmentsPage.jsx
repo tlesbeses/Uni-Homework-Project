@@ -1,18 +1,17 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { toast } from "react-toastify";
 import { PublishBadge } from "@/features/assignments/components/PublishBadge";
 import { CreateAssignmentModal } from "@/features/assignments/components/CreateAssignmentModal";
 import { EditAssignmentModal } from "@/features/assignments/components/EditAssignmentModal";
 import { useAllAssignments } from "@/features/assignments/hooks/useAllAssignments";
 import {
-    deleteAssignment,
-    updateAssignment,
-} from "@/features/assignments/services/assignmentService";
+    useDeleteAssignment,
+    useToggleAssignmentPublish,
+} from "@/features/assignments/hooks/useAssignmentMutations";
 import { formatDateTime } from "@/features/assignments/utils/formatDate";
 import { useAuth } from "@/features/auth/providers/AuthProvider";
 import { useCourses } from "@/features/courses/hooks/useCourses";
-import { getErrorMessage } from "@/shared/utils/getErrorMessage";
+import { ConfirmModal } from "@/shared/components/ConfirmModal";
 
 export const AssignmentsPage = () => {
     const { isTeacher } = useAuth();
@@ -23,6 +22,10 @@ export const AssignmentsPage = () => {
     const [deletingId, setDeletingId] = useState(null);
     const [togglingId, setTogglingId] = useState(null);
     const [courseFilter, setCourseFilter] = useState("");
+    const [pendingDelete, setPendingDelete] = useState(null);
+
+    const deleteMutation = useDeleteAssignment();
+    const togglePublishMutation = useToggleAssignmentPublish();
 
     const filteredAssignments = courseFilter
         ? assignments.filter(
@@ -31,17 +34,12 @@ export const AssignmentsPage = () => {
           )
         : assignments;
 
-    const handleDelete = async (assignment) => {
-        if (!window.confirm(`¿Eliminar "${assignment.title}"?`)) {
-            return;
-        }
+    const confirmDelete = async () => {
+        const assignment = pendingDelete;
+        setPendingDelete(null);
         setDeletingId(assignment.id);
         try {
-            await deleteAssignment(assignment.id);
-            toast.success("Asignación eliminada");
-            await reload();
-        } catch (err) {
-            toast.error(getErrorMessage(err));
+            await deleteMutation.mutateAsync(assignment.id);
         } finally {
             setDeletingId(null);
         }
@@ -50,17 +48,10 @@ export const AssignmentsPage = () => {
     const handleTogglePublish = async (assignment) => {
         setTogglingId(assignment.id);
         try {
-            await updateAssignment(assignment.id, {
-                is_published: !assignment.is_published,
+            await togglePublishMutation.mutateAsync({
+                assignmentId: assignment.id,
+                isPublished: !assignment.is_published,
             });
-            toast.success(
-                assignment.is_published
-                    ? "Asignación oculta"
-                    : "Asignación publicada"
-            );
-            await reload();
-        } catch (err) {
-            toast.error(getErrorMessage(err));
         } finally {
             setTogglingId(null);
         }
@@ -202,7 +193,7 @@ export const AssignmentsPage = () => {
                                             <button
                                                 type="button"
                                                 onClick={() =>
-                                                    handleDelete(assignment)
+                                                    setPendingDelete(assignment)
                                                 }
                                                 disabled={busy}
                                                 className="px-3 py-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition disabled:opacity-50"
@@ -236,6 +227,20 @@ export const AssignmentsPage = () => {
                     setEditingAssignment(null);
                     reload();
                 }}
+            />
+
+            <ConfirmModal
+                open={Boolean(pendingDelete)}
+                title="Eliminar asignación"
+                description={
+                    pendingDelete
+                        ? `¿Eliminar "${pendingDelete.title}"? Esta acción no se puede deshacer.`
+                        : ""
+                }
+                confirmLabel="Eliminar"
+                onCancel={() => setPendingDelete(null)}
+                onConfirm={confirmDelete}
+                busy={Boolean(deletingId)}
             />
         </div>
     );

@@ -1,50 +1,56 @@
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { getCourses } from "@/features/courses/services/courseService";
+import { queryKeys } from "@/lib/queryKeys";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 
-const PAGE_SIZE = 9;
+const DEFAULT_PAGE_SIZE = 9;
 
 export const usePaginatedCourses = () => {
-    const [courses, setCourses] = useState([]);
+    const queryClient = useQueryClient();
     const [page, setPage] = useState(1);
-    const [count, setCount] = useState(0);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
+    const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
-    const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
+    const { data, isLoading, error, refetch } = useQuery({
+        queryKey: queryKeys.courses.list({ page, page_size: pageSize }),
+        queryFn: () =>
+            getCourses({ page, page_size: pageSize }).then((data) => {
+                const items = Array.isArray(data.results)
+                    ? data.results
+                    : Array.isArray(data)
+                      ? data
+                      : [];
+                const count =
+                    typeof data.count === "number" ? data.count : items.length;
+                return { items, count };
+            }),
+        // Mantiene visible la página anterior al navegar, sin spinner.
+        placeholderData: keepPreviousData,
+    });
 
-    const loadPage = useCallback(async (targetPage) => {
-        setLoading(true);
-        setError("");
-        try {
-            const data = await getCourses({
-                page: targetPage,
-                page_size: PAGE_SIZE,
-            });
-            const items = Array.isArray(data.results)
-                ? data.results
-                : Array.isArray(data)
-                  ? data
-                  : [];
-            setCourses(items);
-            setCount(
-                typeof data.count === "number" ? data.count : items.length
-            );
-            if (items.length === 0 && targetPage > 1) {
-                setPage(targetPage - 1);
-            }
-        } catch (err) {
-            setError(getErrorMessage(err));
-        } finally {
-            setLoading(false);
-        }
-    }, []);
+    const courses = data?.items ?? [];
+    const count = data?.count ?? 0;
+    const totalPages = Math.max(1, Math.ceil(count / pageSize));
 
-    useEffect(() => {
-        loadPage(page);
-    }, [loadPage, page]);
+    const reload = () => {
+        queryClient.invalidateQueries({ queryKey: queryKeys.courses.all });
+        return refetch();
+    };
 
-    const reload = useCallback(() => loadPage(page), [loadPage, page]);
+    const handlePageSizeChange = (size) => {
+        setPageSize(size);
+        setPage(1);
+    };
 
-    return { courses, page, totalPages, setPage, loading, error, reload };
+    return {
+        courses,
+        page,
+        totalPages,
+        setPage,
+        pageSize,
+        handlePageSizeChange,
+        loading: isLoading,
+        error: error ? getErrorMessage(error) : "",
+        reload,
+    };
 };

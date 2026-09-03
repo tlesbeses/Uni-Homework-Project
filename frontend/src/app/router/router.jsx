@@ -33,6 +33,8 @@ const GradesPage = lazyPage(() => import("@/features/grades/pages/GradesPage"), 
 const GradesReportPage = lazyPage(() => import("@/features/grades/pages/GradesReportPage"), "GradesReportPage");
 const TeamsPage = lazyPage(() => import("@/features/teams/pages/TeamsPage"), "TeamsPage");
 const TeamDetailPage = lazyPage(() => import("@/features/teams/pages/TeamDetailPage"), "TeamDetailPage");
+const AdminUsersPage = lazyPage(() => import("@/features/admin/pages/AdminUsersPage"), "AdminUsersPage");
+const AdminActivityPage = lazyPage(() => import("@/features/admin/pages/AdminActivityPage"), "AdminActivityPage");
 
 export const router = createBrowserRouter([
   {
@@ -98,49 +100,81 @@ export const router = createBrowserRouter([
       {
         path: "/courses",
         element: (
-          <SuspenseWrapper>
-            <CoursesPage />
-          </SuspenseWrapper>
+          <ProtectedRoute blockSuperuser>
+            <SuspenseWrapper>
+              <CoursesPage />
+            </SuspenseWrapper>
+          </ProtectedRoute>
         ),
       },
       {
         path: "/courses/:id",
         element: (
-          <SuspenseWrapper>
-            <CourseDetailPage />
-          </SuspenseWrapper>
+          <ProtectedRoute blockSuperuser>
+            <SuspenseWrapper>
+              <CourseDetailPage />
+            </SuspenseWrapper>
+          </ProtectedRoute>
         ),
       },
       {
         path: "/teams",
         element: (
-          <SuspenseWrapper>
-            <TeamsPage />
-          </SuspenseWrapper>
+          <ProtectedRoute blockSuperuser>
+            <SuspenseWrapper>
+              <TeamsPage />
+            </SuspenseWrapper>
+          </ProtectedRoute>
         ),
       },
       {
         path: "/teams/:id",
         element: (
-          <SuspenseWrapper>
-            <TeamDetailPage />
-          </SuspenseWrapper>
+          <ProtectedRoute blockSuperuser>
+            <SuspenseWrapper>
+              <TeamDetailPage />
+            </SuspenseWrapper>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/admin/users",
+        element: (
+          <ProtectedRoute superuserOnly>
+            <SuspenseWrapper>
+              <AdminUsersPage />
+            </SuspenseWrapper>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/admin/activity",
+        element: (
+          <ProtectedRoute superuserOnly>
+            <SuspenseWrapper>
+              <AdminActivityPage />
+            </SuspenseWrapper>
+          </ProtectedRoute>
         ),
       },
       {
         path: "/grades/report",
         element: (
-          <SuspenseWrapper>
-            <GradesReportPage />
-          </SuspenseWrapper>
+          <ProtectedRoute blockSuperuser>
+            <SuspenseWrapper>
+              <GradesReportPage />
+            </SuspenseWrapper>
+          </ProtectedRoute>
         ),
       },
       {
         path: "/grades",
         element: (
-          <SuspenseWrapper>
-            <GradesPage />
-          </SuspenseWrapper>
+          <ProtectedRoute blockSuperuser>
+            <SuspenseWrapper>
+              <GradesPage />
+            </SuspenseWrapper>
+          </ProtectedRoute>
         ),
       },
       {

@@ -13,8 +13,9 @@ import {
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 import { Pager } from "@/shared/components/Pager";
 import { SearchInput } from "@/shared/components/SearchInput";
+import { ConfirmModal } from "@/shared/components/ConfirmModal";
 
-const MEMBER_PAGE_SIZE = 5;
+const DEFAULT_MEMBER_PAGE_SIZE = 5;
 
 export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse, selectedSectionId, onSectionChange }) => {
   const {
@@ -33,8 +34,13 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse, selectedS
   const [editingName, setEditingName] = useState("");
   const [savingId, setSavingId] = useState(null);
   const [requestsView, setRequestsView] = useState("PENDING");
+  const [pendingRemoveEnrollment, setPendingRemoveEnrollment] = useState(null);
+  const [pendingDeleteSection, setPendingDeleteSection] = useState(false);
   const [memberSearch, setMemberSearch] = useState("");
   const [memberPage, setMemberPage] = useState(1);
+  const [memberPageSize, setMemberPageSize] = useState(
+    DEFAULT_MEMBER_PAGE_SIZE,
+  );
 
   const loadSections = useCallback(async () => {
     setLoadingSections(true);
@@ -96,16 +102,21 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse, selectedS
 
   const memberTotalPages = Math.max(
     1,
-    Math.ceil(filteredMembers.length / MEMBER_PAGE_SIZE),
+    Math.ceil(filteredMembers.length / memberPageSize),
   );
   const safeMemberPage = Math.min(memberPage, memberTotalPages);
   const visibleMembers = filteredMembers.slice(
-    (safeMemberPage - 1) * MEMBER_PAGE_SIZE,
-    safeMemberPage * MEMBER_PAGE_SIZE,
+    (safeMemberPage - 1) * memberPageSize,
+    safeMemberPage * memberPageSize,
   );
 
   const handleMemberSearchChange = (value) => {
     setMemberSearch(value);
+    setMemberPage(1);
+  };
+
+  const handleMemberPageSizeChange = (size) => {
+    setMemberPageSize(size);
     setMemberPage(1);
   };
 
@@ -131,16 +142,9 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse, selectedS
     [reloadEnrollments, reloadCourse],
   );
 
-  const handleRemove = async (enrollment) => {
-    if (
-      !window.confirm(
-        `¿Eliminar la inscripción de ${
-          enrollment.student?.username ?? "este estudiante"
-        }?`,
-      )
-    ) {
-      return;
-    }
+  const confirmRemoveEnrollment = async () => {
+    const enrollment = pendingRemoveEnrollment;
+    setPendingRemoveEnrollment(null);
     setSavingId(`enrollment-${enrollment.id}`);
     try {
       await deleteEnrollment(enrollment.id);
@@ -205,17 +209,11 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse, selectedS
     }
   };
 
-  const handleDelete = async () => {
+  const confirmDeleteSection = async () => {
     if (!selectedSection) {
       return;
     }
-    if (
-      !window.confirm(
-        "¿Eliminar esta sección? Sus inscripciones y equipos también se eliminarán.",
-      )
-    ) {
-      return;
-    }
+    setPendingDeleteSection(false);
     setSavingId(selectedSection.id);
     try {
       await deleteSection(selectedSection.id);
@@ -230,6 +228,7 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse, selectedS
   };
 
   return (
+    <>
     <aside className="space-y-6">
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <h2 className="text-lg font-semibold text-gray-800 mb-4">
@@ -316,7 +315,7 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse, selectedS
                     {requestsView === "REJECTED" && (
                       <button
                         type="button"
-                        onClick={() => handleRemove(enrollment)}
+                        onClick={() => setPendingRemoveEnrollment(enrollment)}
                         disabled={busy}
                         className="px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition disabled:opacity-50"
                       >
@@ -372,7 +371,7 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse, selectedS
                       type="text"
                       value={editingName}
                       onChange={(event) => setEditingName(event.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                       autoFocus
                     />
                     <div className="flex items-center gap-2">
@@ -415,9 +414,9 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse, selectedS
                           >
                             Editar
                           </button>
-                          <button
+                        <button
                             type="button"
-                            onClick={handleDelete}
+                            onClick={() => setPendingDeleteSection(true)}
                             disabled={savingId === selectedSection.id}
                             className="text-sm font-medium text-red-600 hover:text-red-800 disabled:opacity-50"
                           >
@@ -477,7 +476,9 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse, selectedS
                                 {isOwner && (
                                   <button
                                     type="button"
-                                    onClick={() => handleRemove(member)}
+                                    onClick={() =>
+                                        setPendingRemoveEnrollment(member)
+                                    }
                                     disabled={
                                       savingId === `enrollment-${member.id}`
                                     }
@@ -495,6 +496,9 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse, selectedS
                           totalPages={memberTotalPages}
                           onChange={setMemberPage}
                           compact
+                          pageSize={memberPageSize}
+                          onPageSizeChange={handleMemberPageSizeChange}
+                          defaultPageSize={DEFAULT_MEMBER_PAGE_SIZE}
                         />
                       </>
                     )}
@@ -519,7 +523,7 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse, selectedS
                 value={newName}
                 onChange={(event) => setNewName(event.target.value)}
                 placeholder="Ej. 1TS1"
-                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
               />
             </div>
             <button
@@ -533,5 +537,31 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse, selectedS
         )}
       </div>
     </aside>
+
+    <ConfirmModal
+      open={Boolean(pendingRemoveEnrollment)}
+      title="Eliminar inscripción"
+      description={
+        pendingRemoveEnrollment
+          ? `¿Eliminar la inscripción de ${
+              pendingRemoveEnrollment.student?.username ?? "este estudiante"
+            }? Esta acción no se puede deshacer.`
+          : ""
+      }
+      confirmLabel="Eliminar"
+      onCancel={() => setPendingRemoveEnrollment(null)}
+      onConfirm={confirmRemoveEnrollment}
+    />
+
+    <ConfirmModal
+      open={pendingDeleteSection}
+      title="Eliminar sección"
+      description="¿Eliminar esta sección? Sus inscripciones y equipos también se eliminarán. Esta acción no se puede deshacer."
+      confirmLabel="Eliminar"
+      onCancel={() => setPendingDeleteSection(false)}
+      onConfirm={confirmDeleteSection}
+      busy={savingId === selectedSection?.id}
+    />
+  </>
   );
 };

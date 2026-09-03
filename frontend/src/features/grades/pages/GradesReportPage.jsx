@@ -12,8 +12,8 @@ import { getSections } from "@/features/courses/services/courseService";
 import {
     exportSectionGrades,
     getSectionGradesReport,
-    gradeStudent,
 } from "@/features/grades/services/gradeService";
+import { useGradeStudent } from "@/features/grades/hooks/useGradeMutations";
 import { downloadBlob } from "@/shared/utils/downloadBlob";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 import { SearchInput } from "@/shared/components/SearchInput";
@@ -30,6 +30,8 @@ function EditableGradeCell({
     const [saving, setSaving] = useState(false);
     const inputRef = useRef(null);
     const busyRef = useRef(false);
+
+    const gradeStudentMutation = useGradeStudent();
 
     useEffect(() => {
         if (editing && inputRef.current) {
@@ -59,7 +61,11 @@ function EditableGradeCell({
         busyRef.current = true;
         setSaving(true);
         try {
-            await gradeStudent(assignmentId, studentId, num);
+            await gradeStudentMutation.mutateAsync({
+                assignmentId,
+                studentId,
+                score: num,
+            });
             onSaved(studentId, assignmentId, num);
             toast.success("Nota guardada.");
         } catch (err) {
@@ -87,7 +93,7 @@ function EditableGradeCell({
                         }}
                         onBlur={commit}
                         disabled={saving}
-                        className="w-14 px-1 py-0.5 text-center text-sm border border-indigo-400 rounded outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-14 px-1 py-0.5 text-center text-sm text-gray-700 border border-indigo-400 rounded outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                     <span className="text-xs text-gray-400">/{maxScore}</span>
                 </div>

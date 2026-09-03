@@ -1,15 +1,14 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
 import { useAuth } from "@/features/auth/providers/AuthProvider";
 import { usePaginatedCourses } from "@/features/courses/hooks/usePaginatedCourses";
+import { useDeleteCourse } from "@/features/courses/hooks/useCourseMutations";
 import { CourseCard } from "@/features/courses/components/CourseCard";
 import { CreateCourseModal } from "@/features/courses/components/CreateCourseModal";
 import { EditCourseModal } from "@/features/courses/components/EditCourseModal";
 import { JoinCourseForm } from "@/features/courses/components/JoinCourseForm";
-import { deleteCourse } from "@/features/courses/services/courseService";
-import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 import { Pager } from "@/shared/components/Pager";
+import { ConfirmModal } from "@/shared/components/ConfirmModal";
 
 export const CoursesPage = () => {
     const { isTeacher, isStudent } = useAuth();
@@ -19,6 +18,8 @@ export const CoursesPage = () => {
         page,
         totalPages,
         setPage,
+        pageSize,
+        handlePageSizeChange,
         loading,
         error,
         reload,
@@ -26,18 +27,16 @@ export const CoursesPage = () => {
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [deletingId, setDeletingId] = useState(null);
     const [editingCourse, setEditingCourse] = useState(null);
+    const [pendingDelete, setPendingDelete] = useState(null);
 
-    const handleDelete = async (courseId) => {
-        if (!window.confirm("¿Eliminar este curso y todas sus inscripciones?")) {
-            return;
-        }
+    const deleteMutation = useDeleteCourse();
+
+    const confirmDelete = async () => {
+        const courseId = pendingDelete;
+        setPendingDelete(null);
         setDeletingId(courseId);
         try {
-            await deleteCourse(courseId);
-            toast.success("Curso eliminado");
-            await reload();
-        } catch (err) {
-            toast.error(getErrorMessage(err));
+            await deleteMutation.mutateAsync(courseId);
         } finally {
             setDeletingId(null);
         }
@@ -86,7 +85,7 @@ export const CoursesPage = () => {
                         course={course}
                         isTeacher={isTeacher}
                         isStudent={isStudent}
-                        onDelete={handleDelete}
+                        onDelete={setPendingDelete}
                         onEdit={setEditingCourse}
                         deleting={deletingId === course.id}
                     />
@@ -94,7 +93,14 @@ export const CoursesPage = () => {
             </div>
 
             {!loading && !error && (
-                <Pager page={page} totalPages={totalPages} onChange={setPage} />
+                <Pager
+                    page={page}
+                    totalPages={totalPages}
+                    onChange={setPage}
+                    pageSize={pageSize}
+                    onPageSizeChange={handlePageSizeChange}
+                    defaultPageSize={9}
+                />
             )}
 
             <CreateCourseModal
@@ -117,6 +123,16 @@ export const CoursesPage = () => {
                     await reload();
                     setEditingCourse(null);
                 }}
+            />
+
+            <ConfirmModal
+                open={Boolean(pendingDelete)}
+                title="Eliminar curso"
+                description="¿Eliminar este curso y todas sus inscripciones? Esta acción no se puede deshacer."
+                confirmLabel="Eliminar"
+                onCancel={() => setPendingDelete(null)}
+                onConfirm={confirmDelete}
+                busy={Boolean(deletingId)}
             />
         </div>
     );

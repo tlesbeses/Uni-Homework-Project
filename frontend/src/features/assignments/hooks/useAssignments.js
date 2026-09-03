@@ -1,19 +1,19 @@
-import { useCallback } from "react";
-import { useAsyncData } from "@/shared/hooks/useAsyncData";
+import { useQuery } from "@tanstack/react-query";
 import { getCourseAssignments } from "@/features/assignments/services/assignmentService";
+import { queryKeys } from "@/lib/queryKeys";
+import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 
 export const useAssignments = (courseId) => {
-    const fetchAssignments = useCallback(
-        (opts) => getCourseAssignments(courseId, opts),
-        [courseId]
-    );
-
-    const { data, loading, error, reload } = useAsyncData(fetchAssignments);
+    const { data, isLoading, error, refetch } = useQuery({
+        queryKey: queryKeys.assignments.byCourse(courseId),
+        queryFn: () => getCourseAssignments(courseId),
+        enabled: Boolean(courseId),
+    });
 
     return {
         assignments: data ?? [],
-        loading,
-        error,
-        reload,
+        loading: isLoading,
+        error: error ? getErrorMessage(error) : "",
+        reload: () => refetch(),
     };
 };

@@ -9,6 +9,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from assignments.models import Assignment
+from authentication.models import EventLog, User
+from authentication.serializers import (
+    AdminUserSerializer,
+    EventLogSerializer,
+    ImpersonationLogSerializer,
+)
 from course.models import (
     Course,
     CourseSettings,
@@ -49,8 +55,6 @@ class CourseViewSet(viewsets.ModelViewSet):
                 filter=Q(sections__enrollments__status=Status.APPROVED),
             )
         ).order_by("-created_at")
-        if user.is_superuser:
-            return queryset
         if self.is_teacher(user):
             return queryset.filter(teacher=user)
         is_enrolled = Exists(
@@ -226,9 +230,7 @@ class CourseViewSet(viewsets.ModelViewSet):
     def course_settings(self, request, pk=None):
         course = self.get_object()
         if request.method == "PATCH":
-            if not (
-                request.user.is_superuser or request.user == course.teacher
-            ):
+            if request.user != course.teacher:
                 raise PermissionDenied(
                     "Only the course teacher can change course settings."
                 )
@@ -258,10 +260,56 @@ class DashboardView(APIView):
 
     def get(self, request):
         user = request.user
+        if user.is_superuser:
+            return self._admin_dashboard()
         is_teacher = user.groups.filter(name="Teacher").exists()
         if is_teacher:
             return self._teacher_dashboard(user)
         return self._student_dashboard(user)
+
+    def _admin_dashboard(self):
+        users = User.objects.all()
+        courses = Course.objects.all()
+        pending_enrollments = Enrollment.objects.filter(
+            status=Status.PENDING
+        ).count()
+
+        recent_users = users.order_by("-date_joined")[:8]
+        recent_courses = courses.annotate(
+            enrollments_count=Count(
+                "sections__enrollments",
+                filter=Q(sections__enrollments__status=Status.APPROVED),
+            )
+        ).order_by("-created_at")[:8]
+
+        recent_impersonations = (
+            EventLog.objects.filter(action=EventLog.ACTION_IMPERSONATE)
+            .select_related("actor", "target")
+            .order_by("-created_at")[:8]
+        )
+
+        recent_activity = (
+            EventLog.objects.select_related("actor", "target")
+            .order_by("-created_at")[:8]
+        )
+
+        return Response({
+            "type": "admin",
+            "stats": {
+                "users_total": users.count(),
+                "users_active": users.filter(is_active=True).count(),
+                "students": users.filter(groups__name="Student").count(),
+                "teachers": users.filter(groups__name="Teacher").count(),
+                "courses": courses.count(),
+                "pending_enrollments": pending_enrollments,
+            },
+            "recent_users": AdminUserSerializer(recent_users, many=True).data,
+            "recent_impersonations": ImpersonationLogSerializer(
+                recent_impersonations, many=True
+            ).data,
+            "recent_activity": EventLogSerializer(recent_activity, many=True).data,
+            "recent_courses": DashboardCourseSerializer(recent_courses, many=True).data,
+        })
 
     def _teacher_dashboard(self, user):
         courses = Course.objects.annotate(
@@ -336,8 +384,6 @@ class SectionViewSet(viewsets.ModelViewSet):
             )
             .order_by("name")
         )
-        if user.is_superuser:
-            return queryset
         if user.groups.filter(name="Teacher").exists():
             return queryset.filter(course__teacher=user)
         is_enrolled = Exists(
@@ -457,10 +503,7 @@ class SectionViewSet(viewsets.ModelViewSet):
                 course = Course.objects.get(pk=course_id)
             except Course.DoesNotExist:
                 raise NotFound("Course not found.")
-            if not (
-                request.user.is_superuser
-                or course.teacher_id == request.user.id
-            ):
+            if course.teacher_id != request.user.id:
                 raise PermissionDenied(
                     "You can only create sections for your own courses."
                 )
@@ -482,8 +525,6 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         )
 
 
-        if user.is_superuser:
-            return queryset
         if user.groups.filter(name="Teacher").exists():
             return queryset.filter(section__course__teacher=user)
         return queryset.filter(student=user)

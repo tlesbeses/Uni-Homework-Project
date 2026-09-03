@@ -44,9 +44,6 @@ class TeamViewSet(viewsets.ModelViewSet):
             .prefetch_related("members__student")
         )
 
-        if user.is_superuser:
-            return queryset
-
         if user.groups.filter(name="Teacher").exists():
             return queryset.filter(section__course__teacher=user)
 
@@ -98,12 +95,12 @@ class TeamViewSet(viewsets.ModelViewSet):
             except Section.DoesNotExist:
                 raise NotFound("Section not found.")
             user = request.user
-            if not user.is_superuser and self.is_teacher(user):
+            if self.is_teacher(user):
                 if section.course.teacher_id != user.id:
                     raise PermissionDenied(
                         "You can only create teams in your own courses."
                     )
-            elif not user.is_superuser and not Enrollment.objects.filter(
+            elif not Enrollment.objects.filter(
                 section=section,
                 student=user,
                 status=Status.APPROVED,
@@ -114,7 +111,7 @@ class TeamViewSet(viewsets.ModelViewSet):
 
         data = request.data.copy()
 
-        if not (request.user.is_superuser or self.is_teacher(request.user)):
+        if not self.is_teacher(request.user):
             # A student becomes the leader of the team they create.
             data["leader_id"] = request.user.id
 

@@ -10,13 +10,15 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
+from authentication.models import EventLog
+from authentication.services import log_event
 from course.models import Enrollment, Status
 from grading.models import Grade
 
 
 def _validate_grade_params(assignment, score, graded_by):
     """Shared guards used by every grading entry point."""
-    if not (graded_by.is_superuser or assignment.course.teacher_id == graded_by.id):
+    if assignment.course.teacher_id != graded_by.id:
         raise PermissionDenied(
             "Only the teacher of the course can grade this assignment."
         )
@@ -89,6 +91,7 @@ def grade_team(
 
     now = timezone.now()
     grades_to_create = []
+    grades_updated = 0
     for member in members:
         if member.student_id not in approved_member_ids:
             continue
@@ -107,6 +110,7 @@ def grade_team(
             grade.save(
                 update_fields=["score", "is_individual", "graded_by", "updated_at"]
             )
+            grades_updated += 1
         else:
             grades_to_create.append(
                 Grade(
@@ -122,6 +126,19 @@ def grade_team(
 
     if grades_to_create:
         Grade.objects.bulk_create(grades_to_create)
+
+    log_event(
+        actor=graded_by,
+        action=EventLog.ACTION_UPDATE,
+        entity_type="grade",
+        entity_id=assignment.id,
+        metadata={
+            "assignment_id": assignment.id,
+            "score": str(score),
+            "member_ids": sorted(approved_member_ids),
+            "affected": len(grades_to_create) + grades_updated,
+        },
+    )
 
     return (
         Grade.objects.filter(
@@ -160,4 +177,18 @@ def grade_student(*, assignment, student, score, graded_by):
             "graded_by": graded_by,
         },
     )
+
+    log_event(
+        actor=graded_by,
+        action=EventLog.ACTION_UPDATE,
+        entity_type="grade",
+        entity_id=grade.id,
+        target=student,
+        metadata={
+            "assignment_id": assignment.id,
+            "score": str(grade.score),
+            "is_individual": True,
+        },
+    )
+
     return grade

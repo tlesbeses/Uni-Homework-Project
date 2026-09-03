@@ -7,9 +7,9 @@ import { useAllData } from "@/shared/hooks/useAllData";
 import { useCourses } from "@/features/courses/hooks/useCourses";
 import { useAssignmentGrades } from "@/features/grades/hooks/useAssignmentGrades";
 import {
-    gradeStudent,
-    gradeTeam,
-} from "@/features/grades/services/gradeService";
+    useGradeStudent,
+    useGradeTeam,
+} from "@/features/grades/hooks/useGradeMutations";
 import { getTeams } from "@/features/teams/services/teamService";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 
@@ -147,8 +147,11 @@ export const TeacherGradingPanel = () => {
                 String(enrollment.section?.id) === String(sectionFilter))
     );
 
-    const { grades, loading: gradesLoading, reload: reloadGrades } =
+    const { grades, loading: gradesLoading } =
         useAssignmentGrades(selectedAssignmentId);
+
+    const gradeTeamMutation = useGradeTeam();
+    const gradeStudentMutation = useGradeStudent();
 
     const gradesByStudentId = useMemo(
         () =>
@@ -283,9 +286,12 @@ export const TeacherGradingPanel = () => {
             }
             setSavingKey(key);
             try {
-                await gradeStudent(selectedAssignmentId, studentId, raw);
+                await gradeStudentMutation.mutateAsync({
+                    assignmentId: selectedAssignmentId,
+                    studentId,
+                    score: raw,
+                });
                 clearDraft(key);
-                await reloadGrades();
             } catch (err) {
                 toast.error(getErrorMessage(err));
             } finally {
@@ -300,7 +306,7 @@ export const TeacherGradingPanel = () => {
             beginSave,
             endSave,
             clearDraft,
-            reloadGrades,
+            gradeStudentMutation,
             maxScore,
         ]
     );
@@ -334,11 +340,13 @@ export const TeacherGradingPanel = () => {
             }
             setSavingKey(key);
             try {
-                await gradeTeam(selectedAssignmentId, team.id, raw, {
-                    overwrite_individual: overwriteIndividual,
+                await gradeTeamMutation.mutateAsync({
+                    assignmentId: selectedAssignmentId,
+                    teamId: team.id,
+                    score: raw,
+                    overwriteIndividual,
                 });
                 clearDraft(key);
-                await reloadGrades();
             } catch (err) {
                 toast.error(getErrorMessage(err));
             } finally {
@@ -355,7 +363,7 @@ export const TeacherGradingPanel = () => {
             beginSave,
             endSave,
             clearDraft,
-            reloadGrades,
+            gradeTeamMutation,
             maxScore,
         ]
     );
@@ -385,8 +393,11 @@ export const TeacherGradingPanel = () => {
                             return;
                         }
                         try {
-                            await gradeTeam(selectedAssignmentId, team.id, raw, {
-                                overwrite_individual: overwriteIndividual,
+                            await gradeTeamMutation.mutateAsync({
+                                assignmentId: selectedAssignmentId,
+                                teamId: team.id,
+                                score: raw,
+                                overwriteIndividual,
                             });
                             clearDraft(key);
                         } catch (err) {
@@ -418,7 +429,11 @@ export const TeacherGradingPanel = () => {
                         return;
                     }
                     try {
-                        await gradeStudent(selectedAssignmentId, studentId, raw);
+                        await gradeStudentMutation.mutateAsync({
+                            assignmentId: selectedAssignmentId,
+                            studentId,
+                            score: raw,
+                        });
                         clearDraft(key);
                     } catch (err) {
                         toast.error(getErrorMessage(err));
@@ -429,12 +444,7 @@ export const TeacherGradingPanel = () => {
             );
         }
         if (pending.length > 0) {
-            try {
-                await Promise.all(pending);
-                await reloadGrades();
-            } catch {
-                await reloadGrades();
-            }
+            await Promise.all(pending);
         }
     }, [
         drafts,
@@ -446,7 +456,8 @@ export const TeacherGradingPanel = () => {
         beginSave,
         endSave,
         clearDraft,
-        reloadGrades,
+        gradeStudentMutation,
+        gradeTeamMutation,
         maxScore,
     ]);
 
@@ -498,8 +509,11 @@ export const TeacherGradingPanel = () => {
         }
         setSavingKey(key);
         try {
-            await gradeTeam(selectedAssignmentId, team.id, raw, {
-                overwrite_individual: overwriteIndividual,
+            await gradeTeamMutation.mutateAsync({
+                assignmentId: selectedAssignmentId,
+                teamId: team.id,
+                score: raw,
+                overwriteIndividual,
             });
             if (overwriteIndividual) {
                 toast.success(
@@ -516,7 +530,6 @@ export const TeacherGradingPanel = () => {
             }
             clearDraft(key);
             setOverwriteIndividual(false);
-            await reloadGrades();
         } catch (err) {
             toast.error(getErrorMessage(err));
         } finally {
@@ -539,10 +552,13 @@ export const TeacherGradingPanel = () => {
         }
         setSavingKey(key);
         try {
-            await gradeStudent(selectedAssignmentId, studentId, raw);
+            await gradeStudentMutation.mutateAsync({
+                assignmentId: selectedAssignmentId,
+                studentId,
+                score: raw,
+            });
             toast.success("Nota individual guardada");
             clearDraft(key);
-            await reloadGrades();
         } catch (err) {
             toast.error(getErrorMessage(err));
         } finally {
@@ -630,6 +646,7 @@ export const TeacherGradingPanel = () => {
                         value={inputValue(key, fallback)}
                         onChange={(e) => setDraft(key, e.target.value)}
                         onBlur={() => autosaveMemberKey(key)}
+                        onFocus={(e) => e.target.select()}
                         className="w-16 px-2 py-1.5 rounded-lg border outline-none transition text-right text-sm text-gray-700 border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                         placeholder="__"
                     />
@@ -1018,6 +1035,7 @@ export const TeacherGradingPanel = () => {
                                                         )
                                                     )
                                                 }
+                                                onFocus={(e) => e.target.select()}
                                                 className="w-20 px-2 py-1.5 rounded-lg border outline-none transition text-right text-sm font-semibold text-gray-700 border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                                 placeholder="__"
                                             />
