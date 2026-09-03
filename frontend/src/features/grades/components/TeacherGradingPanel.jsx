@@ -233,8 +233,6 @@ export const TeacherGradingPanel = () => {
 
     const handleSelectAssignment = (e) => {
         setSelectedAssignmentId(e.target.value);
-        setSelectedTeamId(null);
-        setSectionFilter(sections[0]?.id ?? "");
         setDrafts({});
     };
 
