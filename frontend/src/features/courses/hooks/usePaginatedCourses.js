@@ -4,16 +4,17 @@ import { getCourses } from "@/features/courses/services/courseService";
 import { queryKeys } from "@/lib/queryKeys";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 
-const PAGE_SIZE = 9;
+const DEFAULT_PAGE_SIZE = 9;
 
 export const usePaginatedCourses = () => {
     const queryClient = useQueryClient();
     const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
     const { data, isLoading, error, refetch } = useQuery({
-        queryKey: queryKeys.courses.list({ page, page_size: PAGE_SIZE }),
+        queryKey: queryKeys.courses.list({ page, page_size: pageSize }),
         queryFn: () =>
-            getCourses({ page, page_size: PAGE_SIZE }).then((data) => {
+            getCourses({ page, page_size: pageSize }).then((data) => {
                 const items = Array.isArray(data.results)
                     ? data.results
                     : Array.isArray(data)
@@ -29,11 +30,16 @@ export const usePaginatedCourses = () => {
 
     const courses = data?.items ?? [];
     const count = data?.count ?? 0;
-    const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
+    const totalPages = Math.max(1, Math.ceil(count / pageSize));
 
     const reload = () => {
         queryClient.invalidateQueries({ queryKey: queryKeys.courses.all });
         return refetch();
+    };
+
+    const handlePageSizeChange = (size) => {
+        setPageSize(size);
+        setPage(1);
     };
 
     return {
@@ -41,6 +47,8 @@ export const usePaginatedCourses = () => {
         page,
         totalPages,
         setPage,
+        pageSize,
+        handlePageSizeChange,
         loading: isLoading,
         error: error ? getErrorMessage(error) : "",
         reload,

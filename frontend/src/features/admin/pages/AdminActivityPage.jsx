@@ -93,7 +93,7 @@ export const AdminActivityPage = () => {
                         setAction(event.target.value);
                         setPage(1);
                     }}
-                    className="px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                    className="px-3 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                 >
                     <option value="">Todas las acciones</option>
                     <option value="impersonate">Impersonación</option>
@@ -108,7 +108,7 @@ export const AdminActivityPage = () => {
                         setEntityType(event.target.value);
                         setPage(1);
                     }}
-                    className="px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                    className="px-3 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                 >
                     <option value="">Todas las entidades</option>
                     <option value="user">Usuario</option>
@@ -123,7 +123,7 @@ export const AdminActivityPage = () => {
                         setPage(1);
                     }}
                     placeholder="ID de usuario"
-                    className="px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                    className="px-3 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                 />
                 <input
                     type="date"
@@ -132,7 +132,7 @@ export const AdminActivityPage = () => {
                         setFrom(event.target.value);
                         setPage(1);
                     }}
-                    className="px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                    className="px-3 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                 />
                 <input
                     type="date"
@@ -141,7 +141,7 @@ export const AdminActivityPage = () => {
                         setTo(event.target.value);
                         setPage(1);
                     }}
-                    className="px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                    className="px-3 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                 />
             </div>
 
