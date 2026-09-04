@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from assignments.models import Assignment
+from authentication.throttle import GradeThrottle
 from course.models import Status
 from grading.models import Grade
 from grading.permissions import IsCourseTeacherOfAssignment
@@ -35,6 +36,7 @@ class GradeTeamView(APIView):
     """Grade all members of a team with the same score."""
 
     permission_classes = [IsAuthenticated]
+    throttle_classes = [GradeThrottle]
 
     def post(self, request, assignment_id):
         assignment = _get_gradeable_assignment(request, assignment_id)
@@ -64,6 +66,7 @@ class GradeStudentView(APIView):
     """Create or update the individual grade of a single student."""
 
     permission_classes = [IsAuthenticated]
+    throttle_classes = [GradeThrottle]
 
     def post(self, request, assignment_id):
         assignment = _get_gradeable_assignment(request, assignment_id)

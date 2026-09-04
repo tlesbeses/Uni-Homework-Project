@@ -195,11 +195,13 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.UserRateThrottle",
     ],
 
-    "DEFAULT_THROTTLE_RATES": {
+"DEFAULT_THROTTLE_RATES": {
         "anon": "10/minute",
-        "user": "100/minute",
+        "user": "50/minute",
         "login": "5/minute",
         "auth": "10/minute",
+        "admin": "20/minute",
+        "grade": "60/minute",
     },
 
     "DEFAULT_PAGINATION_CLASS":

@@ -15,6 +15,7 @@ from authentication.serializers import (
     EventLogSerializer,
     ImpersonationLogSerializer,
 )
+from authentication.services import log_event
 from course.models import (
     Course,
     CourseSettings,
@@ -81,7 +82,62 @@ class CourseViewSet(viewsets.ModelViewSet):
         return user.groups.filter(name="Teacher").exists()
 
     def perform_create(self, serializer):
-        serializer.save(teacher=self.request.user)
+        course = serializer.save(teacher=self.request.user)
+        log_event(
+            actor=self.request.user,
+            action=EventLog.ACTION_CREATE,
+            entity_type="course",
+            entity_id=course.id,
+            metadata={
+                "title": course.title,
+                "visibility": course.visibility,
+                "is_active": course.is_active,
+                "teacher_id": course.teacher_id,
+            },
+        )
+
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        before = {
+            "title": instance.title,
+            "description": instance.description,
+            "visibility": instance.visibility,
+            "is_active": instance.is_active,
+        }
+        course = serializer.save()
+        changes = {}
+        after = {
+            "title": course.title,
+            "description": course.description,
+            "visibility": course.visibility,
+            "is_active": course.is_active,
+        }
+        for field in before:
+            if before[field] != after[field]:
+                changes[field] = {"from": before[field], "to": after[field]}
+        log_event(
+            actor=self.request.user,
+            action=EventLog.ACTION_UPDATE,
+            entity_type="course",
+            entity_id=course.id,
+            metadata={
+                "changes": changes if changes else None,
+                "visibility": course.visibility,
+                "is_active": course.is_active,
+            },
+        )
+
+    def perform_destroy(self, instance):
+        course_id = instance.pk
+        title = instance.title
+        instance.delete()
+        log_event(
+            actor=self.request.user,
+            action=EventLog.ACTION_DELETE,
+            entity_type="course",
+            entity_id=course_id,
+            metadata={"title": title},
+        )
 
     @action(detail=True, methods=["get"])
     def sections(self, request, pk=None):
@@ -238,13 +294,27 @@ class CourseViewSet(viewsets.ModelViewSet):
         course_settings, _ = CourseSettings.objects.get_or_create(course=course)
 
         if request.method == "PATCH":
+            auto_accept_before = course_settings.auto_accept_students
             serializer = CourseSettingsSerializer(
                 course_settings,
                 data=request.data,
                 partial=True,
             )
             serializer.is_valid(raise_exception=True)
-            serializer.save()
+            saved = serializer.save()
+            log_event(
+                actor=request.user,
+                action=EventLog.ACTION_UPDATE,
+                entity_type="course_settings",
+                entity_id=course_settings.course_id,
+                metadata={
+                    "course_id": course.id,
+                    "auto_accept_students": {
+                        "from": auto_accept_before,
+                        "to": saved.auto_accept_students,
+                    },
+                },
+            )
         else:
             serializer = CourseSettingsSerializer(course_settings)
         return Response(serializer.data)
@@ -582,7 +652,23 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                     student=instance.student,
                     course=instance.section.course,
                 )
+            course_id = instance.section.course_id
+            student_id = instance.student_id
+            status_before = instance.status
+            enrollment_id = instance.pk
             instance.delete()
+        log_event(
+            actor=self.request.user,
+            action=EventLog.ACTION_DELETE,
+            entity_type="enrollment",
+            entity_id=enrollment_id,
+            target=instance.student,
+            metadata={
+                "course_id": course_id,
+                "student_id": student_id,
+                "status": status_before,
+            },
+        )
 
     @action(detail=True, methods=["post"])
     def approve(self, request, pk=None):
@@ -596,6 +682,19 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
 
         enrollment.status = Status.APPROVED
         enrollment.save()
+
+        log_event(
+            actor=request.user,
+            action=EventLog.ACTION_UPDATE,
+            entity_type="enrollment",
+            entity_id=enrollment.pk,
+            target=enrollment.student,
+            metadata={
+                "course_id": enrollment.section.course_id,
+                "student_id": enrollment.student_id,
+                "status": enrollment.status,
+            },
+        )
 
         serializer = EnrollmentSerializer(
             enrollment,
@@ -624,6 +723,19 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             enrollment.status = Status.REJECTED
             enrollment.approved_at = None
             enrollment.save()
+
+        log_event(
+            actor=request.user,
+            action=EventLog.ACTION_UPDATE,
+            entity_type="enrollment",
+            entity_id=enrollment.pk,
+            target=enrollment.student,
+            metadata={
+                "course_id": enrollment.section.course_id,
+                "student_id": enrollment.student_id,
+                "status": enrollment.status,
+            },
+        )
 
         serializer = EnrollmentSerializer(
             enrollment,

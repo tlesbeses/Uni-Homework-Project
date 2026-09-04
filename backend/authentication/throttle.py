@@ -15,3 +15,11 @@ class LoginThrottle(_ConditionalThrottleMixin, AnonRateThrottle):
 
 class AuthThrottle(_ConditionalThrottleMixin, UserRateThrottle):
     scope = "auth"
+
+
+class AdminThrottle(_ConditionalThrottleMixin, UserRateThrottle):
+    scope = "admin"
+
+
+class GradeThrottle(_ConditionalThrottleMixin, UserRateThrottle):
+    scope = "grade"
