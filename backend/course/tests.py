@@ -75,6 +75,15 @@ class CourseTests(BaseCourseTestCase):
         response = self.client.post("/api/courses/", {"title": "Physics"})
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_course_title_cannot_be_whitespace_only(self):
+        self.client.force_authenticate(self.teacher)
+        response = self.client.post(
+            "/api/courses/",
+            {"title": "   ", "visibility": "PUBLIC", "section_name": "1TS1"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_teacher_sees_only_own_courses(self):
         self.client.force_authenticate(self.teacher)
         response = self.client.get("/api/courses/")
@@ -112,6 +121,15 @@ class SectionTests(BaseCourseTestCase):
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_section_name_cannot_be_whitespace_only(self):
+        self.client.force_authenticate(self.teacher)
+        response = self.client.post(
+            "/api/sections/",
+            {"name": "   ", "course_id": self.course.id},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_other_teacher_cannot_create_section_in_foreign_course(self):
         other_teacher = User.objects.create_user(
@@ -467,6 +485,15 @@ class CourseSettingsTests(BaseCourseTestCase):
             {"auto_accept_students": True},
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_non_boolean_auto_accept_rejected(self):
+        self.client.force_authenticate(self.teacher)
+        response = self.client.patch(
+            f"/api/courses/{self.course.id}/course_settings/",
+            {"auto_accept_students": "banana"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
 
 class SuperuserIsolationTests(BaseCourseTestCase):

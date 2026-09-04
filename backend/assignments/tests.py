@@ -1,8 +1,11 @@
 """Tests for the assignments application."""
 
+from datetime import timedelta
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -142,6 +145,19 @@ class AssignmentCreateTests(AssignmentAPITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_due_date_in_past_rejected_on_create(self):
+        self.authenticate(self.teacher)
+
+        response = self.client.post(
+            reverse("assignment-list"),
+            self.assignment_payload(
+                due_date=(timezone.now() - timedelta(days=1)).isoformat()
+            ),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_assignment_belongs_to_course_via_related_name(self):
         assignment = Assignment.objects.create(
             course=self.course,
@@ -232,6 +248,17 @@ class AssignmentWriteTests(AssignmentAPITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assignment.refresh_from_db()
         self.assertEqual(self.assignment.title, "Homework 1 Revised")
+
+    def test_past_due_date_allowed_on_update(self):
+        self.authenticate(self.teacher)
+
+        response = self.client.patch(
+            reverse("assignment-detail", args=[self.assignment.id]),
+            {"due_date": (timezone.now() - timedelta(days=1)).isoformat()},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_other_teacher_cannot_edit_assignment(self):
         self.authenticate(self.other_teacher)

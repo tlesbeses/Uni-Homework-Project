@@ -66,6 +66,14 @@ class CourseSerializer(serializers.ModelSerializer):
             fields["section_name"].read_only = True
         return fields
 
+    def validate_title(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError(
+                "The course title is required."
+            )
+        return value
+
     def validate_section_name(self, value):
         value = value.strip()
         if not value:
@@ -126,6 +134,14 @@ class SectionSerializer(serializers.ModelSerializer):
         if self.instance is not None:
             fields["course_id"].read_only = True
         return fields
+
+    def validate_name(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError(
+                "The section name is required."
+            )
+        return value
 
     def validate(self, attrs):
         """Enforce name uniqueness within the same course."""
