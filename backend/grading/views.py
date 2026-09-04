@@ -2,6 +2,7 @@
 
 from django.shortcuts import get_object_or_404
 from rest_framework import status, viewsets
+from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -13,6 +14,7 @@ from course.models import Status
 from grading.models import Grade
 from grading.permissions import IsCourseTeacherOfAssignment
 from grading.serializers import (
+    GradeHistorySerializer,
     GradeSerializer,
     GradeStudentSerializer,
     GradeTeamSerializer,
@@ -133,7 +135,17 @@ class GradeViewSet(viewsets.ReadOnlyModelViewSet):
                 student=user,
                 assignment__course__sections__enrollments__student=user,
                 assignment__course__sections__enrollments__status=Status.APPROVED,
+                assignment__course__is_active=True,
                 assignment__is_published=True,
             )
             .distinct()
+        )
+
+    @action(detail=True, methods=["get"])
+    def history(self, request, pk=None):
+        """Audit trail (old -> new scores) of a single grade."""
+        grade = self.get_object()
+        history = grade.history.select_related("graded_by").order_by("created_at")
+        return Response(
+            GradeHistorySerializer(history, many=True).data
         )

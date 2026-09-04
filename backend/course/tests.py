@@ -1,8 +1,11 @@
+from decimal import Decimal
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from assignments.models import Assignment
 from authentication.models import EventLog
 from course.models import (
     Course,
@@ -12,6 +15,7 @@ from course.models import (
     Status,
     Visibility,
 )
+from grading.models import Grade
 
 User = get_user_model()
 
@@ -592,3 +596,119 @@ class SuperuserIsolationTests(BaseCourseTestCase):
         actions = {log["action"] for log in activity}
         self.assertEqual(actions, {"impersonate", "update"})
         self.assertIn("created_at", activity[0])
+
+
+class ArchiveCourseTests(BaseCourseTestCase):
+    """Archived courses (``is_active=False``) are hidden from students but
+    stay visible to the teacher so they can be restored."""
+
+    def setUp(self):
+        super().setUp()
+        Enrollment.objects.create(
+            section=self.section,
+            student=self.student,
+            status=Status.APPROVED,
+        )
+        self.course.is_active = False
+        self.course.save()
+
+    def test_teacher_sees_own_archived_course(self):
+        self.client.force_authenticate(self.teacher)
+        response = self.client.get("/api/courses/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = {c["id"] for c in response.data["results"]}
+        self.assertIn(self.course.id, ids)
+
+    def test_student_detail_of_archived_course_returns_404(self):
+        self.client.force_authenticate(self.student)
+        response = self.client.get(f"/api/courses/{self.course.id}/")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_student_hides_archived_course_from_everywhere(self):
+        self.client.force_authenticate(self.student)
+
+        courses = self.client.get("/api/courses/")
+        self.assertEqual(courses.status_code, status.HTTP_200_OK)
+        self.assertNotIn(
+            self.course.id, {c["id"] for c in courses.data["results"]}
+        )
+
+        sections = self.client.get("/api/sections/")
+        self.assertEqual(sections.status_code, status.HTTP_200_OK)
+        self.assertNotIn(
+            self.section.id, {s["id"] for s in sections.data["results"]}
+        )
+
+        enrollments = self.client.get("/api/enrollments/")
+        self.assertEqual(enrollments.status_code, status.HTTP_200_OK)
+        self.assertEqual(enrollments.data["results"], [])
+
+        grades = self.client.get("/api/grades/")
+        self.assertEqual(grades.status_code, status.HTTP_200_OK)
+        self.assertEqual(grades.data["results"], [])
+
+        assignments = self.client.get("/api/assignments/")
+        self.assertEqual(assignments.status_code, status.HTTP_200_OK)
+        self.assertEqual(assignments.data["results"], [])
+
+    def test_dashboard_student_excludes_archived_course(self):
+        self.client.force_authenticate(self.student)
+        response = self.client.get("/api/dashboard/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["enrollments"], [])
+        self.assertEqual(response.data["grades"], [])
+        self.assertEqual(response.data["assignments"], [])
+
+    def test_teacher_can_restore_archived_course(self):
+        self.client.force_authenticate(self.teacher)
+        response = self.client.patch(
+            f"/api/courses/{self.course.id}/",
+            {"is_active": True},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        detail = self.client.get(f"/api/courses/{self.course.id}/")
+        self.assertTrue(detail.data["is_active"])
+
+
+class DashboardFinalScoreTests(BaseCourseTestCase):
+    """The student dashboard exposes the weighted final score per course."""
+
+    def setUp(self):
+        super().setUp()
+        self.assignment = Assignment.objects.create(
+            course=self.course,
+            title="Homework 1",
+            max_score="100.00",
+            is_published=True,
+        )
+        Enrollment.objects.create(
+            section=self.section,
+            student=self.student,
+            status=Status.APPROVED,
+        )
+        Grade.objects.create(
+            assignment=self.assignment,
+            student=self.student,
+            score=Decimal("80.00"),
+            graded_by=self.teacher,
+        )
+
+    def test_dashboard_includes_weighted_final_score_per_course(self):
+        self.client.force_authenticate(self.student)
+        response = self.client.get("/api/dashboard/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response.data["final_scores"],
+            {str(self.course.id): "80.00"},
+        )
+
+    def test_dashboard_assignment_payload_includes_weight(self):
+        self.client.force_authenticate(self.student)
+        response = self.client.get("/api/dashboard/")
+        assignment = next(
+            a for a in response.data["assignments"]
+            if a["id"] == self.assignment.id
+        )
+        self.assertIn("weight", assignment)
+        self.assertEqual(assignment["weight"], "1.00")

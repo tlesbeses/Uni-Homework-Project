@@ -10,7 +10,7 @@ from rest_framework import serializers
 
 from assignments.models import Assignment
 from course.models import Course, Enrollment, Status
-from grading.models import Grade
+from grading.models import Grade, GradeHistory
 from teams.models import Team
 
 User = get_user_model()
@@ -73,6 +73,24 @@ class GradeSerializer(serializers.ModelSerializer):
         if not self.context.get("show_grade_origin"):
             data.pop("is_individual", None)
         return data
+
+
+class GradeHistorySerializer(serializers.ModelSerializer):
+    """Read-only representation of a single grade change."""
+
+    graded_by = UserBriefSerializer(read_only=True)
+
+    class Meta:
+        model = GradeHistory
+        fields = [
+            "id",
+            "first_record",
+            "old_score",
+            "new_score",
+            "graded_by",
+            "created_at",
+        ]
+        read_only_fields = fields
 
 
 class GradeTeamSerializer(serializers.Serializer):

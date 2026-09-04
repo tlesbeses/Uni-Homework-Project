@@ -1,6 +1,6 @@
-"""Excel export of section grades.
+"""Excel and CSV export of section grades.
 
-Builds an ``.xlsx`` workbook in memory with this layout:
+Builds an ``.xlsx`` workbook or a UTF-8 ``.csv`` in memory with this layout:
 
     Curso:  <course title>
     Grupo:  <section name>
@@ -12,6 +12,7 @@ Only published assignments and approved enrollments are included; missing
 grades render as empty cells and ``Total`` sums the existing ones.
 """
 
+import csv
 import io
 
 from openpyxl import Workbook
@@ -43,8 +44,12 @@ def _student_label(enrollment) -> str:
     )
 
 
-def build_section_grades_workbook(*, section) -> bytes:
-    """Return the grades of ``section`` as an ``.xlsx`` byte string."""
+def _section_grades_data(*, section):
+    """Return the shared data behind every export format.
+
+    Returns ``(assignments, enrollments, scores_by_pair)`` where
+    ``scores_by_pair`` maps ``(student_id, assignment_id)`` to the score.
+    """
     assignments = list(
         Assignment.objects.filter(
             course=section.course,
@@ -72,6 +77,15 @@ def build_section_grades_workbook(*, section) -> bytes:
             scores_by_pair[(grade.student_id, grade.assignment_id)] = float(
                 grade.score
             )
+
+    return assignments, enrollments, scores_by_pair
+
+
+def build_section_grades_workbook(*, section) -> bytes:
+    """Return the grades of ``section`` as an ``.xlsx`` byte string."""
+    assignments, enrollments, scores_by_pair = _section_grades_data(
+        section=section
+    )
 
     workbook = Workbook()
     sheet = workbook.active
@@ -113,3 +127,36 @@ def build_section_grades_workbook(*, section) -> bytes:
     buffer = io.BytesIO()
     workbook.save(buffer)
     return buffer.getvalue()
+
+
+def build_section_grades_csv(*, section) -> bytes:
+    """Return the grades of ``section`` as UTF-8 CSV (with BOM).
+
+    The BOM makes Excel detect the UTF-8 encoding on Windows so accented
+    characters render correctly.
+    """
+    assignments, enrollments, scores_by_pair = _section_grades_data(
+        section=section
+    )
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(["Curso:", _sanitize(section.course.title)])
+    writer.writerow(["Grupo:", _sanitize(section.name)])
+    writer.writerow([])
+    writer.writerow(
+        ["Estudiante", *[_sanitize(a.title) for a in assignments], "Total"]
+    )
+
+    for enrollment in enrollments:
+        row = [_student_label(enrollment)]
+        total = 0.0
+        for assignment in assignments:
+            score = scores_by_pair.get((enrollment.student_id, assignment.id))
+            row.append(round(score, 2) if score is not None else "")
+            if score is not None:
+                total += score
+        row.append(round(total, 2))
+        writer.writerow(row)
+
+    return ("\ufeff" + buffer.getvalue()).encode("utf-8")

@@ -8,7 +8,9 @@ export const CourseCard = ({
   onDelete,
   onEdit,
   onEnroll,
+  onToggleActive,
   deleting,
+  togglingActive,
 }) => {
   const navigate = useNavigate();
   const teacherName = course.teacher
@@ -31,6 +33,14 @@ export const CourseCard = ({
             label: "Editar",
             onClick: () => onEdit(course),
             className: "text-indigo-600 hover:text-indigo-800",
+          },
+          {
+            label: course.is_active ? "Archivar" : "Restaurar",
+            onClick: () => onToggleActive?.(course),
+            disabled: togglingActive,
+            className: course.is_active
+              ? "text-amber-600 hover:text-amber-800"
+              : "text-emerald-600 hover:text-emerald-800",
           },
           {
             label: "Eliminar",
@@ -62,9 +72,16 @@ export const CourseCard = ({
           </h3>
           <p className="text-sm text-gray-500">Profesor: {teacherName}</p>
         </div>
-        <span className="text-xs font-medium uppercase tracking-wide px-2 py-1 rounded-full bg-indigo-50 text-indigo-600">
-          {course.visibility === "PUBLIC" ? "Público" : "Privado"}
-        </span>
+        <div className="flex flex-col items-end gap-1">
+          <span className="text-xs font-medium uppercase tracking-wide px-2 py-1 rounded-full bg-indigo-50 text-indigo-600">
+            {course.visibility === "PUBLIC" ? "Público" : "Privado"}
+          </span>
+          {course.is_active === false && (
+            <span className="text-xs font-medium uppercase tracking-wide px-2 py-1 rounded-full bg-gray-100 text-gray-500">
+              Archivado
+            </span>
+          )}
+        </div>
       </div>
 
       {course.description && (

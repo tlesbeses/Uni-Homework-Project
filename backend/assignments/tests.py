@@ -1,6 +1,7 @@
 """Tests for the assignments application."""
 
 from datetime import timedelta
+from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
@@ -300,6 +301,49 @@ class AssignmentWriteTests(AssignmentAPITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class AssignmentWeightTests(AssignmentAPITestCase):
+    """The weight field offsets the assignment in the final grade."""
+
+    def test_create_assignment_defaults_weight_to_one(self):
+        self.authenticate(self.teacher)
+        payload = self.assignment_payload()
+        response = self.client.post(
+            reverse("assignment-list"), payload, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["weight"], "1.00")
+
+    def test_create_assignment_accepts_custom_weight(self):
+        self.authenticate(self.teacher)
+        payload = self.assignment_payload(weight="2.50")
+        response = self.client.post(
+            reverse("assignment-list"), payload, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["weight"], "2.50")
+
+    def test_weight_must_be_positive(self):
+        self.authenticate(self.teacher)
+        for invalid in ("0", "-1"):
+            response = self.client.post(
+                reverse("assignment-list"),
+                self.assignment_payload(weight=invalid),
+                format="json",
+            )
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_patch_updates_weight(self):
+        self.authenticate(self.teacher)
+        response = self.client.patch(
+            reverse("assignment-detail", args=[self.assignment.id]),
+            {"weight": "3.00"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assignment.refresh_from_db()
+        self.assertEqual(self.assignment.weight, Decimal("3.00"))
 
 
 class SuperuserIsolationTests(AssignmentAPITestCase):

@@ -154,6 +154,10 @@ export const AssignmentsPage = () => {
                                                 {assignment.max_score}
                                             </span>
                                             <span>
+                                                Peso:{" "}
+                                                {assignment.weight ?? "1.00"}
+                                            </span>
+                                            <span>
                                                 Entrega:{" "}
                                                 {formatDateTime(
                                                     assignment.due_date

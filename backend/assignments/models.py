@@ -4,6 +4,8 @@ An Assignment belongs directly to a Course (never to a Team) and holds the
 course's activities/tasks. Deliveries and grading live outside this module.
 """
 
+from decimal import Decimal
+
 from django.db import models
 from django.db.models import Q
 
@@ -46,6 +48,16 @@ class Assignment(TimeStampedModel):
         help_text="Drafts are hidden from students until published.",
     )
 
+    weight = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("1.00"),
+        help_text=(
+            "Relative importance of the assignment in the final weighted "
+            "grade. A weight of 1 makes it count the same as the raw points."
+        ),
+    )
+
     class Meta:
         ordering = ["-created_at"]
 
@@ -58,6 +70,10 @@ class Assignment(TimeStampedModel):
             models.CheckConstraint(
                 condition=Q(max_score__gt=0),
                 name="assignments_assignment_max_score_gt_0",
+            ),
+            models.CheckConstraint(
+                condition=Q(weight__gt=0),
+                name="assignments_assignment_weight_gt_0",
             ),
         ]
 

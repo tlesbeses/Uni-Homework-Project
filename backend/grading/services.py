@@ -13,7 +13,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from authentication.models import EventLog
 from authentication.services import log_event
 from course.models import Enrollment, Status
-from grading.models import Grade
+from grading.models import Grade, GradeHistory
 
 
 def _validate_grade_params(assignment, score, graded_by):
@@ -92,6 +92,7 @@ def grade_team(
     now = timezone.now()
     grades_to_create = []
     grades_updated = 0
+    histories_to_create = []
     for member in members:
         if member.student_id not in approved_member_ids:
             continue
@@ -103,6 +104,7 @@ def grade_team(
         ):
             continue
         if grade is not None:
+            previous_score = grade.score
             grade.score = score
             grade.is_individual = False
             grade.graded_by = graded_by
@@ -111,6 +113,16 @@ def grade_team(
                 update_fields=["score", "is_individual", "graded_by", "updated_at"]
             )
             grades_updated += 1
+            histories_to_create.append(
+                GradeHistory(
+                    grade=grade,
+                    first_record=False,
+                    old_score=previous_score,
+                    new_score=score,
+                    graded_by=graded_by,
+                    created_at=now,
+                )
+            )
         else:
             grades_to_create.append(
                 Grade(
@@ -126,6 +138,20 @@ def grade_team(
 
     if grades_to_create:
         Grade.objects.bulk_create(grades_to_create)
+        histories_to_create.extend(
+            GradeHistory(
+                grade=grade,
+                first_record=True,
+                old_score=None,
+                new_score=grade.score,
+                graded_by=graded_by,
+                created_at=now,
+            )
+            for grade in grades_to_create
+        )
+
+    if histories_to_create:
+        GradeHistory.objects.bulk_create(histories_to_create)
 
     log_event(
         actor=graded_by,
@@ -171,7 +197,13 @@ def grade_student(*, assignment, student, score, graded_by):
             {"student": "This student is not an approved member of the course."}
         )
 
-    grade, _ = Grade.objects.update_or_create(
+    existing = Grade.objects.filter(
+        assignment=assignment,
+        student=student,
+    ).first()
+    old_score = existing.score if existing else None
+
+    grade, created = Grade.objects.update_or_create(
         assignment=assignment,
         student=student,
         defaults={
@@ -179,6 +211,14 @@ def grade_student(*, assignment, student, score, graded_by):
             "is_individual": True,
             "graded_by": graded_by,
         },
+    )
+
+    GradeHistory.objects.create(
+        grade=grade,
+        first_record=created,
+        old_score=old_score,
+        new_score=grade.score,
+        graded_by=graded_by,
     )
 
     log_event(

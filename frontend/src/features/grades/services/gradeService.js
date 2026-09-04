@@ -30,9 +30,25 @@ export const exportSectionGrades = async (sectionId) => {
     return response.data;
 };
 
+export const exportSectionGradesCsv = async (sectionId) => {
+    const response = await queryApi.get(
+        `/api/sections/${sectionId}/export-grades-csv/`,
+        { responseType: "blob" }
+    );
+    return response.data;
+};
+
 export const getSectionGradesReport = async (sectionId) => {
     const response = await queryApi.get(
         `/api/sections/${sectionId}/grades-report/`
+    );
+    return response.data;
+};
+
+export const getGradeHistory = async (gradeId, signal) => {
+    const response = await queryApi.get(
+        `/api/grades/${gradeId}/history/`,
+        { signal }
     );
     return response.data;
 };

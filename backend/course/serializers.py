@@ -268,4 +268,12 @@ class DashboardAssignmentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Assignment
-        fields = ["id", "title", "max_score", "course_id", "is_published", "created_at"]
+        fields = [
+            "id",
+            "title",
+            "max_score",
+            "weight",
+            "course_id",
+            "is_published",
+            "created_at",
+        ]

@@ -50,6 +50,7 @@ class TeamViewSet(viewsets.ModelViewSet):
         enrolled_sections = Enrollment.objects.filter(
             student=user,
             status=Status.APPROVED,
+            section__course__is_active=True,
         ).values("section_id")
 
         return queryset.filter(members__student=user, section_id__in=enrolled_sections,).distinct()

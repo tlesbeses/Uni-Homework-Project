@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/providers/AuthProvider";
 import { usePaginatedCourses } from "@/features/courses/hooks/usePaginatedCourses";
-import { useDeleteCourse } from "@/features/courses/hooks/useCourseMutations";
+import { useDeleteCourse, useToggleCourseActive } from "@/features/courses/hooks/useCourseMutations";
 import { CourseCard } from "@/features/courses/components/CourseCard";
 import { CreateCourseModal } from "@/features/courses/components/CreateCourseModal";
 import { EditCourseModal } from "@/features/courses/components/EditCourseModal";
@@ -28,8 +28,11 @@ export const CoursesPage = () => {
     const [deletingId, setDeletingId] = useState(null);
     const [editingCourse, setEditingCourse] = useState(null);
     const [pendingDelete, setPendingDelete] = useState(null);
+    const [pendingToggle, setPendingToggle] = useState(null);
+    const [togglingId, setTogglingId] = useState(null);
 
     const deleteMutation = useDeleteCourse();
+    const toggleActiveMutation = useToggleCourseActive();
 
     const confirmDelete = async () => {
         const courseId = pendingDelete;
@@ -39,6 +42,20 @@ export const CoursesPage = () => {
             await deleteMutation.mutateAsync(courseId);
         } finally {
             setDeletingId(null);
+        }
+    };
+
+    const confirmToggleActive = async () => {
+        const course = pendingToggle;
+        setPendingToggle(null);
+        setTogglingId(course.id);
+        try {
+            await toggleActiveMutation.mutateAsync({
+                courseId: course.id,
+                isActive: !course.is_active,
+            });
+        } finally {
+            setTogglingId(null);
         }
     };
 
@@ -87,7 +104,9 @@ export const CoursesPage = () => {
                         isStudent={isStudent}
                         onDelete={setPendingDelete}
                         onEdit={setEditingCourse}
+                        onToggleActive={setPendingToggle}
                         deleting={deletingId === course.id}
+                        togglingActive={togglingId === course.id}
                     />
                 ))}
             </div>
@@ -133,6 +152,20 @@ export const CoursesPage = () => {
                 onCancel={() => setPendingDelete(null)}
                 onConfirm={confirmDelete}
                 busy={Boolean(deletingId)}
+            />
+
+            <ConfirmModal
+                open={Boolean(pendingToggle)}
+                title={pendingToggle?.is_active ? "Archivar curso" : "Restaurar curso"}
+                description={
+                    pendingToggle?.is_active
+                        ? "Un curso archivado se oculta para los estudiantes. Puedes restaurarlo cuando quieras."
+                        : "El curso volverá a estar visible para los estudiantes."
+                }
+                confirmLabel={pendingToggle?.is_active ? "Archivar" : "Restaurar"}
+                onCancel={() => setPendingToggle(null)}
+                onConfirm={confirmToggleActive}
+                busy={Boolean(togglingId)}
             />
         </div>
     );

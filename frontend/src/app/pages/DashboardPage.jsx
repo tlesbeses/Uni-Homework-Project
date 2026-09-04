@@ -517,6 +517,7 @@ function StudentDashboard({ stats }) {
     const enrollments = stats.enrollments ?? [];
     const grades = stats.grades ?? [];
     const assignments = stats.assignments ?? [];
+    const finalScores = stats.final_scores ?? {};
 
     const approvedCourseIds = useMemo(
         () =>
@@ -525,6 +526,11 @@ function StudentDashboard({ stats }) {
                     .filter((e) => e.status === "APPROVED")
                     .map((e) => e.course_id)
             ),
+        [enrollments]
+    );
+
+    const approvedCourses = useMemo(
+        () => enrollments.filter((e) => e.status === "APPROVED"),
         [enrollments]
     );
 
@@ -588,6 +594,37 @@ function StudentDashboard({ stats }) {
                         }
                         color="amber"
                     />
+                </div>
+            </div>
+
+            <div>
+                <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-400 mb-3">
+                    Nota final por curso
+                </h2>
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 divide-y divide-gray-100">
+                    {approvedCourses.length === 0 && (
+                        <p className="px-5 py-8 text-center text-gray-400 text-sm">
+                            Aún no estás inscrito en ningún curso.
+                        </p>
+                    )}
+                    {approvedCourses.map((course) => {
+                        const final = finalScores[String(course.course_id)];
+                        return (
+                            <div
+                                key={course.course_id}
+                                className="flex items-center justify-between gap-4 px-5 py-3.5"
+                            >
+                                <p className="text-sm font-medium text-gray-800 truncate">
+                                    {course.course_title}
+                                </p>
+                                <span className="text-lg font-bold text-indigo-700 shrink-0">
+                                    {final !== undefined && final !== null
+                                        ? `${final}%`
+                                        : "—"}
+                                </span>
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
 
