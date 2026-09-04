@@ -15,7 +15,7 @@ También pondría específicamente **refresh token rotation + blacklist** y **sa
 | 🔴 Alta     | Seguridad       | Evitar información sensible en `localStorage`           | ✅ Implementado |
 | 🔴 Alta     | Seguridad       | CSRF                                                    | ✅ Implementado |
 | 🔴 Alta     | Seguridad       | CORS                                                    | ✅ Implementado |
-| 🔴 Alta     | Seguridad       | CSP                                                     | 🔍 Revisar      |
+| 🔴 Alta     | Seguridad       | CSP                                                     | ✅ Implementado |
 | 🔴 Alta     | Seguridad       | HSTS                                                    | ✅ Implementado |
 | 🔴 Alta     | Auditoría       | Log de cambios sensibles                                | 🚧 Parcial      |
 | 🔴 Alta     | Auditoría       | Registrar cambios de calificaciones                     | ✅ Implementado |
@@ -74,7 +74,7 @@ También pondría específicamente **refresh token rotation + blacklist** y **sa
 
 ### Notas de la auditoría (revisado contra el código)
 
-- **CSP** sigue en modo **Report-Only** (`middleware.py`/`settings.py`) — no bloquea XSS activamente. Falta pasar a modo bloqueo.
+- **CSP** en **modo bloqueo** (`Content-Security-Policy`, `config/middleware.py` + `settings.py`, activable por defecto; `CSP_APPLY=False` para desactivar, `CSP_REPORT_URI` para monitorizar además). Se omite en DEBUG. El hash `script-src` cubre el splash inline de `frontend/index.html`.
 - **Auditoría:** calificaciones y gradings quedan registrados en `EventLog`; impersonación también. **Falta** loggear cambios de cursos y de usuarios/roles.
 - **Historial de calificaciones:** solo existe el `EventLog` (cambios), no un historial con snapshots/versiones por nota.
 - **Exportar:** solo Excel `.xlsx` (openpyxl, con sanitización anti-inyección de fórmulas). No hay CSV ni PDF.

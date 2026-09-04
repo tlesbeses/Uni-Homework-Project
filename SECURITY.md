@@ -7,7 +7,7 @@ Resumen del estado y las acciones pendientes sobre la seguridad de la aplicació
 | # | Área | Tipo de cambio | ¿Toca infraestructura? | Estado | Acción |
 |---|------|----------------|------------------------|--------|--------|
 | 1 | **Polling cursos** | Frontend (TanStack `refetchInterval: 30s`, solo pestaña enfocada) | ❌ No | ✅ **Hecho** (commit `9d4470e` en `pollin-implementations`) | Listo |
-| 2 | **CSP en modo bloqueo** | Config Django | ❌ No | 🔴 Pendiente | Pasar de `Report-Only` a `Content-Security-Policy` real (afinar `script-src`, `style-src`, `connect-src`) |
+| 2 | **CSP en modo bloqueo** | Config Django | ❌ No | ✅ **Hecho** (`config/middleware.py` + `settings.py`, `CSP_APPLY` default True; omite en DEBUG) | `script-src` con hash del splash inline; `style-src 'unsafe-inline'`; `object-src 'none'`; `frame-ancestors 'none'` |
 | 3 | **Throttles por endpoint** | Código Django | ❌ No | 🔴 Pendiente | Throttle bajo para `impersonate`, `grade-student/team`, `admin/*` |
 | 4 | **Autorización por rol en cada GET** | Código Django | ❌ No | 🔴 Pendiente | Revisar que cursos/grades/dashboard devuelvan solo lo del rol |
 | 5 | **Validación server-side estricta** | Código Django | ❌ No | 🟠 Pendiente | Validar score, visibilidad, fechas en serializers |

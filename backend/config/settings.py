@@ -84,7 +84,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'config.middleware.CspReportOnlyMiddleware',
+    'config.middleware.CspMiddleware',
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -275,17 +275,39 @@ else:
         }
     }
 
-# CSP Report-Only: solo reporta violaciones, no bloquea.
-# Establecer CSP_REPORT_URI para activar (ej. https://tudominio.com/csp-report).
+# Content-Security-Policy en modo bloqueo.
+# - CSP_APPLY (default True): emite la cabecera Content-Security-Policy bloqueante.
+#   Desactivar solo si algo del frontend queda fuera de la política.
+# - CSP_REPORT_URI (opcional): emite ademas Content-Security-Policy-Report-Only
+#   con la misma politica para seguir monitoreando violaciones sin cortar nada.
+# El hash de script-src cubre el script inline del splash en frontend/index.html
+# (mismo hash en fuente y en el build; recalculado si ese script cambia).
+_CSP_APPLY = os.getenv("CSP_APPLY", "True").lower() in ("true", "1", "yes")
 _csp_report_uri = os.getenv("CSP_REPORT_URI")
-if _csp_report_uri:
-    CSP_REPORT_ONLY = (
+
+if _CSP_APPLY or _csp_report_uri:
+    _CSP_POLICY = (
         "default-src 'self'; "
-        "script-src 'self'; "
+        "script-src 'self' "
+        "'sha256-I8qldK+z9ZM3V9OY0e7rksCMQ7kY2AVpniYXb5gskFg='; "
         "style-src 'self' 'unsafe-inline'; "
         "img-src 'self' data:; "
-        f"report-uri {_csp_report_uri};"
+        "font-src 'self'; "
+        "connect-src 'self'; "
+        "object-src 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'; "
+        "frame-ancestors 'none'; "
     )
+    if not DEBUG:
+        _CSP_POLICY += "upgrade-insecure-requests; "
+    if _csp_report_uri:
+        _CSP_POLICY += f"report-uri {_csp_report_uri}; "
+
+    if _CSP_APPLY:
+        CSP = _CSP_POLICY
+    if _csp_report_uri:
+        CSP_REPORT_ONLY = _CSP_POLICY
 
 DJOSER = {
     'SERIALIZERS': {
