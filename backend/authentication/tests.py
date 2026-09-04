@@ -157,6 +157,28 @@ class AdminUserUpdateTests(BaseAdminTestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_is_active_string_false_rejected(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.patch(
+            f"/auth/admin/users/{self.student.id}/",
+            {"is_active": "false"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.student.refresh_from_db()
+        self.assertTrue(self.student.is_active)
+
+    def test_is_active_non_boolean_rejected(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.patch(
+            f"/auth/admin/users/{self.student.id}/",
+            {"is_active": "banana"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.student.refresh_from_db()
+        self.assertTrue(self.student.is_active)
+
 
 class ImpersonateTests(BaseAdminTestCase):
     def test_superuser_can_impersonate_student(self):

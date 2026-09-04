@@ -11,7 +11,7 @@ import { useCourses } from "@/features/courses/hooks/useCourses";
 import { getSections } from "@/features/courses/services/courseService";
 import {
     exportSectionGrades,
-    getSectionGradesReport,
+    exportSectionGradesCsv,
 } from "@/features/grades/services/gradeService";
 import { useGradeStudent } from "@/features/grades/hooks/useGradeMutations";
 import { downloadBlob } from "@/shared/utils/downloadBlob";
@@ -137,6 +137,7 @@ export const GradesReportPage = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [exporting, setExporting] = useState(false);
+    const [exportingCsv, setExportingCsv] = useState(false);
 
     const [search, setSearch] = useState("");
     const [orderBy, setOrderBy] = useState("last_name");
@@ -229,6 +230,23 @@ export const GradesReportPage = () => {
             toast.error(getErrorMessage(err));
         } finally {
             setExporting(false);
+        }
+    };
+
+    const handleExportCsv = async () => {
+        if (!sectionId) { return; }
+        setExportingCsv(true);
+        try {
+            const blob = await exportSectionGradesCsv(sectionId);
+            downloadBlob(
+                blob,
+                `notas_${report?.course ?? "curso"}_${report?.section ?? "grupo"}.csv`
+            );
+            toast.success("Notas exportadas a CSV.");
+        } catch (err) {
+            toast.error(getErrorMessage(err));
+        } finally {
+            setExportingCsv(false);
         }
     };
 
@@ -353,14 +371,24 @@ export const GradesReportPage = () => {
                                 {filteredStudents.length} estudiante{filteredStudents.length !== 1 ? "s" : ""}
                             </p>
                         </div>
-                        <button
-                            type="button"
-                            onClick={handleExport}
-                            disabled={exporting}
-                            className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition disabled:opacity-50"
-                        >
-                            {exporting ? "Exportando..." : "Descargar Excel"}
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={handleExportCsv}
+                                disabled={exportingCsv}
+                                className="px-4 py-2 text-sm font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition disabled:opacity-50"
+                            >
+                                {exportingCsv ? "Exportando..." : "Descargar CSV"}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleExport}
+                                disabled={exporting}
+                                className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition disabled:opacity-50"
+                            >
+                                {exporting ? "Exportando..." : "Descargar Excel"}
+                            </button>
+                        </div>
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-3">

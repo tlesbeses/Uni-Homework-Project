@@ -15,6 +15,7 @@ from authentication.serializers import (
     EventLogSerializer,
     ImpersonationLogSerializer,
 )
+from authentication.services import log_event
 from course.models import (
     Course,
     CourseSettings,
@@ -35,7 +36,11 @@ from course.serializers import (
 )
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import OrderingFilter, SearchFilter
-from grading.exports import build_section_grades_workbook
+from grading.exports import (
+    build_section_grades_csv,
+    build_section_grades_workbook,
+)
+from grading.final import final_grade_for_student
 from grading.models import Grade
 from teams.services import remove_student_from_course_teams
 from .filters import EnrollmentFilter, SectionFilter
@@ -66,7 +71,7 @@ class CourseViewSet(viewsets.ModelViewSet):
         )
         return queryset.filter(
             Q(visibility=Visibility.PUBLIC, is_active=True)
-            | Q(is_enrolled)
+            | (Q(is_enrolled) & Q(is_active=True))
         )
 
     def get_permissions(self):
@@ -81,7 +86,62 @@ class CourseViewSet(viewsets.ModelViewSet):
         return user.groups.filter(name="Teacher").exists()
 
     def perform_create(self, serializer):
-        serializer.save(teacher=self.request.user)
+        course = serializer.save(teacher=self.request.user)
+        log_event(
+            actor=self.request.user,
+            action=EventLog.ACTION_CREATE,
+            entity_type="course",
+            entity_id=course.id,
+            metadata={
+                "title": course.title,
+                "visibility": course.visibility,
+                "is_active": course.is_active,
+                "teacher_id": course.teacher_id,
+            },
+        )
+
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        before = {
+            "title": instance.title,
+            "description": instance.description,
+            "visibility": instance.visibility,
+            "is_active": instance.is_active,
+        }
+        course = serializer.save()
+        changes = {}
+        after = {
+            "title": course.title,
+            "description": course.description,
+            "visibility": course.visibility,
+            "is_active": course.is_active,
+        }
+        for field in before:
+            if before[field] != after[field]:
+                changes[field] = {"from": before[field], "to": after[field]}
+        log_event(
+            actor=self.request.user,
+            action=EventLog.ACTION_UPDATE,
+            entity_type="course",
+            entity_id=course.id,
+            metadata={
+                "changes": changes if changes else None,
+                "visibility": course.visibility,
+                "is_active": course.is_active,
+            },
+        )
+
+    def perform_destroy(self, instance):
+        course_id = instance.pk
+        title = instance.title
+        instance.delete()
+        log_event(
+            actor=self.request.user,
+            action=EventLog.ACTION_DELETE,
+            entity_type="course",
+            entity_id=course_id,
+            metadata={"title": title},
+        )
 
     @action(detail=True, methods=["get"])
     def sections(self, request, pk=None):
@@ -238,13 +298,27 @@ class CourseViewSet(viewsets.ModelViewSet):
         course_settings, _ = CourseSettings.objects.get_or_create(course=course)
 
         if request.method == "PATCH":
+            auto_accept_before = course_settings.auto_accept_students
             serializer = CourseSettingsSerializer(
                 course_settings,
                 data=request.data,
                 partial=True,
             )
             serializer.is_valid(raise_exception=True)
-            serializer.save()
+            saved = serializer.save()
+            log_event(
+                actor=request.user,
+                action=EventLog.ACTION_UPDATE,
+                entity_type="course_settings",
+                entity_id=course_settings.course_id,
+                metadata={
+                    "course_id": course.id,
+                    "auto_accept_students": {
+                        "from": auto_accept_before,
+                        "to": saved.auto_accept_students,
+                    },
+                },
+            )
         else:
             serializer = CourseSettingsSerializer(course_settings)
         return Response(serializer.data)
@@ -332,6 +406,7 @@ class DashboardView(APIView):
     def _student_dashboard(self, user):
         enrollments = Enrollment.objects.filter(
             student=user,
+            section__course__is_active=True,
         ).select_related("section__course")
 
         grades = Grade.objects.select_related(
@@ -340,20 +415,39 @@ class DashboardView(APIView):
             student=user,
             assignment__course__sections__enrollments__student=user,
             assignment__course__sections__enrollments__status=Status.APPROVED,
+            assignment__course__is_active=True,
             assignment__is_published=True,
         ).distinct()
 
         assignments = Assignment.objects.select_related("course").filter(
             course__sections__enrollments__student=user,
             course__sections__enrollments__status=Status.APPROVED,
+            course__is_active=True,
             is_published=True,
         ).distinct()
+
+        course_ids = {e.section.course_id for e in enrollments}
+        courses = {
+            course.id: course
+            for course in Course.objects.filter(id__in=course_ids)
+        }
+        final_scores = {
+            str(course_id): (
+                str(score) if score is not None else None
+            )
+            for course_id, course in courses.items()
+            for score in [final_grade_for_student(
+                course=course,
+                student=user,
+            )]
+        }
 
         return Response({
             "type": "student",
             "enrollments": DashboardEnrollmentSerializer(enrollments, many=True).data,
             "grades": DashboardGradeSerializer(grades, many=True).data,
             "assignments": DashboardAssignmentSerializer(assignments, many=True).data,
+            "final_scores": final_scores,
         })
 
 
@@ -395,7 +489,7 @@ class SectionViewSet(viewsets.ModelViewSet):
         )
         return queryset.filter(
             Q(course__visibility=Visibility.PUBLIC, course__is_active=True)
-            | Q(is_enrolled)
+            | (Q(is_enrolled) & Q(course__is_active=True))
         )
 
     def get_permissions(self):
@@ -405,6 +499,7 @@ class SectionViewSet(viewsets.ModelViewSet):
             "partial_update",
             "destroy",
             "export_grades",
+            "export_grades_csv",
             "grades_report",
         ):
             return [IsAuthenticated(), IsCourseTeacherOfSection()]
@@ -423,6 +518,17 @@ class SectionViewSet(viewsets.ModelViewSet):
         )
         response["Content-Disposition"] = (
             f'attachment; filename="notas_{section.course.id}_{section.id}.xlsx"'
+        )
+        return response
+
+    @action(detail=True, methods=["get"], url_path="export-grades-csv")
+    def export_grades_csv(self, request, pk=None):
+        """Download the grades of the section as a CSV file."""
+        section = self.get_object()
+        content = build_section_grades_csv(section=section)
+        response = HttpResponse(content, content_type="text/csv; charset=utf-8")
+        response["Content-Disposition"] = (
+            f'attachment; filename="notas_{section.course.id}_{section.id}.csv"'
         )
         return response
 
@@ -527,7 +633,10 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
 
         if user.groups.filter(name="Teacher").exists():
             return queryset.filter(section__course__teacher=user)
-        return queryset.filter(student=user)
+        return queryset.filter(
+            student=user,
+            section__course__is_active=True,
+        )
 
     def get_permissions(self):
         if self.action in ("approve", "reject"):
@@ -582,7 +691,23 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                     student=instance.student,
                     course=instance.section.course,
                 )
+            course_id = instance.section.course_id
+            student_id = instance.student_id
+            status_before = instance.status
+            enrollment_id = instance.pk
             instance.delete()
+        log_event(
+            actor=self.request.user,
+            action=EventLog.ACTION_DELETE,
+            entity_type="enrollment",
+            entity_id=enrollment_id,
+            target=instance.student,
+            metadata={
+                "course_id": course_id,
+                "student_id": student_id,
+                "status": status_before,
+            },
+        )
 
     @action(detail=True, methods=["post"])
     def approve(self, request, pk=None):
@@ -596,6 +721,19 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
 
         enrollment.status = Status.APPROVED
         enrollment.save()
+
+        log_event(
+            actor=request.user,
+            action=EventLog.ACTION_UPDATE,
+            entity_type="enrollment",
+            entity_id=enrollment.pk,
+            target=enrollment.student,
+            metadata={
+                "course_id": enrollment.section.course_id,
+                "student_id": enrollment.student_id,
+                "status": enrollment.status,
+            },
+        )
 
         serializer = EnrollmentSerializer(
             enrollment,
@@ -624,6 +762,19 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             enrollment.status = Status.REJECTED
             enrollment.approved_at = None
             enrollment.save()
+
+        log_event(
+            actor=request.user,
+            action=EventLog.ACTION_UPDATE,
+            entity_type="enrollment",
+            entity_id=enrollment.pk,
+            target=enrollment.student,
+            metadata={
+                "course_id": enrollment.section.course_id,
+                "student_id": enrollment.student_id,
+                "status": enrollment.status,
+            },
+        )
 
         serializer = EnrollmentSerializer(
             enrollment,

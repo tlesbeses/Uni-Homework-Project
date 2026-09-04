@@ -90,3 +90,59 @@ class Grade(TimeStampedModel):
 
     def __str__(self):
         return f"{self.student} - {self.assignment}: {self.score}"
+
+
+class GradeHistory(TimeStampedModel):
+    """Audit trail of the changes applied to a Grade.
+
+    One row per change: creation (``first_record=True``, ``old_score`` is
+    None) and every later score update. It is written only by the grading
+    service layer, never through the API, so it double-checks nothing here.
+    """
+
+    grade = models.ForeignKey(
+        Grade,
+        on_delete=models.CASCADE,
+        related_name="history",
+        help_text="The grade that was changed.",
+    )
+
+    first_record = models.BooleanField(
+        default=False,
+        help_text="True when this change created the grade for the first time.",
+    )
+
+    old_score = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Score before the change; None on the first record.",
+    )
+
+    new_score = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        help_text="Score after the change.",
+    )
+
+    graded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="registered_grade_changes",
+        help_text="The teacher that registered the change.",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["grade"]),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.grade.student_id} - {self.grade.assignment_id}: "
+            f"{self.old_score} -> {self.new_score}"
+        )

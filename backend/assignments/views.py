@@ -24,6 +24,7 @@ def get_assignments_for_user(user):
     return queryset.filter(
         course__sections__enrollments__student=user,
         course__sections__enrollments__status=Status.APPROVED,
+        course__is_active=True,
         is_published=True,
     ).distinct()
 

@@ -24,11 +24,20 @@ from .serializers import (
     LoginSerializer,
 )
 from .services import log_event
-from .throttle import AuthThrottle, LoginThrottle
+from .throttle import AdminThrottle, AuthThrottle, LoginThrottle
 from authentication.models import EventLog, User
 
 REFRESH_COOKIE_NAME = "refresh_token"
 REFRESH_COOKIE_PATH = "/auth/"
+
+
+def _get_user_role(user):
+    """Nombre del grupo de rol de un usuario, o None si no tiene rol."""
+    if user.groups.filter(name="Teacher").exists():
+        return "Teacher"
+    if user.groups.filter(name="Student").exists():
+        return "Student"
+    return None
 
 
 def _set_refresh_cookie(response, token):
@@ -148,6 +157,7 @@ class AdminUserViewSet(viewsets.ModelViewSet):
     filter_backends = [SearchFilter]
     search_fields = ["username", "email", "first_name", "last_name"]
     http_method_names = ["get", "patch", "head", "options"]
+    throttle_classes = [AdminThrottle]
 
     def get_queryset(self):
         qs = User.objects.prefetch_related("groups")
@@ -164,8 +174,16 @@ class AdminUserViewSet(viewsets.ModelViewSet):
                 "No se puede modificar una cuenta de superusuario."
             )
 
+        is_active_before = instance.is_active
+        role_before = _get_user_role(instance)
+
         if "is_active" in request.data:
-            instance.is_active = bool(request.data["is_active"])
+            value = request.data["is_active"]
+            if not isinstance(value, bool):
+                raise ValidationError(
+                    {"is_active": "Este campo debe ser un booleano."}
+                )
+            instance.is_active = value
 
         role = request.data.get("role")
         if role is not None:
@@ -183,6 +201,27 @@ class AdminUserViewSet(viewsets.ModelViewSet):
                 instance.groups.add(student_group)
 
         instance.save()
+
+        changes = {}
+        if instance.is_active != is_active_before:
+            changes["is_active"] = {
+                "from": is_active_before,
+                "to": instance.is_active,
+            }
+        role_after = _get_user_role(instance)
+        if role_after != role_before:
+            changes["role"] = {"from": role_before, "to": role_after}
+
+        if changes:
+            log_event(
+                actor=request.user,
+                action=EventLog.ACTION_UPDATE,
+                entity_type="user",
+                entity_id=instance.id,
+                target=instance,
+                metadata={"changes": changes},
+            )
+
         return Response(AdminUserSerializer(instance).data)
 
 
@@ -195,6 +234,7 @@ class ImpersonateView(APIView):
     """
 
     permission_classes = [IsSuperuser]
+    throttle_classes = [AdminThrottle]
 
     def post(self, request):
         user_id = request.data.get("user_id")
@@ -245,6 +285,7 @@ class AdminActivityView(APIView):
 
     permission_classes = [IsSuperuser]
     pagination_class = ActivityPagination
+    throttle_classes = [AdminThrottle]
 
     def get(self, request):
         qs = EventLog.objects.select_related("actor", "target")

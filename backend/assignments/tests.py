@@ -1,8 +1,12 @@
 """Tests for the assignments application."""
 
+from datetime import timedelta
+from decimal import Decimal
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -142,6 +146,19 @@ class AssignmentCreateTests(AssignmentAPITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_due_date_in_past_rejected_on_create(self):
+        self.authenticate(self.teacher)
+
+        response = self.client.post(
+            reverse("assignment-list"),
+            self.assignment_payload(
+                due_date=(timezone.now() - timedelta(days=1)).isoformat()
+            ),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_assignment_belongs_to_course_via_related_name(self):
         assignment = Assignment.objects.create(
             course=self.course,
@@ -233,6 +250,17 @@ class AssignmentWriteTests(AssignmentAPITestCase):
         self.assignment.refresh_from_db()
         self.assertEqual(self.assignment.title, "Homework 1 Revised")
 
+    def test_past_due_date_allowed_on_update(self):
+        self.authenticate(self.teacher)
+
+        response = self.client.patch(
+            reverse("assignment-detail", args=[self.assignment.id]),
+            {"due_date": (timezone.now() - timedelta(days=1)).isoformat()},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
     def test_other_teacher_cannot_edit_assignment(self):
         self.authenticate(self.other_teacher)
 
@@ -273,6 +301,49 @@ class AssignmentWriteTests(AssignmentAPITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class AssignmentWeightTests(AssignmentAPITestCase):
+    """The weight field offsets the assignment in the final grade."""
+
+    def test_create_assignment_defaults_weight_to_one(self):
+        self.authenticate(self.teacher)
+        payload = self.assignment_payload()
+        response = self.client.post(
+            reverse("assignment-list"), payload, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["weight"], "1.00")
+
+    def test_create_assignment_accepts_custom_weight(self):
+        self.authenticate(self.teacher)
+        payload = self.assignment_payload(weight="2.50")
+        response = self.client.post(
+            reverse("assignment-list"), payload, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["weight"], "2.50")
+
+    def test_weight_must_be_positive(self):
+        self.authenticate(self.teacher)
+        for invalid in ("0", "-1"):
+            response = self.client.post(
+                reverse("assignment-list"),
+                self.assignment_payload(weight=invalid),
+                format="json",
+            )
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_patch_updates_weight(self):
+        self.authenticate(self.teacher)
+        response = self.client.patch(
+            reverse("assignment-detail", args=[self.assignment.id]),
+            {"weight": "3.00"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assignment.refresh_from_db()
+        self.assertEqual(self.assignment.weight, Decimal("3.00"))
 
 
 class SuperuserIsolationTests(AssignmentAPITestCase):

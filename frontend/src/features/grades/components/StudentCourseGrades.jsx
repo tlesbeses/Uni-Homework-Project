@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useGrades } from "@/features/grades/hooks/useGrades";
+import { useDashboard } from "@/features/courses/hooks/useDashboard";
 
 const formatPoints = (value) => String(Number(value.toFixed(2)));
 
@@ -26,6 +27,8 @@ const GradeRow = ({ grade }) => (
 
 export const StudentCourseGrades = () => {
     const { grades, loading, error } = useGrades();
+    const { stats: dashboard } = useDashboard();
+    const finalScores = dashboard?.final_scores ?? {};
     const [expandedKey, setExpandedKey] = useState(null);
 
     const groups = useMemo(() => {
@@ -122,6 +125,16 @@ export const StudentCourseGrades = () => {
                                         / {formatPoints(group.totalMax)} pts
                                     </span>
                                 </span>
+                                {finalScores[`${group.course.id}`] !==
+                                    undefined &&
+                                    finalScores[`${group.course.id}`] !==
+                                        null && (
+                                        <span className="block text-[11px] font-semibold text-emerald-600 mt-0.5">
+                                            Nota final:{" "}
+                                            {finalScores[`${group.course.id}`]}
+                                            %
+                                        </span>
+                                    )}
                                 <span className="block text-[11px] text-gray-400 mt-0.5">
                                     Suma de tus notas
                                     {isOpen ? " ▲" : " ▼"}

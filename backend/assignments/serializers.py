@@ -1,5 +1,6 @@
 """Serializers for the assignments application."""
 
+from django.utils import timezone
 from rest_framework import serializers
 
 from assignments.models import Assignment
@@ -35,6 +36,7 @@ class AssignmentSerializer(serializers.ModelSerializer):
             "title",
             "description",
             "max_score",
+            "weight",
             "due_date",
             "is_published",
             "created_at",
@@ -62,5 +64,30 @@ class AssignmentSerializer(serializers.ModelSerializer):
         if value <= 0:
             raise serializers.ValidationError(
                 "max_score must be greater than 0."
+            )
+        return value
+
+    def validate_weight(self, value):
+        if value <= 0:
+            raise serializers.ValidationError(
+                "weight must be greater than 0."
+            )
+        return value
+
+    def validate_due_date(self, value):
+        """Reject past deadlines only when the assignment is first created.
+
+        On updates the value may legitimately already have passed (e.g. when
+        editing an overdue assignment), so only the create path is checked.
+        """
+        if value is None or self.instance is not None:
+            return value
+        if timezone.is_naive(value):
+            value = timezone.make_aware(
+                value, timezone.get_current_timezone()
+            )
+        if value < timezone.now():
+            raise serializers.ValidationError(
+                "The due date cannot be in the past."
             )
         return value

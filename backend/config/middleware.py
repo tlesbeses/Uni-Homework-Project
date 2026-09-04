@@ -1,11 +1,12 @@
 from django.conf import settings
 
 
-class CspReportOnlyMiddleware:
-    """Agrega Content-Security-Policy-Report-Only en producción.
+class CspMiddleware:
+    """Aplica Content-Security-Policy en modo bloqueo en producción.
 
-    Solo reporta violaciones (no bloquea). Usar CSP_REPORT_URI para enviar
-    reportes a un endpoint externo o interno.
+    Emite la cabecera Content-Security-Policy a partir de settings.CSP y,
+    opcionalmente, Content-Security-Policy-Report-Only a partir de
+    settings.CSP_REPORT_ONLY para monitorear violaciones. Se omite en DEBUG.
     """
 
     def __init__(self, get_response):
@@ -17,8 +18,12 @@ class CspReportOnlyMiddleware:
         if settings.DEBUG:
             return response
 
-        csp = getattr(settings, "CSP_REPORT_ONLY", None)
+        csp = getattr(settings, "CSP", None)
         if csp:
-            response["Content-Security-Policy-Report-Only"] = csp
+            response["Content-Security-Policy"] = csp
+
+        report_only = getattr(settings, "CSP_REPORT_ONLY", None)
+        if report_only:
+            response["Content-Security-Policy-Report-Only"] = report_only
 
         return response

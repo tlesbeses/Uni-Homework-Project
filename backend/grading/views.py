@@ -2,16 +2,19 @@
 
 from django.shortcuts import get_object_or_404
 from rest_framework import status, viewsets
+from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from assignments.models import Assignment
+from authentication.throttle import GradeThrottle
 from course.models import Status
 from grading.models import Grade
 from grading.permissions import IsCourseTeacherOfAssignment
 from grading.serializers import (
+    GradeHistorySerializer,
     GradeSerializer,
     GradeStudentSerializer,
     GradeTeamSerializer,
@@ -35,6 +38,7 @@ class GradeTeamView(APIView):
     """Grade all members of a team with the same score."""
 
     permission_classes = [IsAuthenticated]
+    throttle_classes = [GradeThrottle]
 
     def post(self, request, assignment_id):
         assignment = _get_gradeable_assignment(request, assignment_id)
@@ -64,6 +68,7 @@ class GradeStudentView(APIView):
     """Create or update the individual grade of a single student."""
 
     permission_classes = [IsAuthenticated]
+    throttle_classes = [GradeThrottle]
 
     def post(self, request, assignment_id):
         assignment = _get_gradeable_assignment(request, assignment_id)
@@ -130,7 +135,17 @@ class GradeViewSet(viewsets.ReadOnlyModelViewSet):
                 student=user,
                 assignment__course__sections__enrollments__student=user,
                 assignment__course__sections__enrollments__status=Status.APPROVED,
+                assignment__course__is_active=True,
                 assignment__is_published=True,
             )
             .distinct()
+        )
+
+    @action(detail=True, methods=["get"])
+    def history(self, request, pk=None):
+        """Audit trail (old -> new scores) of a single grade."""
+        grade = self.get_object()
+        history = grade.history.select_related("graded_by").order_by("created_at")
+        return Response(
+            GradeHistorySerializer(history, many=True).data
         )

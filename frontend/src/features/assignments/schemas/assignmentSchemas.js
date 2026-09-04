@@ -9,6 +9,10 @@ export const assignmentFormSchema = z.object({
     max_score: z.coerce
         .number()
         .positive("La nota máxima debe ser mayor a 0"),
+    weight: z.coerce
+        .number()
+        .positive("El peso debe ser mayor a 0")
+        .optional(),
     due_date: z.string().optional(),
     is_published: z.boolean(),
 });

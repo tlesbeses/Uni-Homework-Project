@@ -3,8 +3,9 @@
 Covers the 16 core business rules of the grading module.
 """
 
+import csv
 from decimal import Decimal
-from io import BytesIO
+from io import BytesIO, StringIO
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
@@ -17,6 +18,7 @@ from rest_framework.test import APITestCase
 from assignments.models import Assignment
 from authentication.models import EventLog
 from course.models import Course, Enrollment, Section, Status
+from grading.final import final_grade_for_student
 from grading.models import Grade
 from teams.models import Team, TeamMember
 
@@ -514,6 +516,90 @@ class GradeValidationTests(GradingAPITestCase):
         )
 
 
+class GradeHistoryTests(GradingAPITestCase):
+    """GradeHistory records every score change and is exposed read-only."""
+
+    def history_url(self, grade_id):
+        return reverse("grade-history", kwargs={"pk": grade_id})
+
+    def test_team_grade_creates_history_with_first_record(self):
+        self.grade_team(self.assignment, self.team, "95.00", self.teacher)
+        for student in (self.student, self.student2):
+            grade = Grade.objects.get(assignment=self.assignment, student=student)
+            entry = grade.history.get()
+            self.assertTrue(entry.first_record)
+            self.assertIsNone(entry.old_score)
+            self.assertEqual(entry.new_score, Decimal("95.00"))
+            self.assertEqual(entry.graded_by, self.teacher)
+
+    def test_regrade_records_old_and_new_score(self):
+        self.grade_team(self.assignment, self.team, "95.00", self.teacher)
+        self.grade_team(self.assignment, self.team, "80.00", self.teacher)
+        grade = Grade.objects.get(assignment=self.assignment, student=self.student)
+        entries = list(grade.history.order_by("created_at"))
+        self.assertEqual(len(entries), 2)
+        self.assertTrue(entries[0].first_record)
+        self.assertEqual(entries[1].old_score, Decimal("95.00"))
+        self.assertEqual(entries[1].new_score, Decimal("80.00"))
+        self.assertEqual(grade.score, Decimal("80.00"))
+
+    def test_individual_grade_keeps_history_and_skips_team_regrades(self):
+        self.grade_student(self.assignment, self.student, "70.00", self.teacher)
+        grade = Grade.objects.get(assignment=self.assignment, student=self.student)
+        first = grade.history.get()
+        self.assertTrue(first.first_record)
+
+        self.grade_team(self.assignment, self.team, "50.00", self.teacher)
+        grade.refresh_from_db()
+        self.assertEqual(grade.score, Decimal("70.00"))
+        self.assertEqual(grade.history.count(), 1)
+        other = Grade.objects.get(assignment=self.assignment, student=self.student2)
+        self.assertEqual(other.score, Decimal("50.00"))
+        self.assertEqual(other.history.count(), 1)
+
+        self.grade_student(self.assignment, self.student, "60.00", self.teacher)
+        entries = list(grade.history.order_by("created_at"))
+        self.assertEqual(len(entries), 2)
+        self.assertEqual(entries[1].old_score, Decimal("70.00"))
+        self.assertEqual(entries[1].new_score, Decimal("60.00"))
+
+    def test_teacher_reads_history(self):
+        self.grade_team(self.assignment, self.team, "95.00", self.teacher)
+        grade = Grade.objects.get(assignment=self.assignment, student=self.student)
+        self.authenticate(self.teacher)
+        response = self.client.get(self.history_url(grade.id))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        entry = response.data[0]
+        self.assertEqual(entry["first_record"], True)
+        self.assertIsNone(entry["old_score"])
+        self.assertEqual(entry["new_score"], "95.00")
+        self.assertEqual(entry["graded_by"]["username"], "teacher")
+        self.assertIn("created_at", entry)
+
+    def test_student_can_read_own_grade_history(self):
+        self.grade_team(self.assignment, self.team, "95.00", self.teacher)
+        grade = Grade.objects.get(assignment=self.assignment, student=self.student)
+        self.authenticate(self.student)
+        response = self.client.get(self.history_url(grade.id))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+
+    def test_other_student_cannot_read_foreign_history(self):
+        self.grade_team(self.assignment, self.team, "95.00", self.teacher)
+        grade = Grade.objects.get(assignment=self.assignment, student=self.student)
+        self.authenticate(self.student2)
+        response = self.client.get(self.history_url(grade.id))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_other_teacher_cannot_read_history(self):
+        self.grade_team(self.assignment, self.team, "95.00", self.teacher)
+        grade = Grade.objects.get(assignment=self.assignment, student=self.student)
+        self.authenticate(self.other_teacher)
+        response = self.client.get(self.history_url(grade.id))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
 class SectionGradesExportTests(GradingAPITestCase):
     """GET /api/sections/{id}/export-grades/ (Excel workbook download)."""
 
@@ -526,6 +612,11 @@ class SectionGradesExportTests(GradingAPITestCase):
     def export_url(self) -> str:
         return reverse(
             "section-export-grades", kwargs={"pk": self.section.id}
+        )
+
+    def export_csv_url(self) -> str:
+        return reverse(
+            "section-export-grades-csv", kwargs={"pk": self.section.id}
         )
 
     def test_teacher_downloads_workbook_with_expected_layout(self):
@@ -595,6 +686,141 @@ class SectionGradesExportTests(GradingAPITestCase):
         response = self.client.get(self.export_url())
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_teacher_downloads_csv_with_expected_layout(self):
+        self.grade_team(self.assignment, self.team, "95.00", self.teacher)
+        self.grade_student(self.assignment, self.ungraded_student, "20.00", self.teacher)
+        self.enroll(self.unapproved_student, self.course)
+        Enrollment.objects.filter(student=self.unapproved_student).update(
+            status=Status.PENDING
+        )
+
+        self.authenticate(self.teacher)
+        response = self.client.get(self.export_csv_url())
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("text/csv", response["Content-Type"])
+        self.assertIn("attachment", response["Content-Disposition"])
+        self.assertTrue(response.content.startswith(b"\xef\xbb\xbf"))
+
+        text = response.content.decode("utf-8-sig")
+        rows = list(csv.reader(StringIO(text)))
+        self.assertEqual(rows[0], ["Curso:", "Math 101"])
+        self.assertEqual(rows[1], ["Grupo:", "Default"])
+        self.assertEqual(rows[3], ["Estudiante", "Homework 1", "Total"])
+        by_student = {row[0]: row for row in rows[4:]}
+        self.assertEqual(by_student[self.student.username][1], "95.0")
+        self.assertEqual(by_student[self.student.username][2], "95.0")
+        self.assertEqual(by_student[self.ungraded_student.username][1], "20.0")
+        self.assertEqual(by_student[self.ungraded_student.username][2], "20.0")
+        self.assertNotIn(self.unapproved_student.username, by_student)
+
+    def test_csv_has_empty_cell_and_zero_total_for_ungraded_student(self):
+        self.grade_team(self.assignment, self.team, "95.00", self.teacher)
+
+        self.authenticate(self.teacher)
+        response = self.client.get(self.export_csv_url())
+
+        text = response.content.decode("utf-8-sig")
+        rows = list(csv.reader(StringIO(text)))
+        by_student = {row[0]: row for row in rows[4:]}
+        ungraded_row = by_student[self.ungraded_student.username]
+        self.assertEqual(ungraded_row[1], "")
+        self.assertEqual(ungraded_row[2], "0.0")
+
+    def test_csv_sanitizes_formula_like_titles(self):
+        Assignment.objects.create(
+            course=self.course,
+            title="=SUM(A1:A9)",
+            max_score="50.00",
+            is_published=True,
+        )
+
+        self.authenticate(self.teacher)
+        response = self.client.get(self.export_csv_url())
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        text = response.content.decode("utf-8-sig")
+        self.assertIn("'=SUM(A1:A9)", text)
+
+    def test_other_teacher_cannot_export_csv(self):
+        self.authenticate(self.other_teacher)
+        response = self.client.get(self.export_csv_url())
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_student_cannot_export_csv(self):
+        self.authenticate(self.student)
+        response = self.client.get(self.export_csv_url())
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+class WeightedFinalGradeTests(GradingAPITestCase):
+    """final_grade_for_student computes the weighted average of a course."""
+
+    def test_single_assignment_maps_to_percentage(self):
+        self.grade_student(self.assignment, self.student, "80.00", self.teacher)
+        final = final_grade_for_student(
+            course=self.course, student=self.student
+        )
+        self.assertEqual(final, Decimal("80.00"))
+
+    def test_weighted_average_across_assignments(self):
+        second = Assignment.objects.create(
+            course=self.course,
+            title="Exam",
+            max_score="100.00",
+            weight="2.00",
+            is_published=True,
+        )
+        self.grade_student(self.assignment, self.student, "100.00", self.teacher)
+        self.grade_student(second, self.student, "50.00", self.teacher)
+        final = final_grade_for_student(
+            course=self.course, student=self.student
+        )
+        self.assertEqual(final, Decimal("66.67"))
+
+    def test_ungraded_assignment_counts_as_zero(self):
+        Assignment.objects.create(
+            course=self.course,
+            title="Homework 2",
+            max_score="100.00",
+            is_published=True,
+        )
+        self.grade_student(self.assignment, self.student, "100.00", self.teacher)
+        final = final_grade_for_student(
+            course=self.course, student=self.student
+        )
+        self.assertEqual(final, Decimal("50.00"))
+
+    def test_draft_assignments_are_excluded(self):
+        self.grade_student(self.assignment, self.student, "100.00", self.teacher)
+        Assignment.objects.create(
+            course=self.course,
+            title="Draft",
+            max_score="100.00",
+            is_published=False,
+        )
+        final = final_grade_for_student(
+            course=self.course, student=self.student
+        )
+        self.assertEqual(final, Decimal("100.00"))
+
+    def test_no_published_assignments_yields_none(self):
+        Assignment.objects.all().delete()
+        self.assertIsNone(
+            final_grade_for_student(course=self.course, student=self.student)
+        )
+
+    def test_grade_outside_the_course_is_ignored(self):
+        self.grade_student(self.assignment, self.student, "100.00", self.teacher)
+        # The final grade of the other course only reflects its own
+        # assignments: the 100 in Math 101 must not leak into Physics.
+        self.assertEqual(
+            final_grade_for_student(course=self.other_course, student=self.student),
+            Decimal("0.00"),
+        )
+
 
 class SuperuserIsolationTests(GradingAPITestCase):
     """The superuser has no special powers in the regular grading views."""

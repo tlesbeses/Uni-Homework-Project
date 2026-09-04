@@ -11,6 +11,7 @@ import {
     useGradeTeam,
 } from "@/features/grades/hooks/useGradeMutations";
 import { getTeams } from "@/features/teams/services/teamService";
+import { getGradeHistory } from "@/features/grades/services/gradeService";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 
 const DOT_COLORS = [
@@ -60,6 +61,10 @@ export const TeacherGradingPanel = () => {
     const [savingKey, setSavingKey] = useState(null);
     const inFlightRef = useRef(new Set());
     const detailRef = useRef(null);
+    const [historyGrade, setHistoryGrade] = useState(null);
+    const [historyStudent, setHistoryStudent] = useState(null);
+    const [history, setHistory] = useState(null);
+    const [historyLoading, setHistoryLoading] = useState(false);
 
     const selectedAssignment = assignments.find(
         (item) => String(item.id) === String(selectedAssignmentId)
@@ -595,6 +600,32 @@ export const TeacherGradingPanel = () => {
         [visibleTeams, getTeamGrade]
     );
 
+    const openHistory = useCallback(
+        async (student, grade) => {
+            setHistoryStudent(student);
+            setHistoryGrade(grade);
+            setHistory(null);
+            setHistoryLoading(true);
+            try {
+                const data = await getGradeHistory(grade.id);
+                setHistory(Array.isArray(data) ? data : data?.results ?? []);
+            } catch (err) {
+                toast.error(getErrorMessage(err));
+                setHistoryGrade(null);
+                setHistoryStudent(null);
+            } finally {
+                setHistoryLoading(false);
+            }
+        },
+        []
+    );
+
+    const closeHistory = useCallback(() => {
+        setHistoryGrade(null);
+        setHistoryStudent(null);
+        setHistory(null);
+    }, []);
+
     const selectedTeam = teams.find(
         (team) => String(team.id) === String(selectedTeamId)
     ) ?? null;
@@ -618,6 +649,7 @@ export const TeacherGradingPanel = () => {
                 : memberDraftKey(teamId, student.id);
         const fallback = getEffectiveScore(student.id, null);
         const individual = isIndividual(student.id);
+        const grade = gradesByStudentId.get(String(student.id));
 
         return (
             <li
@@ -635,6 +667,16 @@ export const TeacherGradingPanel = () => {
                         <span className="text-[10px] leading-none px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-semibold shrink-0">
                             individual
                         </span>
+                    )}
+                    {grade && (
+                        <button
+                            type="button"
+                            onClick={() => openHistory(student, grade)}
+                            className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 hover:underline shrink-0"
+                            title="Ver historial de notas"
+                        >
+                            Historial
+                        </button>
                     )}
                 </span>
                 <span className="flex items-center gap-2 shrink-0">
@@ -932,6 +974,10 @@ export const TeacherGradingPanel = () => {
                             <h3 className="text-lg font-semibold text-gray-800">
                                 {selectedAssignment.title}
                             </h3>
+                            <p className="text-xs text-gray-500 mt-1">
+                                Puntaje máximo: {maxScore} · Peso en la nota
+                                final: {selectedAssignment.weight ?? "1.00"}
+                            </p>
                             <p className="text-sm text-gray-600 mt-2 whitespace-pre-line">
                                 {selectedAssignment.description ||
                                     selectedAssignment.course.description ||
@@ -1101,6 +1147,91 @@ export const TeacherGradingPanel = () => {
                             </div>
                         )}
                     </section>
+                </div>
+            )}
+
+            {historyGrade && (
+                <div
+                    className="fixed inset-0 z-50 bg-black/40 grid place-items-center p-4"
+                    onClick={closeHistory}
+                >
+                    <div
+                        className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[80vh] overflow-hidden"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <div className="flex items-start justify-between gap-3 px-6 py-4 border-b border-gray-100">
+                            <div>
+                                <h3 className="text-base font-bold text-gray-800">
+                                    Historial de {studentName(historyStudent)}
+                                </h3>
+                                <p className="text-sm text-gray-500 mt-0.5">
+                                    {selectedAssignment.title} —{" "}
+                                    {maxScore} puntos
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={closeHistory}
+                                aria-label="Cerrar"
+                                className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+                            >
+                                ×
+                            </button>
+                        </div>
+                        <div className="max-h-[60vh] overflow-auto px-6 py-4">
+                            {historyLoading ? (
+                                <p className="text-sm text-gray-500">
+                                    Cargando historial...
+                                </p>
+                            ) : history?.length === 0 ? (
+                                <p className="text-sm text-gray-500">
+                                    Sin registros.
+                                </p>
+                            ) : (
+                                <ol className="space-y-3">
+                                    {(history ?? []).map((entry) => {
+                                        const isCreation = entry.first_record;
+                                        return (
+                                            <li
+                                                key={entry.id}
+                                                className="flex items-start justify-between gap-3 text-sm"
+                                            >
+                                                <div>
+                                                    <p className="text-gray-800 font-semibold">
+                                                        {isCreation
+                                                            ? "Nota registrada"
+                                                            : "Nota actualizada"}
+                                                    </p>
+                                                    <p className="text-xs text-gray-400 mt-0.5">
+                                                        <span className="font-medium text-gray-600">
+                                                            {entry.graded_by
+                                                                ? `${entry.graded_by.first_name || entry.graded_by.username} ${
+                                                                      entry.graded_by.last_name ?? ""
+                                                                  }`.trim()
+                                                                : "—"}
+                                                        </span>{" "}
+                                                        •{" "}
+                                                        {new Date(
+                                                            entry.created_at
+                                                        ).toLocaleString("es-ES", {
+                                                            dateStyle: "short",
+                                                            timeStyle: "short",
+                                                        })}
+                                                    </p>
+                                                </div>
+                                                <p className="font-bold text-gray-800 shrink-0">
+                                                    {isCreation
+                                                        ? ""
+                                                        : `${entry.old_score} → `}
+                                                    {entry.new_score}
+                                                </p>
+                                            </li>
+                                        );
+                                    })}
+                                </ol>
+                            )}
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
