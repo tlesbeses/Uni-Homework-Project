@@ -160,3 +160,114 @@ def build_section_grades_csv(*, section) -> bytes:
         writer.writerow(row)
 
     return ("\ufeff" + buffer.getvalue()).encode("utf-8")
+
+
+# ── Snapshot imports (read from a frozen SectionSnapshot payload) ─────
+
+
+def _snapshot_grades_data(payload) -> tuple:
+    """Return the export data from a snapshot payload instead of the DB.
+
+    Mirrors ``_section_grades_data``: only published assignments and
+    approved enrollments are included, so the exported report matches the
+    one the teacher could download while the section was alive.
+    """
+    assignments = [
+        assignment
+        for assignment in payload["assignments"]
+        if assignment["is_published"]
+    ]
+    enrollments = [
+        enrollment
+        for enrollment in payload["enrollments"]
+        if enrollment["status"] == Status.APPROVED
+    ]
+    scores_by_pair = {
+        (grade["student_id"], grade["assignment_id"]): float(grade["score"])
+        for grade in payload["grades"]
+    }
+    return assignments, enrollments, scores_by_pair
+
+
+def _snapshot_student_label(enrollment) -> str:
+    return _sanitize(
+        f"{enrollment['first_name'] or enrollment['username']} "
+        f"{enrollment['last_name'] or ''}".strip()
+    )
+
+
+def build_section_snapshot_workbook(payload) -> bytes:
+    """Return the frozen grades of a snapshot as an ``.xlsx`` byte string."""
+    assignments, enrollments, scores_by_pair = _snapshot_grades_data(payload)
+
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Notas"
+    bold = Font(bold=True)
+
+    sheet["A1"] = "Curso:"
+    sheet["B1"] = _sanitize(payload["course"]["title"])
+    sheet["A2"] = "Grupo:"
+    sheet["B2"] = _sanitize(payload["section"]["name"])
+    sheet["A1"].font = bold
+    sheet["A2"].font = bold
+
+    headers = [
+        "Estudiante",
+        *[_sanitize(a["title"]) for a in assignments],
+        "Total",
+    ]
+    for column_index, header in enumerate(headers, start=1):
+        sheet.cell(row=HEADER_ROW, column=column_index, value=header).font = bold
+
+    total_column = len(assignments) + 2
+    for offset, enrollment in enumerate(enrollments, start=1):
+        row = HEADER_ROW + offset
+        sheet.cell(row=row, column=1, value=_snapshot_student_label(enrollment))
+        total = 0.0
+        for assignment_offset, assignment in enumerate(assignments, start=2):
+            score = scores_by_pair.get(
+                (enrollment["student_id"], assignment["id"])
+            )
+            if score is None:
+                continue
+            sheet.cell(row=row, column=assignment_offset, value=round(score, 2))
+            total += score
+        sheet.cell(row=row, column=total_column, value=round(total, 2))
+
+    sheet.column_dimensions["A"].width = 28
+    for column_index in range(2, total_column + 1):
+        sheet.column_dimensions[get_column_letter(column_index)].width = 16
+
+    buffer = io.BytesIO()
+    workbook.save(buffer)
+    return buffer.getvalue()
+
+
+def build_section_snapshot_csv(payload) -> bytes:
+    """Return the frozen grades of a snapshot as UTF-8 CSV (with BOM)."""
+    assignments, enrollments, scores_by_pair = _snapshot_grades_data(payload)
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(["Curso:", _sanitize(payload["course"]["title"])])
+    writer.writerow(["Grupo:", _sanitize(payload["section"]["name"])])
+    writer.writerow([])
+    writer.writerow(
+        ["Estudiante", *[_sanitize(a["title"]) for a in assignments], "Total"]
+    )
+
+    for enrollment in enrollments:
+        row = [_snapshot_student_label(enrollment)]
+        total = 0.0
+        for assignment in assignments:
+            score = scores_by_pair.get(
+                (enrollment["student_id"], assignment["id"])
+            )
+            row.append(round(score, 2) if score is not None else "")
+            if score is not None:
+                total += score
+        row.append(round(total, 2))
+        writer.writerow(row)
+
+    return ("\ufeff" + buffer.getvalue()).encode("utf-8")

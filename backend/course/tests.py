@@ -12,6 +12,7 @@ from course.models import (
     CourseSettings,
     Enrollment,
     Section,
+    SectionSnapshot,
     Status,
     Visibility,
 )
@@ -727,6 +728,177 @@ class ArchiveCourseTests(BaseCourseTestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         detail = self.client.get(f"/api/courses/{self.course.id}/")
         self.assertTrue(detail.data["is_active"])
+
+
+def test_dashboard_assignment_payload_includes_weight(self):
+        self.client.force_authenticate(self.student)
+        response = self.client.get("/api/dashboard/")
+        assignment = next(
+            a for a in response.data["assignments"]
+            if a["id"] == self.assignment.id
+        )
+        self.assertIn("weight", assignment)
+        self.assertEqual(assignment["weight"], "1.00")
+
+
+class SectionSnapshotTests(BaseCourseTestCase):
+    """Snapshots are captured when a section or its course is deleted."""
+
+    def setUp(self):
+        super().setUp()
+        self.foreign_teacher = User.objects.create_user(
+            username="teacher2",
+            email="teacher2@example.com",
+            password="pass",
+        )
+        self.foreign_teacher.groups.add(self.teacher_group)
+
+        self.assignment = Assignment.objects.create(
+            course=self.course,
+            title="Homework 1",
+            max_score="100.00",
+            is_published=True,
+        )
+        Enrollment.objects.create(
+            section=self.section,
+            student=self.student,
+            status=Status.APPROVED,
+        )
+        Enrollment.objects.create(
+            section=self.section,
+            student=self.student2,
+        )
+        Grade.objects.create(
+            assignment=self.assignment,
+            student=self.student,
+            score=Decimal("80.00"),
+            graded_by=self.teacher,
+        )
+
+    def test_section_delete_captures_frozen_data(self):
+        self.client.force_authenticate(self.teacher)
+        response = self.client.delete(f"/api/sections/{self.section.id}/")
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+        self.assertFalse(Section.objects.filter(id=self.section.id).exists())
+        snapshot = SectionSnapshot.objects.get(section_id=self.section.id)
+        self.assertEqual(snapshot.reason, SectionSnapshot.REASON_SECTION_DELETE)
+        self.assertEqual(snapshot.course_title, "Math 101")
+        self.assertEqual(snapshot.section_name, "1TS1")
+        self.assertEqual(snapshot.teacher_id, self.teacher.id)
+
+        payload = snapshot.payload
+        self.assertEqual(payload["course"]["title"], "Math 101")
+        self.assertEqual(payload["teacher"]["username"], "teacher")
+        self.assertEqual(payload["stats"]["approved_students"], 1)
+        self.assertEqual(payload["stats"]["total_requests"], 2)
+        self.assertEqual(len(payload["enrollments"]), 2)
+        self.assertEqual(payload["enrollments"][0]["status"], Status.APPROVED)
+        self.assertEqual(payload["grades"][0]["score"], "80.00")
+        self.assertEqual(payload["final_grades"][0]["score"], "80.00")
+        self.assertEqual(
+            payload["assignments"][0]["title"], "Homework 1"
+        )
+
+    def test_course_delete_captures_one_snapshot_per_section(self):
+        self.client.force_authenticate(self.teacher)
+        response = self.client.delete(f"/api/courses/{self.course.id}/")
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+        snapshots = SectionSnapshot.objects.filter(
+            course_id=self.course.id
+        ).order_by("section_name")
+        self.assertEqual(snapshots.count(), 2)
+        self.assertTrue(
+            all(s.reason == SectionSnapshot.REASON_COURSE_DELETE for s in snapshots)
+        )
+        self.assertEqual({s.section_name for s in snapshots}, {"1TS1", "2TS2"})
+
+    def test_empty_section_still_captures_header(self):
+        self.client.force_authenticate(self.teacher)
+        response = self.client.delete(f"/api/sections/{self.section2.id}/")
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+        snapshot = SectionSnapshot.objects.get(section_id=self.section2.id)
+        self.assertEqual(snapshot.payload["stats"]["approved_students"], 0)
+        self.assertEqual(snapshot.payload["stats"]["total_requests"], 0)
+
+    def test_teacher_only_sees_own_snapshots(self):
+        self.client.force_authenticate(self.teacher)
+        self.client.delete(f"/api/sections/{self.section.id}/")
+
+        self.client.force_authenticate(self.foreign_teacher)
+        response = self.client.get("/api/snapshots/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 0)
+
+        response = self.client.get(
+            f"/api/snapshots/{SectionSnapshot.objects.get().id}/"
+        )
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_owner_sees_list_and_detail(self):
+        self.client.force_authenticate(self.teacher)
+        self.client.delete(f"/api/sections/{self.section.id}/")
+
+        response = self.client.get("/api/snapshots/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["course_title"], "Math 101")
+        self.assertNotIn("payload", response.data["results"][0])
+
+        snapshot_id = response.data["results"][0]["id"]
+        detail = self.client.get(f"/api/snapshots/{snapshot_id}/")
+        self.assertEqual(detail.status_code, status.HTTP_200_OK)
+        self.assertIn("payload", detail.data)
+        self.assertIn("stats", detail.data)
+
+    def test_superuser_sees_every_snapshot(self):
+        self.client.force_authenticate(self.teacher)
+        self.client.delete(f"/api/sections/{self.section.id}/")
+
+        superuser = User.objects.create_superuser(
+            username="root",
+            email="root@example.com",
+            password="pass",
+        )
+        self.client.force_authenticate(superuser)
+        response = self.client.get("/api/snapshots/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+
+    def test_exports_from_snapshot(self):
+        self.client.force_authenticate(self.teacher)
+        self.client.delete(f"/api/sections/{self.section.id}/")
+        snapshot_id = SectionSnapshot.objects.get().id
+
+        xlsx = self.client.get(f"/api/snapshots/{snapshot_id}/export-grades/")
+        self.assertEqual(xlsx.status_code, status.HTTP_200_OK)
+        self.assertEqual(xlsx.content[:2], b"PK")
+
+        csv_response = self.client.get(
+            f"/api/snapshots/{snapshot_id}/export-grades-csv/"
+        )
+        self.assertEqual(csv_response.status_code, status.HTTP_200_OK)
+        body = csv_response.content.decode("utf-8")
+        self.assertIn("Estudiante", body)
+        self.assertIn("80", body)
+
+        report = self.client.get(f"/api/snapshots/{snapshot_id}/grades-report/")
+        self.assertEqual(report.status_code, status.HTTP_200_OK)
+        self.assertEqual(report.data["course"], "Math 101")
+        self.assertEqual(report.data["section"], "1TS1")
+        self.assertEqual(report.data["assignments"][0]["title"], "Homework 1")
+        self.assertEqual(report.data["students"][0]["total"], 80.0)
+
+    def test_student_cannot_see_other_snapshots_list(self):
+        self.client.force_authenticate(self.teacher)
+        self.client.delete(f"/api/sections/{self.section.id}/")
+
+        self.client.force_authenticate(self.student)
+        response = self.client.get("/api/snapshots/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 0)
 
 
 class DashboardFinalScoreTests(BaseCourseTestCase):

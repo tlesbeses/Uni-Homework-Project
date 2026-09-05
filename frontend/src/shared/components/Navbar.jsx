@@ -31,6 +31,12 @@ const NAV_ITEMS = [
     teacherOnly: true,
   },
   {
+    to: "/snapshots",
+    label: "Histórico",
+    d: "M2.25 12a9 9 0 1 1 18 0 9 9 0 0 1-18 0Zm7.5 0c0 1.335 1.09 2.25 2.25 2.25s2.25-.915 2.25-2.25-1.09-2.25-2.25-2.25-2.25.915-2.25 2.25Zm-3.25 0a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Zm9.5 0a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z",
+    leadOnly: true,
+  },
+  {
     to: "/admin/users",
     label: "Usuarios",
     d: "M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.963 0a9 9 0 1 0-11.963 0m11.963 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z",
@@ -55,10 +61,12 @@ export function Navbar() {
     () =>
       NAV_ITEMS.filter((item) => {
         if (isAdmin) {
-          return !item.teacherOnly && (item.adminOnly || item.to === "/dashboard");
+          return item.adminOnly || item.leadOnly || (!item.teacherOnly && item.to === "/dashboard");
         }
         return (
-          (!item.teacherOnly || isTeacher) && (!item.adminOnly || isAdmin)
+          (!item.teacherOnly || isTeacher) &&
+          (!item.adminOnly || isAdmin) &&
+          (!item.leadOnly || isTeacher)
         );
       }),
     [isTeacher, isAdmin]

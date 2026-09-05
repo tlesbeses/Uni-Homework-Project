@@ -35,6 +35,8 @@ const TeamsPage = lazyPage(() => import("@/features/teams/pages/TeamsPage"), "Te
 const TeamDetailPage = lazyPage(() => import("@/features/teams/pages/TeamDetailPage"), "TeamDetailPage");
 const AdminUsersPage = lazyPage(() => import("@/features/admin/pages/AdminUsersPage"), "AdminUsersPage");
 const AdminActivityPage = lazyPage(() => import("@/features/admin/pages/AdminActivityPage"), "AdminActivityPage");
+const SnapshotsPage = lazyPage(() => import("@/features/snapshots/pages/SnapshotsPage"), "SnapshotsPage");
+const SnapshotDetailPage = lazyPage(() => import("@/features/snapshots/pages/SnapshotDetailPage"), "SnapshotDetailPage");
 
 export const router = createBrowserRouter([
   {
@@ -163,6 +165,26 @@ export const router = createBrowserRouter([
           <ProtectedRoute blockSuperuser>
             <SuspenseWrapper>
               <GradesReportPage />
+            </SuspenseWrapper>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/snapshots",
+        element: (
+          <ProtectedRoute>
+            <SuspenseWrapper>
+              <SnapshotsPage />
+            </SuspenseWrapper>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/snapshots/:id",
+        element: (
+          <ProtectedRoute>
+            <SuspenseWrapper>
+              <SnapshotDetailPage />
             </SuspenseWrapper>
           </ProtectedRoute>
         ),

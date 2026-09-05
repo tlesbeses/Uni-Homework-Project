@@ -21,6 +21,7 @@ from course.models import (
     CourseSettings,
     Enrollment,
     Section,
+    SectionSnapshot,
     Status,
     Visibility,
 )
@@ -33,12 +34,17 @@ from course.serializers import (
     DashboardGradeSerializer,
     EnrollmentSerializer,
     SectionSerializer,
+    SectionSnapshotDetailSerializer,
+    SectionSnapshotListSerializer,
 )
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import OrderingFilter, SearchFilter
 from grading.exports import (
+    _snapshot_grades_data,
     build_section_grades_csv,
     build_section_grades_workbook,
+    build_section_snapshot_csv,
+    build_section_snapshot_workbook,
 )
 from grading.final import final_grade_for_student
 from grading.models import Grade
@@ -628,6 +634,109 @@ class SectionViewSet(viewsets.ModelViewSet):
                     "You can only create sections for your own courses."
                 )
         return super().create(request, *args, **kwargs)
+
+
+class SectionSnapshotViewSet(viewsets.ReadOnlyModelViewSet):
+    """Inspect snapshots captured when a section (or its course) is deleted.
+
+    Superusers see every capture; teachers only the ones from their own
+    courses. Students have no snapshot row of their own, so their list is
+    simply empty (the same filtering behavior as the rest of the views).
+    The frozen grades can be downloaded again from here.
+    """
+
+    permission_classes = [IsAuthenticated]
+    filter_backends = [SearchFilter, OrderingFilter]
+    search_fields = ["course_title", "section_name", "teacher_name"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+    def get_serializer_class(self):
+        if self.action == "retrieve":
+            return SectionSnapshotDetailSerializer
+        return SectionSnapshotListSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_superuser:
+            return SectionSnapshot.objects.all()
+        return SectionSnapshot.objects.filter(teacher_id=user.id)
+
+    def _payload_from_snapshot_report(self, snapshot):
+        """Render the frozen grades as the live grades-report shape."""
+        assignments, enrollments, scores_by_pair = _snapshot_grades_data(
+            snapshot.payload
+        )
+
+        students = []
+        for enrollment in enrollments:
+            grades_map = {}
+            total = 0.0
+            for assignment in assignments:
+                score = scores_by_pair.get(
+                    (enrollment["student_id"], assignment["id"])
+                )
+                if score is not None:
+                    grades_map[str(assignment["id"])] = round(score, 2)
+                    total += score
+            students.append(
+                {
+                    "id": enrollment["student_id"],
+                    "name": (
+                        f"{enrollment['first_name'] or enrollment['username']} "
+                        f"{enrollment['last_name'] or ''}".strip()
+                    ),
+                    "grades": grades_map,
+                    "total": round(total, 2),
+                }
+            )
+
+        return {
+            "course": snapshot.payload["course"]["title"],
+            "section": snapshot.payload["section"]["name"],
+            "assignments": [
+                {
+                    "id": assignment["id"],
+                    "title": assignment["title"],
+                    "max_score": float(assignment["max_score"]),
+                }
+                for assignment in assignments
+            ],
+            "students": students,
+        }
+
+    @action(detail=True, methods=["get"], url_path="export-grades")
+    def export_grades(self, request, pk=None):
+        """Download an Excel workbook with the frozen grades."""
+        snapshot = self.get_object()
+        content = build_section_snapshot_workbook(snapshot.payload)
+        response = HttpResponse(
+            content,
+            content_type=(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            ),
+        )
+        response["Content-Disposition"] = (
+            f'attachment; filename="notas_borradas_{snapshot.section_id}.xlsx"'
+        )
+        return response
+
+    @action(detail=True, methods=["get"], url_path="export-grades-csv")
+    def export_grades_csv(self, request, pk=None):
+        """Download the frozen grades as a CSV file."""
+        snapshot = self.get_object()
+        content = build_section_snapshot_csv(snapshot.payload)
+        response = HttpResponse(content, content_type="text/csv; charset=utf-8")
+        response["Content-Disposition"] = (
+            f'attachment; filename="notas_borradas_{snapshot.section_id}.csv"'
+        )
+        return response
+
+    @action(detail=True, methods=["get"], url_path="grades-report")
+    def grades_report(self, request, pk=None):
+        """Return the frozen grades as JSON for the report page."""
+        snapshot = self.get_object()
+        return Response(self._payload_from_snapshot_report(snapshot))
 
 
 class EnrollmentViewSet(viewsets.ModelViewSet):
