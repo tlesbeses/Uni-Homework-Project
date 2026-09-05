@@ -6,6 +6,7 @@ import { impersonation } from "@/lib/impersonation";
 
 let isRefreshing = false;
 let failedQueue = [];
+let csrfResynced = false;
 
 const BASE_URL = import.meta.env.VITE_API_URL || "";
 
@@ -40,6 +41,15 @@ export async function refreshSession() {
     tokenStorage.setAccessToken(data.access);
     setCsrfToken(data.csrfToken);
     return data.access;
+}
+
+// Recupera un par cookie+token CSRF fresco. La cookie `csrftoken` caduca en
+// 1 hora mientras el refresh token vive más tiempo (1 día): tras inactividad,
+// renovar la sesión fallaría con 403 aunque la sesión siga viva. Este paso
+// re-sincroniza el doble-envío para poder reintentar el refresh.
+async function renewCsrfToken() {
+    const { data } = await authApi.get("/auth/csrf/");
+    setCsrfToken(data.csrfToken);
 }
 
 // ── Instancias ───────────────────────────────────────────────────────
@@ -195,7 +205,36 @@ function setupApiInterceptors(instance, { useCache = true } = {}) {
             isRefreshing = true;
 
             try {
-                const newAccessToken = await refreshSession();
+                let newAccessToken = null;
+
+                for (let attempt = 0; attempt < 2; attempt++) {
+                    try {
+                        newAccessToken = await refreshSession();
+                        break;
+                    } catch (refreshError) {
+                        // Cookie CSRF vencida (1 h) con sesión aún viva: el
+                        // refresh responde 403. Se re-sincroniza el doble-envío
+                        // y se reintenta UNA vez antes de darla por cerrada.
+                        const retried =
+                            refreshError.response?.status === 403 &&
+                            attempt === 0 &&
+                            !csrfResynced;
+
+                        if (retried) {
+                            csrfResynced = true;
+                            await renewCsrfToken();
+                            continue;
+                        }
+
+                        processQueue(refreshError);
+
+                        tokenStorage.clear();
+
+                        window.location.replace("/login");
+
+                        return Promise.reject(refreshError);
+                    }
+                }
 
                 // Un refresh durante la impersonación usa la cookie del admin y
                 // devuelve su token (sin claim `impersonates`): la sesión de
@@ -224,6 +263,7 @@ function setupApiInterceptors(instance, { useCache = true } = {}) {
                 return Promise.reject(refreshError);
             } finally {
                 isRefreshing = false;
+                csrfResynced = false;
             }
         }
     );
