@@ -282,8 +282,34 @@ else:
 #   Desactivar solo si algo del frontend queda fuera de la política.
 # - CSP_REPORT_URI (opcional): emite ademas Content-Security-Policy-Report-Only
 #   con la misma politica para seguir monitoreando violaciones sin cortar nada.
-# El hash de script-src cubre el script inline del splash en frontend/index.html
-# (mismo hash en fuente y en el build; recalculado si ese script cambia).
+# Los hashes de script-src se calculan dinamicamente sobre los scripts inline
+# del index.html que se va a servir (frontend/dist), de modo que un nuevo build
+# nunca deje cabecera CSP desincronizada con el HTML servido.
+import base64
+import hashlib
+import re as _re
+
+def _inline_script_hashes():
+    seen = set()
+    hashes = []
+    index_file = FRONTEND_DIR / "index.html"
+    try:
+        content = index_file.read_text(encoding="utf-8")
+    except OSError:
+        return hashes
+    for match in _re.finditer(
+        r"<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)</script>",
+        content,
+        _re.IGNORECASE,
+    ):
+        raw = match.group(1).encode("utf-8")
+        digest = base64.b64encode(hashlib.sha256(raw).digest()).decode("ascii")
+        token = f"'sha256-{digest}'"
+        if token not in seen:
+            seen.add(token)
+            hashes.append(token)
+    return hashes
+
 _CSP_APPLY = os.getenv("CSP_APPLY", "True").lower() in ("true", "1", "yes")
 _csp_report_uri = os.getenv("CSP_REPORT_URI")
 
@@ -291,7 +317,8 @@ if _CSP_APPLY or _csp_report_uri:
     _CSP_POLICY = (
         "default-src 'self'; "
         "script-src 'self' "
-        "'sha256-I8qldK+z9ZM3V9OY0e7rksCMQ7kY2AVpniYXb5gskFg='; "
+        + " ".join(_inline_script_hashes())
+        + "; "
         "style-src 'self' 'unsafe-inline'; "
         "img-src 'self' data:; "
         "font-src 'self'; "
