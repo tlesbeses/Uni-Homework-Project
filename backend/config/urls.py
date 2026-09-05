@@ -6,6 +6,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 
 from config.views import pwa_manifest, pwa_register_sw, pwa_service_worker
+from authentication.views import ErrorLogDetailView, ErrorLogEndpoint
 
 FRONTEND_DIR = settings.FRONTEND_DIR
 
@@ -18,6 +19,8 @@ urlpatterns = [
     path("api/", include("teams.urls")),
     path("api/", include("assignments.urls")),
     path("api/", include("grading.urls")),
+    path("api/errors/", ErrorLogEndpoint.as_view(), name="error-list"),
+    path("api/errors/<int:pk>/", ErrorLogDetailView.as_view(), name="error-detail"),
 
     path("manifest.json", pwa_manifest),
     path("sw.js", pwa_service_worker),

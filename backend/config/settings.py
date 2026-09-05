@@ -185,6 +185,7 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+    "EXCEPTION_HANDLER": "config.errors.api_exception_handler",
       "DEFAULT_FILTER_BACKENDS": [
         "django_filters.rest_framework.DjangoFilterBackend",
         "rest_framework.filters.SearchFilter",
@@ -202,6 +203,7 @@ REST_FRAMEWORK = {
         "auth": "10/minute",
         "admin": "20/minute",
         "grade": "60/minute",
+        "error": "10/minute",
     },
 
     "DEFAULT_PAGINATION_CLASS":

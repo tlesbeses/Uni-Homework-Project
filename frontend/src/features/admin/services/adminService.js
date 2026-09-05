@@ -62,3 +62,29 @@ export const getActivityLogs = async (params) => {
     });
     return response.data;
 };
+
+export const getErrorLogs = async (params) => {
+    const { signal, source, page, pageSize, ...queryParams } = params ?? {};
+    const query = { ...queryParams };
+    if (source) {
+        query.source = source;
+    }
+    if (page) {
+        query.page = page;
+    }
+    if (pageSize) {
+        query.page_size = pageSize;
+    }
+    const response = await api.get("/api/errors/", {
+        params: query,
+        signal,
+    });
+    return response.data;
+};
+
+export const getErrorLog = async (errorId, opts) => {
+    const response = await api.get(`/api/errors/${errorId}/`, {
+        signal: opts?.signal,
+    });
+    return response.data;
+};

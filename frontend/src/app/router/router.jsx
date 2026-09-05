@@ -35,6 +35,8 @@ const TeamsPage = lazyPage(() => import("@/features/teams/pages/TeamsPage"), "Te
 const TeamDetailPage = lazyPage(() => import("@/features/teams/pages/TeamDetailPage"), "TeamDetailPage");
 const AdminUsersPage = lazyPage(() => import("@/features/admin/pages/AdminUsersPage"), "AdminUsersPage");
 const AdminActivityPage = lazyPage(() => import("@/features/admin/pages/AdminActivityPage"), "AdminActivityPage");
+const AdminErrorLogsPage = lazyPage(() => import("@/features/admin/pages/AdminErrorLogsPage"), "AdminErrorLogsPage");
+const AdminErrorLogDetailPage = lazyPage(() => import("@/features/admin/pages/AdminErrorLogDetailPage"), "AdminErrorLogDetailPage");
 const SnapshotsPage = lazyPage(() => import("@/features/snapshots/pages/SnapshotsPage"), "SnapshotsPage");
 const SnapshotDetailPage = lazyPage(() => import("@/features/snapshots/pages/SnapshotDetailPage"), "SnapshotDetailPage");
 
@@ -155,6 +157,26 @@ export const router = createBrowserRouter([
           <ProtectedRoute superuserOnly>
             <SuspenseWrapper>
               <AdminActivityPage />
+            </SuspenseWrapper>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/admin/errors",
+        element: (
+          <ProtectedRoute superuserOnly>
+            <SuspenseWrapper>
+              <AdminErrorLogsPage />
+            </SuspenseWrapper>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/admin/errors/:id",
+        element: (
+          <ProtectedRoute superuserOnly>
+            <SuspenseWrapper>
+              <AdminErrorLogDetailPage />
             </SuspenseWrapper>
           </ProtectedRoute>
         ),
