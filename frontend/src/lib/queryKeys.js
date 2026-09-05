@@ -55,7 +55,7 @@ export const queryKeys = {
 
         list: (params) => [...queryKeys.notifications.all, "list", params ?? {}],
 
-        unreadCount: [...queryKeys.notifications.all, "unread-count"],
+        unreadCount: () => [...queryKeys.notifications.all, "unread-count"],
     },
     auth: {
         me: ["auth", "me"],
