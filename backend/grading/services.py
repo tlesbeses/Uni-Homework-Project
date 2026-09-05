@@ -14,6 +14,7 @@ from authentication.models import EventLog
 from authentication.services import log_event
 from course.models import Enrollment, Status
 from grading.models import Grade, GradeHistory
+from notifications.services import notify_grade_published, notify_grades_published
 
 
 def _validate_grade_params(assignment, score, graded_by):
@@ -169,6 +170,13 @@ def grade_team(
         },
     )
 
+    if assignment.is_published:
+        notify_grades_published(
+            assignment=assignment,
+            student_ids=sorted(approved_member_ids),
+            score=str(score),
+        )
+
     return (
         Grade.objects.filter(
             assignment=assignment,
@@ -233,5 +241,12 @@ def grade_student(*, assignment, student, score, graded_by):
             "is_individual": True,
         },
     )
+
+    if assignment.is_published:
+        notify_grade_published(
+            assignment=assignment,
+            student_id=student.id,
+            score=str(grade.score),
+        )
 
     return grade

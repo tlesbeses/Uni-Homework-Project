@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/providers/AuthProvider";
+import { NotificationBell } from "@/features/notifications/components/NotificationBell";
 
 const NAV_ITEMS = [
   {
@@ -127,6 +128,7 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center space-x-4">
+          <NotificationBell />
           <div className="relative">
             <button
               onClick={() => {

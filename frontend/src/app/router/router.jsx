@@ -39,6 +39,7 @@ const AdminErrorLogsPage = lazyPage(() => import("@/features/admin/pages/AdminEr
 const AdminErrorLogDetailPage = lazyPage(() => import("@/features/admin/pages/AdminErrorLogDetailPage"), "AdminErrorLogDetailPage");
 const SnapshotsPage = lazyPage(() => import("@/features/snapshots/pages/SnapshotsPage"), "SnapshotsPage");
 const SnapshotDetailPage = lazyPage(() => import("@/features/snapshots/pages/SnapshotDetailPage"), "SnapshotDetailPage");
+const NotificationsPage = lazyPage(() => import("@/features/notifications/pages/NotificationsPage"), "NotificationsPage");
 
 export const router = createBrowserRouter([
   {
@@ -219,6 +220,14 @@ export const router = createBrowserRouter([
               <GradesPage />
             </SuspenseWrapper>
           </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/notifications",
+        element: (
+          <SuspenseWrapper>
+            <NotificationsPage />
+          </SuspenseWrapper>
         ),
       },
       {

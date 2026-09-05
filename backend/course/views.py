@@ -48,6 +48,10 @@ from grading.exports import (
 )
 from grading.final import final_grade_for_student
 from grading.models import Grade
+from notifications.services import (
+    notify_enrollment_approved,
+    notify_enrollment_requested,
+)
 from teams.services import remove_student_from_course_teams
 from .filters import EnrollmentFilter, SectionFilter
 from .permissions import IsCourseTeacherOfSection, IsTeacher, IsStudent
@@ -225,6 +229,11 @@ class CourseViewSet(viewsets.ModelViewSet):
         if course_settings.auto_accept_students:
             enrollment.status = Status.APPROVED
             enrollment.save()
+
+        if enrollment.status == Status.APPROVED:
+            notify_enrollment_approved(enrollment=enrollment)
+        else:
+            notify_enrollment_requested(enrollment=enrollment, course=course, section=section)
 
         log_event(
             actor=request.user,
@@ -802,6 +811,11 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             enrollment.status = Status.APPROVED
             enrollment.save()
 
+        if enrollment.status == Status.APPROVED:
+            notify_enrollment_approved(enrollment=enrollment)
+        else:
+            notify_enrollment_requested(enrollment=enrollment, course=section.course, section=section)
+
         log_event(
             actor=self.request.user,
             action=EventLog.ACTION_CREATE,
@@ -858,6 +872,8 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
 
         enrollment.status = Status.APPROVED
         enrollment.save()
+
+        notify_enrollment_approved(enrollment=enrollment)
 
         log_event(
             actor=request.user,

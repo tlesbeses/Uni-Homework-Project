@@ -50,6 +50,13 @@ export const queryKeys = {
     dashboard: {
         all: ["dashboard"],
     },
+    notifications: {
+        all: ["notifications"],
+
+        list: (params) => [...queryKeys.notifications.all, "list", params ?? {}],
+
+        unreadCount: [...queryKeys.notifications.all, "unread-count"],
+    },
     auth: {
         me: ["auth", "me"],
     },

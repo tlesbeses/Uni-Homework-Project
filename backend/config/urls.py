@@ -19,6 +19,7 @@ urlpatterns = [
     path("api/", include("teams.urls")),
     path("api/", include("assignments.urls")),
     path("api/", include("grading.urls")),
+    path("api/notifications/", include("notifications.urls")),
     path("api/errors/", ErrorLogEndpoint.as_view(), name="error-list"),
     path("api/errors/<int:pk>/", ErrorLogDetailView.as_view(), name="error-detail"),
 
