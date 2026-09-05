@@ -80,10 +80,18 @@ export default defineConfig({
         rollupOptions: {
             output: {
                 manualChunks(id) {
-                    if (id.includes("node_modules/react-dom")) return "vendor";
-                    if (id.includes("node_modules/react")) return "vendor";
-                    if (id.includes("node_modules/react-router")) return "router";
-                    if (id.includes("node_modules/react-hook-form") || id.includes("node_modules/@hookform") || id.includes("node_modules/zod")) return "forms";
+                    if (id.includes("node_modules/react-dom")) {
+                        return "vendor";
+                    }
+                    if (id.includes("node_modules/react")) {
+                        return "vendor";
+                    }
+                    if (id.includes("node_modules/react-router")) {
+                        return "router";
+                    }
+                    if (id.includes("node_modules/react-hook-form") || id.includes("node_modules/@hookform") || id.includes("node_modules/zod")) {
+                        return "forms";
+                    }
                 },
             },
         },

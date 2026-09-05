@@ -5,7 +5,9 @@ export function InstallBanner() {
     const [visible, setVisible] = useState(false);
 
     useEffect(() => {
-        if (window.matchMedia("(display-mode: standalone)").matches) return;
+        if (window.matchMedia("(display-mode: standalone)").matches) {
+            return;
+        }
 
         const handler = (e) => {
             e.preventDefault();
@@ -18,16 +20,22 @@ export function InstallBanner() {
     }, []);
 
     const handleInstall = async () => {
-        if (!deferredPrompt) return;
+        if (!deferredPrompt) {
+            return;
+        }
         deferredPrompt.prompt();
         const { outcome } = await deferredPrompt.userChoice;
-        if (outcome === "accepted") setVisible(false);
+        if (outcome === "accepted") {
+            setVisible(false);
+        }
         setDeferredPrompt(null);
     };
 
     const handleDismiss = () => setVisible(false);
 
-    if (!visible) return null;
+    if (!visible) {
+        return null;
+    }
 
     return (
         <div className="fixed bottom-4 left-4 right-4 z-50 sm:left-auto sm:right-6 sm:max-w-sm">
