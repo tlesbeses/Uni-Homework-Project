@@ -55,6 +55,25 @@ export default defineConfig({
     },
   },
 
+  test: {
+    environment: "jsdom",
+    globals: true,
+    setupFiles: ["./src/test/setup.js"],
+    css: false,
+    include: ["src/**/*.{test,spec}.{js,jsx}"],
+    coverage: {
+      provider: "v8",
+      include: ["src/**/*.{js,jsx}"],
+      exclude: [
+        "src/main.jsx",
+        "src/Router.jsx",
+        "src/**/pages/**",
+        "src/test/**",
+      ],
+      reporter: ["text", "html"],
+    },
+  },
+
   build: {
         outDir: "dist",
         assetsDir: "static",

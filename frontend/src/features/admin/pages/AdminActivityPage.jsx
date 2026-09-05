@@ -1,21 +1,12 @@
 import { useEffect, useState } from "react";
 import { useActivityLogs } from "@/features/admin/hooks/useActivityLogs";
-
-const ACTION_LABELS = {
-    impersonate: "Impersonación",
-    update: "Actualización",
-    create: "Creación",
-    delete: "Eliminación",
-    login: "Inicio de sesión",
-};
-
-const ACTION_STYLES = {
-    impersonate: "bg-violet-100 text-violet-700",
-    update: "bg-sky-100 text-sky-700",
-    create: "bg-emerald-100 text-emerald-700",
-    delete: "bg-red-100 text-red-700",
-    login: "bg-amber-100 text-amber-700",
-};
+import {
+    actionLabel,
+    actionStyle,
+    activityDetailLines,
+    entityTypeLabel,
+    userName,
+} from "@/shared/utils/activityMeta";
 
 function formatDate(value) {
     if (!value) {
@@ -32,46 +23,6 @@ function formatDate(value) {
         hour: "2-digit",
         minute: "2-digit",
     });
-}
-
-function userName(user) {
-    if (!user) {
-        return "—";
-    }
-    return user.first_name && user.last_name
-        ? `${user.first_name} ${user.last_name}`
-        : user.username;
-}
-
-function detailLines(log) {
-    const meta = log.metadata ?? {};
-    const lines = [];
-
-    if (log.entity_type === "grade") {
-        if (meta.score !== undefined && meta.score !== null) {
-            lines.push(`Nota: ${meta.score}`);
-        }
-        if (meta.assignment_id !== undefined) {
-            lines.push(`Tarea #${meta.assignment_id}`);
-        }
-        if (meta.team_name) {
-            lines.push(`Equipo: ${meta.team_name}`);
-        }
-        if (meta.is_individual) {
-            lines.push("Individual");
-        }
-        if (meta.affected !== undefined) {
-            lines.push(`Miembros: ${meta.affected}`);
-        } else if (Array.isArray(meta.member_ids)) {
-            lines.push(`Miembros: ${meta.member_ids.length}`);
-        }
-    } else if (log.entity_type === "user") {
-        if (meta.admin_id !== undefined) {
-            lines.push(`Admin #${meta.admin_id}`);
-        }
-    }
-
-    return lines;
 }
 
 export const AdminActivityPage = () => {
@@ -236,27 +187,24 @@ export const AdminActivityPage = () => {
                             <tr key={log.id}>
                                 <td className="px-5 py-3">
                                     <span
-                                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                                            ACTION_STYLES[log.action] ??
-                                            "bg-gray-100 text-gray-700"
-                                        }`}
+                                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${actionStyle(log.action)}`}
                                     >
-                                        {ACTION_LABELS[log.action] ?? log.action}
+                                        {actionLabel(log.action)}
                                     </span>
                                 </td>
                                 <td className="px-5 py-3 text-gray-600">
-                                    {log.entity_type || "—"}
+                                    {entityTypeLabel(log.entity_type)}
                                 </td>
                                 <td className="px-5 py-3 text-gray-800">
-                                    {userName(log.actor)}
+                                    {userName(log.actor) ?? "—"}
                                 </td>
                                 <td className="px-5 py-3 text-gray-800">
-                                    {userName(log.target)}
+                                    {userName(log.target) ?? "—"}
                                 </td>
                                 <td className="px-5 py-3 text-gray-700">
-                                    {detailLines(log).length > 0 ? (
+                                    {activityDetailLines(log).length > 0 ? (
                                         <ul className="space-y-0.5">
-                                            {detailLines(log).map((line) => (
+                                            {activityDetailLines(log).map((line) => (
                                                 <li key={line}>{line}</li>
                                             ))}
                                         </ul>
