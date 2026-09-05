@@ -149,6 +149,11 @@ export function activityDetailLines(log) {
             lines.push(`Nombre: ${meta.section_name}`);
         }
         lines.push(...changeLines(meta.changes));
+    } else if (entity === "assignment") {
+        if (meta.title) {
+            lines.push(`Título: ${meta.title}`);
+        }
+        lines.push(...changeLines(meta.changes));
     }
 
     return lines;

@@ -344,6 +344,64 @@ class EnrollmentTests(BaseCourseTestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["status"], Status.APPROVED)
 
+    def test_join_creates_event_log(self):
+        self.client.force_authenticate(self.student)
+        response = self.client.post(
+            "/api/courses/join/",
+            {
+                "join_code": self.course.join_code,
+                "section": self.section.id,
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        enrollment = Enrollment.objects.get(section=self.section, student=self.student)
+        log = EventLog.objects.filter(
+            action=EventLog.ACTION_CREATE, entity_type="enrollment"
+        ).first()
+        self.assertIsNotNone(log)
+        self.assertEqual(log.actor, self.student)
+        self.assertEqual(log.target, self.student)
+        self.assertEqual(log.entity_id, enrollment.id)
+        self.assertEqual(log.metadata["course_id"], self.course.id)
+        self.assertEqual(log.metadata["section_id"], self.section.id)
+        self.assertEqual(log.metadata["student_id"], self.student.id)
+        self.assertEqual(log.metadata["status"], Status.PENDING)
+
+    def test_join_auto_accept_logs_final_status(self):
+        self.course.settings.auto_accept_students = True
+        self.course.settings.save()
+        self.client.force_authenticate(self.student)
+        response = self.client.post(
+            "/api/courses/join/",
+            {
+                "join_code": self.course.join_code,
+                "section": self.section.id,
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        log = EventLog.objects.filter(
+            action=EventLog.ACTION_CREATE, entity_type="enrollment"
+        ).first()
+        self.assertIsNotNone(log)
+        self.assertEqual(log.metadata["status"], Status.APPROVED)
+
+    def test_direct_enroll_creates_event_log(self):
+        self.client.force_authenticate(self.student)
+        response = self.client.post(
+            f"/api/courses/{self.course.id}/enroll/",
+            {"section": self.section.id},
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        log = EventLog.objects.filter(
+            action=EventLog.ACTION_CREATE, entity_type="enrollment"
+        ).first()
+        self.assertIsNotNone(log)
+        self.assertEqual(log.metadata["course_id"], self.course.id)
+        self.assertEqual(log.metadata["status"], Status.PENDING)
+
     def test_student_can_enroll_directly_in_public_course(self):
         self.client.force_authenticate(self.student)
         response = self.client.post(

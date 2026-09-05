@@ -1,5 +1,7 @@
 """API views for the assignments application."""
 
+from decimal import Decimal
+
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics, viewsets
 from rest_framework.exceptions import NotFound, PermissionDenied
@@ -8,7 +10,16 @@ from rest_framework.permissions import IsAuthenticated
 from assignments.models import Assignment
 from assignments.permissions import IsCourseTeacher
 from assignments.serializers import AssignmentSerializer
+from authentication.models import EventLog
+from authentication.services import log_event
 from course.models import Course, Status
+
+
+def _json_safe(value):
+    """Serialize Decimal and dates so the JSONField metadata can store them."""
+    if isinstance(value, Decimal):
+        return str(value)
+    return value
 
 
 def get_assignments_for_user(user):
@@ -59,6 +70,30 @@ class AssignmentViewSet(viewsets.ModelViewSet):
                     "You can only create assignments for your own courses."
                 )
         return super().create(request, *args, **kwargs)
+
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        tracked_fields = ("max_score", "weight", "is_published")
+        before = {field: _json_safe(getattr(instance, field)) for field in tracked_fields}
+        assignment = serializer.save()
+        changes = {}
+        for field in tracked_fields:
+            value = _json_safe(getattr(assignment, field))
+            if before[field] != value:
+                changes[field] = {"from": before[field], "to": value}
+        if not changes:
+            return
+        log_event(
+            actor=self.request.user,
+            action=EventLog.ACTION_UPDATE,
+            entity_type="assignment",
+            entity_id=assignment.pk,
+            metadata={
+                "course_id": assignment.course_id,
+                "title": assignment.title,
+                "changes": changes,
+            },
+        )
 
 
 class CourseAssignmentsListAPIView(generics.ListAPIView):

@@ -220,6 +220,20 @@ class CourseViewSet(viewsets.ModelViewSet):
             enrollment.status = Status.APPROVED
             enrollment.save()
 
+        log_event(
+            actor=request.user,
+            action=EventLog.ACTION_CREATE,
+            entity_type="enrollment",
+            entity_id=enrollment.pk,
+            target=enrollment.student,
+            metadata={
+                "course_id": course.id,
+                "section_id": section.pk,
+                "student_id": enrollment.student_id,
+                "status": enrollment.status,
+            },
+        )
+
         serializer = EnrollmentSerializer(
             enrollment,
             context=self.get_serializer_context(),
@@ -678,6 +692,20 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         if course_settings.auto_accept_students:
             enrollment.status = Status.APPROVED
             enrollment.save()
+
+        log_event(
+            actor=self.request.user,
+            action=EventLog.ACTION_CREATE,
+            entity_type="enrollment",
+            entity_id=enrollment.pk,
+            target=enrollment.student,
+            metadata={
+                "course_id": section.course_id,
+                "section_id": section.pk,
+                "student_id": enrollment.student_id,
+                "status": enrollment.status,
+            },
+        )
 
     def perform_destroy(self, instance):
         """Delete the enrollment and detach the student from course teams.
