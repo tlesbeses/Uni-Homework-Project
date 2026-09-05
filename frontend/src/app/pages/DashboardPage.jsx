@@ -2,6 +2,14 @@ import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/features/auth/providers/AuthProvider";
 import { useDashboard } from "@/features/courses/hooks/useDashboard";
+import {
+    actionLabel,
+    actionStyle,
+    activityDetailLines,
+    actorName,
+    entityTypeLabel,
+    targetName,
+} from "@/shared/utils/activityMeta";
 
 function getGreeting() {
     const hour = new Date().getHours();
@@ -336,47 +344,29 @@ function AdminDashboard({ stats }) {
                         </p>
                     )}
                     {recentActivity.slice(0, 5).map((log) => {
-                        const actionLabel =
-                            log.action === "impersonate"
-                                ? "Impersonación"
-                                : log.action === "update"
-                                  ? "Nota"
-                                  : log.action;
-                        const className =
-                            log.action === "impersonate"
-                                ? "bg-violet-100 text-violet-700"
-                                : "bg-sky-100 text-sky-700";
-                        const actorName =
-                            log.actor && (log.actor.first_name || log.actor.username)
-                                ? log.actor.first_name
-                                    ? `${log.actor.first_name} ${log.actor.last_name ?? ""}`.trim()
-                                    : log.actor.username
-                                : "Sistema";
-                        const targetName =
-                            log.target && log.target.username
-                                ? log.target.first_name
-                                    ? `${log.target.first_name} ${log.target.last_name ?? ""}`.trim()
-                                    : log.target.username
-                                : null;
+                        const detail = activityDetailLines(log)
+                            .slice(0, 2)
+                            .join(" · ");
                         return (
                             <div
                                 key={log.id}
                                 className="flex items-center gap-4 px-5 py-3.5"
                             >
                                 <span
-                                    className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${className}`}
+                                    className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${actionStyle(log.action)}`}
                                 >
-                                    {actionLabel}
+                                    {actionLabel(log.action)}
                                 </span>
                                 <div className="min-w-0 flex-1">
                                     <p className="text-sm font-medium text-gray-800 truncate">
-                                        {actorName}
-                                        {targetName
-                                            ? ` → ${targetName}`
+                                        {actorName(log)}
+                                        {targetName(log)
+                                            ? ` → ${targetName(log)}`
                                             : ""}
                                     </p>
                                     <p className="text-xs text-gray-400 truncate">
-                                        {log.entity_type || "sistema"}
+                                        {entityTypeLabel(log.entity_type)}
+                                        {detail ? ` · ${detail}` : ""}
                                     </p>
                                 </div>
                                 <span className="text-xs text-gray-400 whitespace-nowrap">
