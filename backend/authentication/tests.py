@@ -346,3 +346,57 @@ class SerializerRoleTests(BaseAdminTestCase):
         self.assertTrue(response.data["is_superuser"])
         self.assertTrue(response.data["is_staff"])
         self.assertTrue(response.data["is_active"])
+
+
+class RefreshCsrfSyncTests(APITestCase):
+    """El refresh sigue la cookie HttpOnly; si la cookie CSRF caduca antes,
+    el refresh responde 403 hasta que el frontend re-sincroniza el doble-envío
+    (GET /auth/csrf/) y reintenta. Este test fija ese contrato."""
+
+    def setUp(self):
+        teacher_group = Group.objects.get_or_create(name="Teacher")[0]
+        self.user = User.objects.create_user(
+            username="teacher",
+            email="teacher@example.com",
+            password="pass",
+        )
+        self.user.groups.add(teacher_group)
+
+    def _login(self):
+        csrf_response = self.client.get("/auth/csrf/")
+        self.assertEqual(csrf_response.status_code, status.HTTP_200_OK)
+        response = self.client.post(
+            "/auth/login/",
+            {"username": "teacher", "password": "pass"},
+            HTTP_X_CSRFTOKEN=csrf_response.data["csrfToken"],
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        return response
+
+    def test_refresh_blocked_by_stale_csrf_then_recovers_after_resync(self):
+        self._login()
+        self.assertIn("refresh_token", self.client.cookies)
+
+        # Cookie CSRF vencida: el navegador ya no la envía, y el refresh
+        # responde 403 aunque la sesión siga viva.
+        self.client.cookies.pop("csrftoken", None)
+        response = self.client.post(
+            "/auth/jwt/refresh/",
+            {},
+            HTTP_X_CSRFTOKEN="stale-token",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        # Re-sincronización: /auth/csrf/ entrega cookie + token frescos.
+        csrf_response = self.client.get("/auth/csrf/")
+        self.assertEqual(csrf_response.status_code, status.HTTP_200_OK)
+
+        # Reintento del refresh: debe funcionar con la sesión aún activa.
+        response = self.client.post(
+            "/auth/jwt/refresh/",
+            {},
+            HTTP_X_CSRFTOKEN=csrf_response.data["csrfToken"],
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("access", response.data)
+        self.assertIn("csrfToken", response.data)
