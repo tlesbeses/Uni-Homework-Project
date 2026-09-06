@@ -13,7 +13,6 @@ export const CreateTeamModal = ({
     open,
     onClose,
     onCreated,
-    courses,
     enrollments,
     teams,
     sections,

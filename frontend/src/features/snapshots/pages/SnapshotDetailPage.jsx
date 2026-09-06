@@ -105,7 +105,7 @@ export const SnapshotDetailPage = () => {
             } else {
                 await exportSnapshotGradesCsv(snapshot.id);
             }
-        } catch (err) {
+        } catch {
             setActionError("No se pudo generar el archivo. Inténtalo de nuevo.");
         }
     };

@@ -1,4 +1,3 @@
-import { Link } from "react-router-dom";
 import { UserPasswordForm } from "@/features/auth/components/UserPasswordForm";
 
 export const ChangePasswordProfilePage = () => (

@@ -7,7 +7,6 @@ import { TeamCard } from "@/features/teams/components/TeamCard";
 import { CreateTeamModal } from "@/features/teams/components/CreateTeamModal";
 import { EditTeamModal } from "@/features/teams/components/EditTeamModal";
 import {
-    getCourses,
     getEnrollments,
     getSections,
 } from "@/features/courses/services/courseService";
@@ -24,7 +23,6 @@ export const TeamsPage = () => {
     const [editingTeam, setEditingTeam] = useState(null);
     const [filterCourse, setFilterCourse] = useState("");
     const [filterSection, setFilterSection] = useState("");
-    const [courses, setCourses] = useState([]);
     const [enrollments, setEnrollments] = useState([]);
     const [sections, setSections] = useState([]);
     const [pendingDelete, setPendingDelete] = useState(null);
@@ -35,16 +33,14 @@ export const TeamsPage = () => {
         let active = true;
         (async () => {
             try {
-                const [coursesData, enrollmentsData, sectionsData] =
+                const [enrollmentsData, sectionsData] =
                     await Promise.all([
-                        getCourses({ page_size: 100 }),
                         getEnrollments(null, { page_size: 100 }),
                         getSections(null, { page_size: 100 }),
                     ]);
                 if (!active) {
                     return;
                 }
-                setCourses(Array.isArray(coursesData.results) ? coursesData.results : Array.isArray(coursesData) ? coursesData : []);
                 setEnrollments(Array.isArray(enrollmentsData.results) ? enrollmentsData.results : Array.isArray(enrollmentsData) ? enrollmentsData : []);
                 setSections(Array.isArray(sectionsData.results) ? sectionsData.results : Array.isArray(sectionsData) ? sectionsData : []);
             } catch {
@@ -258,7 +254,6 @@ export const TeamsPage = () => {
                         navigate(`/teams/${createdTeam.id}`);
                     }
                 }}
-                courses={courses}
                 enrollments={enrollments}
                 teams={teams}
                 sections={sections}

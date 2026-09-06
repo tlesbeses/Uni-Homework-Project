@@ -136,7 +136,7 @@ export const TeacherGradingPanel = () => {
         )
     );
 
-    const teams = rawTeams ?? [];
+    const teams = useMemo(() => rawTeams ?? [], [rawTeams]);
     const enrollments = rawEnrollments ?? [];
 
     const students = enrollments.filter(
@@ -247,24 +247,30 @@ export const TeacherGradingPanel = () => {
         inFlightRef.current.delete(key);
     }, []);
 
-    const isValidScore = (raw) => {
-        if (raw === "" || raw === null || raw === undefined) {
-            return false;
-        }
-        const value = Number(raw);
-        return (
-            Number.isFinite(value) &&
-            value >= 0 &&
-            value <= maxScore
-        );
-    };
+    const isValidScore = useCallback(
+        (raw) => {
+            if (raw === "" || raw === null || raw === undefined) {
+                return false;
+            }
+            const value = Number(raw);
+            return (
+                Number.isFinite(value) &&
+                value >= 0 &&
+                value <= maxScore
+            );
+        },
+        [maxScore]
+    );
 
-    const studentPersistedScore = (studentId) => {
-        const grade = gradesByStudentId.get(String(studentId));
-        return grade?.score === null || grade?.score === undefined
-            ? null
-            : Number(grade.score);
-    };
+    const studentPersistedScore = useCallback(
+        (studentId) => {
+            const grade = gradesByStudentId.get(String(studentId));
+            return grade?.score === null || grade?.score === undefined
+                ? null
+                : Number(grade.score);
+        },
+        [gradesByStudentId]
+    );
 
     const autosaveMemberKey = useCallback(
         async (key) => {
@@ -311,12 +317,12 @@ export const TeacherGradingPanel = () => {
         [
             drafts,
             selectedAssignmentId,
-            gradesByStudentId,
+            isValidScore,
+            studentPersistedScore,
             beginSave,
             endSave,
             clearDraft,
             gradeStudentMutation,
-            maxScore,
         ]
     );
 
@@ -370,11 +376,11 @@ export const TeacherGradingPanel = () => {
             teams,
             overwriteIndividual,
             getTeamGrade,
+            isValidScore,
             beginSave,
             endSave,
             clearDraft,
             gradeTeamMutation,
-            maxScore,
         ]
     );
 
@@ -461,14 +467,14 @@ export const TeacherGradingPanel = () => {
         teams,
         selectedAssignmentId,
         overwriteIndividual,
-        gradesByStudentId,
         getTeamGrade,
+        isValidScore,
+        studentPersistedScore,
         beginSave,
         endSave,
         clearDraft,
         gradeStudentMutation,
         gradeTeamMutation,
-        maxScore,
     ]);
 
     const handleSelectCourse = (e) => {
