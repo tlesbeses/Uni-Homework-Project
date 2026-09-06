@@ -1,4 +1,5 @@
 import { InputField } from "@/shared/components/ui/InputField";
+import { Button } from "@/shared/components/ui/Button";
 import { useUserPasswordForm } from "../hooks/useUserPasswordForm";
 
 export const UserPasswordForm = () => {
@@ -38,13 +39,13 @@ export const UserPasswordForm = () => {
                 <p className="text-red-500 text-xs">{serverError}</p>
             )}
 
-            <button
+            <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full bg-indigo-600 text-white py-2.5 rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-50"
+                className="w-full"
             >
                 {isSubmitting ? "Actualizando..." : "Cambiar contraseña"}
-            </button>
+            </Button>
         </form>
     );
 };

@@ -1,9 +1,11 @@
+import { Button } from "@/shared/components/ui/Button";
+
 export const ConfirmModal = ({
     open,
     title,
     description,
     confirmLabel = "Confirmar",
-    confirmClassName = "bg-red-600 hover:bg-red-700",
+    confirmVariant = "danger",
     onCancel,
     onConfirm,
     busy = false,
@@ -18,22 +20,12 @@ export const ConfirmModal = ({
                 <h2 className="text-lg font-bold text-gray-800">{title}</h2>
                 <div className="text-sm text-gray-600 mt-2">{description}</div>
                 <div className="flex justify-end gap-3 pt-5">
-                    <button
-                        type="button"
-                        onClick={onCancel}
-                        disabled={busy}
-                        className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition disabled:opacity-50"
-                    >
+                    <Button onClick={onCancel} disabled={busy} variant="ghost">
                         Cancelar
-                    </button>
-                    <button
-                        type="button"
-                        onClick={onConfirm}
-                        disabled={busy}
-                        className={`px-4 py-2 text-sm font-semibold text-white rounded-lg transition disabled:opacity-50 ${confirmClassName}`}
-                    >
+                    </Button>
+                    <Button onClick={onConfirm} disabled={busy} variant={confirmVariant}>
                         {busy ? "Procesando..." : confirmLabel}
-                    </button>
+                    </Button>
                 </div>
             </div>
         </div>

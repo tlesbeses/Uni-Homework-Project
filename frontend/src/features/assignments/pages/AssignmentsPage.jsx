@@ -12,6 +12,7 @@ import { formatDateTime } from "@/features/assignments/utils/formatDate";
 import { useAuth } from "@/features/auth/providers/AuthProvider";
 import { useCourses } from "@/features/courses/hooks/useCourses";
 import { ConfirmModal } from "@/shared/components/ConfirmModal";
+import { Button } from "@/shared/components/ui/Button";
 
 export const AssignmentsPage = () => {
     const { isTeacher } = useAuth();
@@ -70,13 +71,9 @@ export const AssignmentsPage = () => {
                 </div>
 
                 {isTeacher && (
-                    <button
-                        type="button"
-                        onClick={() => setIsCreateOpen(true)}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-lg shadow transition"
-                    >
+                    <Button onClick={() => setIsCreateOpen(true)}>
                         + Nueva asignación
-                    </button>
+                    </Button>
                 )}
             </div>
 
@@ -168,42 +165,42 @@ export const AssignmentsPage = () => {
 
                                     {isTeacher && (
                                         <div className="flex items-center gap-2 shrink-0">
-                                            <button
-                                                type="button"
+                                            <Button
+                                                size="sm"
+                                                variant="soft"
                                                 onClick={() =>
                                                     handleTogglePublish(
                                                         assignment
                                                     )
                                                 }
                                                 disabled={busy}
-                                                className="px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition disabled:opacity-50"
                                             >
                                                 {assignment.is_published
                                                     ? "Ocultar"
                                                     : "Publicar"}
-                                            </button>
-                                            <button
-                                                type="button"
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="neutral"
                                                 onClick={() =>
                                                     setEditingAssignment(
                                                         assignment
                                                     )
                                                 }
                                                 disabled={busy}
-                                                className="px-3 py-1.5 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition disabled:opacity-50"
                                             >
                                                 Editar
-                                            </button>
-                                            <button
-                                                type="button"
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="danger"
                                                 onClick={() =>
                                                     setPendingDelete(assignment)
                                                 }
                                                 disabled={busy}
-                                                className="px-3 py-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition disabled:opacity-50"
                                             >
                                                 Eliminar
-                                            </button>
+                                            </Button>
                                         </div>
                                     )}
                                 </li>

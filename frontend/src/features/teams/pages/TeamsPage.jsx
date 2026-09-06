@@ -12,6 +12,7 @@ import {
     getSections,
 } from "@/features/courses/services/courseService";
 import { ConfirmModal } from "@/shared/components/ConfirmModal";
+import { Button } from "@/shared/components/ui/Button";
 
 export const TeamsPage = () => {
     const { user, isTeacher } = useAuth();
@@ -140,13 +141,9 @@ export const TeamsPage = () => {
                     </p>
                 </div>
 
-                <button
-                    type="button"
-                    onClick={() => setIsCreateOpen(true)}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-lg shadow transition"
-                >
+                <Button onClick={() => setIsCreateOpen(true)}>
                     + Nuevo equipo
-                </button>
+                </Button>
             </div>
 
             {isTeacher ? (

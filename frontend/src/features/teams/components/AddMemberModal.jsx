@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useAddMemberForm } from "@/features/teams/hooks/useAddMemberForm";
 import { getAvailableStudents } from "@/features/teams/services/teamService";
 import { formatUser } from "@/features/teams/utils/formatUser";
+import { Button } from "@/shared/components/ui/Button";
 
 const toList = (data) =>
     Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
@@ -109,24 +110,19 @@ export const AddMemberModal = ({ team, open, onClose, onAdded }) => {
                     </div>
 
                     <div className="flex justify-end gap-3 pt-2">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition"
-                        >
+                        <Button onClick={onClose} variant="ghost">
                             Cancelar
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             type="submit"
                             disabled={
                                 isSubmitting ||
                                 loadingCandidates ||
                                 candidates.length === 0
                             }
-                            className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition disabled:opacity-60"
                         >
                             {isSubmitting ? "Agregando..." : "Agregar miembro"}
-                        </button>
+                        </Button>
                     </div>
                 </form>
             </div>

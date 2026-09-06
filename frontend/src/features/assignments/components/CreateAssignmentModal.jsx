@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useCreateAssignmentForm } from "@/features/assignments/hooks/useCreateAssignmentForm";
 import { InputField } from "@/shared/components/ui/InputField";
+import { Button } from "@/shared/components/ui/Button";
 
 export const CreateAssignmentModal = ({
     courseId,
@@ -129,20 +130,15 @@ export const CreateAssignmentModal = ({
                     </label>
 
                     <div className="flex justify-end gap-3 pt-2">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition"
-                        >
+                        <Button onClick={onClose} variant="ghost">
                             Cancelar
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             type="submit"
                             disabled={isSubmitting || !selectedCourse}
-                            className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition disabled:opacity-60"
                         >
                             {isSubmitting ? "Creando..." : "Crear"}
-                        </button>
+                        </Button>
                     </div>
                 </form>
             </div>

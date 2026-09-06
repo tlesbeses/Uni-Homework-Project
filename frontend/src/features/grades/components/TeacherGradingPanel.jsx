@@ -13,6 +13,7 @@ import {
 import { getTeams } from "@/features/teams/services/teamService";
 import { getGradeHistory } from "@/features/grades/services/gradeService";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
+import { Button } from "@/shared/components/ui/Button";
 
 const DOT_COLORS = [
     "bg-red-500",
@@ -695,8 +696,8 @@ export const TeacherGradingPanel = () => {
                         placeholder="__"
                     />
                     <span className="text-xs text-gray-400">/ {maxScore}</span>
-                    <button
-                        type="button"
+                    <Button
+                        size="sm"
                         onClick={() =>
                             handleSaveMember(teamId, student.id)
                         }
@@ -705,10 +706,9 @@ export const TeacherGradingPanel = () => {
                             !inputValue(key, fallback)
                         }
                         title="Guardar nota individual"
-                        className="px-2 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition disabled:opacity-50"
                     >
                         {savingKey === key ? "…" : "✓"}
-                    </button>
+                    </Button>
                 </span>
             </li>
         );
@@ -1090,8 +1090,9 @@ export const TeacherGradingPanel = () => {
                                             <span className="text-xs text-gray-400">
                                                 / {maxScore}
                                             </span>
-                                            <button
+                                            <Button
                                                 type="submit"
+                                                size="sm"
                                                 disabled={
                                                     savingKey ===
                                                         teamDraftKey(
@@ -1106,13 +1107,12 @@ export const TeacherGradingPanel = () => {
                                                         )
                                                     )
                                                 }
-                                                className="px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition disabled:opacity-50"
                                             >
                                                 {savingKey ===
                                                 teamDraftKey(selectedTeam.id)
                                                     ? "Guardando..."
                                                     : "Aplicar a todos"}
-                                            </button>
+                                            </Button>
                                         </span>
                                     </form>
 

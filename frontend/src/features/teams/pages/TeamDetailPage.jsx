@@ -6,6 +6,7 @@ import { MemberList } from "@/features/teams/components/MemberList";
 import { AddMemberModal } from "@/features/teams/components/AddMemberModal";
 import { EditTeamModal } from "@/features/teams/components/EditTeamModal";
 import { formatUser } from "@/features/teams/utils/formatUser";
+import { Button } from "@/shared/components/ui/Button";
 
 export const TeamDetailPage = () => {
     const { id } = useParams();
@@ -84,13 +85,9 @@ export const TeamDetailPage = () => {
                         Miembros
                     </h2>
                     {canManage && (
-                        <button
-                            type="button"
-                            onClick={() => setIsAddOpen(true)}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-lg shadow transition"
-                        >
+                        <Button onClick={() => setIsAddOpen(true)}>
                             + Agregar miembro
-                        </button>
+                        </Button>
                     )}
                 </div>
 

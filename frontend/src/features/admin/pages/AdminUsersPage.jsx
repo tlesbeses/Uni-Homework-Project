@@ -382,7 +382,7 @@ export const AdminUsersPage = () => {
                         : ""
                 }
                 confirmLabel="Cambiar rol"
-                confirmClassName="bg-indigo-600 hover:bg-indigo-700"
+                confirmVariant="primary"
                 onCancel={() => setPendingRoleChange(null)}
                 onConfirm={handleRoleChange}
                 busy={Boolean(busyId)}

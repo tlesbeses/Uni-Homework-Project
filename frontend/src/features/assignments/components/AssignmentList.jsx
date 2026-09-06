@@ -1,5 +1,6 @@
 import { PublishBadge } from "@/features/assignments/components/PublishBadge";
 import { formatDateTime } from "@/features/assignments/utils/formatDate";
+import { Button } from "@/shared/components/ui/Button";
 
 export const AssignmentList = ({
     assignments,
@@ -73,39 +74,39 @@ export const AssignmentList = ({
                         {canManage && (
                             <div className="flex flex-wrap justify-end items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
                                 {onGrade && (
-                                    <button
-                                        type="button"
+                                    <Button
+                                        size="sm"
+                                        variant="primary"
                                         onClick={() => onGrade(assignment)}
                                         disabled={busy}
-                                        className="px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition disabled:opacity-50"
                                     >
                                         Evaluar
-                                    </button>
+                                    </Button>
                                 )}
-                                <button
-                                    type="button"
+                                <Button
+                                    size="sm"
+                                    variant="soft"
                                     onClick={() => onTogglePublish(assignment)}
                                     disabled={busy}
-                                    className="px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition disabled:opacity-50"
                                 >
                                     {assignment.is_published ? "Ocultar" : "Publicar"}
-                                </button>
-                                <button
-                                    type="button"
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="neutral"
                                     onClick={() => onEdit(assignment)}
                                     disabled={busy}
-                                    className="px-3 py-1.5 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition disabled:opacity-50"
                                 >
                                     Editar
-                                </button>
-                                <button
-                                    type="button"
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="danger"
                                     onClick={() => onDelete(assignment)}
                                     disabled={busy}
-                                    className="px-3 py-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition disabled:opacity-50"
                                 >
                                     Eliminar
-                                </button>
+                                </Button>
                             </div>
                         )}
                     </li>

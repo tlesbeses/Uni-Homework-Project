@@ -1,4 +1,5 @@
 import { InputField } from "@/shared/components/ui/InputField";
+import { Button } from "@/shared/components/ui/Button";
 import { useRegister } from "../hooks/useRegister";
 
 export const RegisterForm = () => {
@@ -58,13 +59,13 @@ export const RegisterForm = () => {
                 placeholder="••••••••"
             />
 
-            <button
+            <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full bg-indigo-600 text-white py-2.5 rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-50"
+                className="w-full"
             >
                 {isSubmitting ? "Creando cuenta..." : "Registrarse"}
-            </button>
+            </Button>
         </form>
     );
 };

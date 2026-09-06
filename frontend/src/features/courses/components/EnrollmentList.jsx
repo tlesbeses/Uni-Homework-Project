@@ -1,4 +1,5 @@
 import { StatusBadge } from "@/features/courses/components/StatusBadge";
+import { Button } from "@/shared/components/ui/Button";
 
 export const EnrollmentList = ({
     enrollments,
@@ -38,26 +39,26 @@ export const EnrollmentList = ({
 
                         {isTeacher && pending && (
                             <div className="flex items-center gap-2">
-                                <button
-                                    type="button"
+                                <Button
+                                    size="sm"
+                                    variant="success"
                                     onClick={() =>
                                         onAction(enrollment.id, "approve")
                                     }
                                     disabled={busy}
-                                    className="px-3 py-1.5 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg transition disabled:opacity-50"
                                 >
                                     Aprobar
-                                </button>
-                                <button
-                                    type="button"
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="danger"
                                     onClick={() =>
                                         onAction(enrollment.id, "reject")
                                     }
                                     disabled={busy}
-                                    className="px-3 py-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition disabled:opacity-50"
                                 >
                                     Rechazar
-                                </button>
+                                </Button>
                             </div>
                         )}
                     </li>

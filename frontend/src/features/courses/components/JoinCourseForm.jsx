@@ -1,5 +1,6 @@
 import { useJoinCourseForm } from "@/features/courses/hooks/useJoinEnrollments";
 import { InputField } from "@/shared/components/ui/InputField";
+import { Button } from "@/shared/components/ui/Button";
 
 export const JoinCourseForm = ({ onJoined }) => {
     const {
@@ -52,13 +53,13 @@ export const JoinCourseForm = ({ onJoined }) => {
                 </div>
             )}
 
-            <button
+            <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-5 py-3 rounded-lg transition disabled:opacity-60"
+                size="lg"
             >
                 {isSubmitting ? "Uniendo..." : "Unirse al curso"}
-            </button>
+            </Button>
         </form>
     );
 };

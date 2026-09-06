@@ -1,5 +1,6 @@
 import { useLogin } from "@/features/auth/hooks/useLogin";
 import { InputField } from "@/shared/components/ui/InputField";
+import { Button } from "@/shared/components/ui/Button";
 
 export const LoginForm = () => {
     const { register, handleSubmit, errors, isSubmitting, onSubmit } = useLogin();
@@ -23,13 +24,14 @@ export const LoginForm = () => {
                 placeholder="••••••••"
             />
 
-            <button
+            <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md hover:shadow-lg transition duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                size="lg"
+                className="w-full"
             >
                 {isSubmitting ? "Ingresando..." : "Iniciar Sesión"}
-            </button>
+            </Button>
         </form>
     );
 };

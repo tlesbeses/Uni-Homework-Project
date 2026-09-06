@@ -1,5 +1,6 @@
 import { useEditCourseForm } from "@/features/courses/hooks/useEditCourseForm";
 import { InputField } from "@/shared/components/ui/InputField";
+import { Button } from "@/shared/components/ui/Button";
 
 export const EditCourseModal = ({ course, open, onClose, onSaved }) => {
     const { register, handleSubmit, errors, isSubmitting, onSubmit } =
@@ -79,20 +80,12 @@ export const EditCourseModal = ({ course, open, onClose, onSaved }) => {
                     </div>
 
                     <div className="flex justify-end gap-3 pt-2">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition"
-                        >
+                        <Button onClick={onClose} variant="ghost">
                             Cancelar
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={isSubmitting}
-                            className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition disabled:opacity-60"
-                        >
+                        </Button>
+                        <Button type="submit" disabled={isSubmitting}>
                             {isSubmitting ? "Guardando..." : "Guardar cambios"}
-                        </button>
+                        </Button>
                     </div>
                 </form>
             </div>

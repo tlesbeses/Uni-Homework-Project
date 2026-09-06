@@ -1,5 +1,6 @@
 import { Component } from "react";
 import { reportError } from "@/shared/utils/reportError";
+import { Button } from "@/shared/components/ui/Button";
 
 export class ErrorBoundary extends Component {
     constructor(props) {
@@ -51,13 +52,9 @@ export class ErrorBoundary extends Component {
                             </span>
                         </p>
                     )}
-                    <button
-                        type="button"
-                        onClick={this.handleReload}
-                        className="mt-6 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition"
-                    >
+                    <Button onClick={this.handleReload} className="mt-6">
                         Recargar página
-                    </button>
+                    </Button>
                 </div>
             </div>
         );
