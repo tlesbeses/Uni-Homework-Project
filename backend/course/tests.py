@@ -264,6 +264,11 @@ class EnrollmentTests(BaseCourseTestCase):
             {"join_code": self.course.join_code},
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["section"],
+            ["This field is required."],
+        )
+        self.assertGreater(len(response.data["available_sections"]), 0)
 
     def test_join_with_invalid_section_rejected(self):
         foreign_course = Course.objects.create(
@@ -283,6 +288,11 @@ class EnrollmentTests(BaseCourseTestCase):
             },
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["detail"],
+            "Invalid section for this course.",
+        )
+        self.assertGreater(len(response.data["available_sections"]), 0)
 
     def test_duplicate_join_rejected(self):
         Enrollment.objects.create(section=self.section, student=self.student)
@@ -295,11 +305,16 @@ class EnrollmentTests(BaseCourseTestCase):
             },
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["detail"],
+            "You already requested to join this course.",
+        )
 
     def test_invalid_join_code(self):
         self.client.force_authenticate(self.student)
         response = self.client.post("/api/courses/join/", {"join_code": "NOPE1234"})
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.data["detail"], "Invalid join code.")
 
     def test_teacher_cannot_join_own_course(self):
         self.client.force_authenticate(self.teacher)
@@ -311,6 +326,10 @@ class EnrollmentTests(BaseCourseTestCase):
             },
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["detail"],
+            "You cannot join your own course.",
+        )
 
     def test_teacher_can_approve_enrollment(self):
         enrollment = Enrollment.objects.create(
@@ -429,6 +448,10 @@ class EnrollmentTests(BaseCourseTestCase):
             {"section": self.section2.id},
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["detail"],
+            "You already requested to join this course.",
+        )
 
     def test_cannot_enroll_in_private_course(self):
         private_course = Course.objects.create(
@@ -454,6 +477,27 @@ class EnrollmentTests(BaseCourseTestCase):
             {"section": self.section.id},
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["detail"],
+            "You cannot enroll in your own course.",
+        )
+
+    def test_approve_already_approved_returns_400_with_detail(self):
+        enrollment = create_enrollment(
+            section=self.section,
+            student=self.student,
+            actor=self.student,
+        )
+        approve_enrollment(enrollment=enrollment, actor=self.teacher)
+        self.client.force_authenticate(self.teacher)
+        response = self.client.post(
+            f"/api/enrollments/{enrollment.id}/approve/"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["detail"],
+            "Enrollment is already approved.",
+        )
 
     def test_enroll_respects_auto_accept(self):
         self.course.settings.auto_accept_students = True
