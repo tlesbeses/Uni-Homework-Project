@@ -35,6 +35,11 @@ const TeamsPage = lazyPage(() => import("@/features/teams/pages/TeamsPage"), "Te
 const TeamDetailPage = lazyPage(() => import("@/features/teams/pages/TeamDetailPage"), "TeamDetailPage");
 const AdminUsersPage = lazyPage(() => import("@/features/admin/pages/AdminUsersPage"), "AdminUsersPage");
 const AdminActivityPage = lazyPage(() => import("@/features/admin/pages/AdminActivityPage"), "AdminActivityPage");
+const AdminErrorLogsPage = lazyPage(() => import("@/features/admin/pages/AdminErrorLogsPage"), "AdminErrorLogsPage");
+const AdminErrorLogDetailPage = lazyPage(() => import("@/features/admin/pages/AdminErrorLogDetailPage"), "AdminErrorLogDetailPage");
+const SnapshotsPage = lazyPage(() => import("@/features/snapshots/pages/SnapshotsPage"), "SnapshotsPage");
+const SnapshotDetailPage = lazyPage(() => import("@/features/snapshots/pages/SnapshotDetailPage"), "SnapshotDetailPage");
+const NotificationsPage = lazyPage(() => import("@/features/notifications/pages/NotificationsPage"), "NotificationsPage");
 
 export const router = createBrowserRouter([
   {
@@ -158,11 +163,51 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: "/admin/errors",
+        element: (
+          <ProtectedRoute superuserOnly>
+            <SuspenseWrapper>
+              <AdminErrorLogsPage />
+            </SuspenseWrapper>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/admin/errors/:id",
+        element: (
+          <ProtectedRoute superuserOnly>
+            <SuspenseWrapper>
+              <AdminErrorLogDetailPage />
+            </SuspenseWrapper>
+          </ProtectedRoute>
+        ),
+      },
+      {
         path: "/grades/report",
         element: (
           <ProtectedRoute blockSuperuser>
             <SuspenseWrapper>
               <GradesReportPage />
+            </SuspenseWrapper>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/snapshots",
+        element: (
+          <ProtectedRoute>
+            <SuspenseWrapper>
+              <SnapshotsPage />
+            </SuspenseWrapper>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/snapshots/:id",
+        element: (
+          <ProtectedRoute>
+            <SuspenseWrapper>
+              <SnapshotDetailPage />
             </SuspenseWrapper>
           </ProtectedRoute>
         ),
@@ -175,6 +220,14 @@ export const router = createBrowserRouter([
               <GradesPage />
             </SuspenseWrapper>
           </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/notifications",
+        element: (
+          <SuspenseWrapper>
+            <NotificationsPage />
+          </SuspenseWrapper>
         ),
       },
       {

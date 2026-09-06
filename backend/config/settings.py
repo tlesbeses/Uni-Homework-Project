@@ -74,6 +74,7 @@ INSTALLED_APPS = [
     'teams',
     'assignments',
     'grading',
+    'notifications',
     'rest_framework',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
@@ -185,6 +186,7 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+    "EXCEPTION_HANDLER": "config.errors.api_exception_handler",
       "DEFAULT_FILTER_BACKENDS": [
         "django_filters.rest_framework.DjangoFilterBackend",
         "rest_framework.filters.SearchFilter",
@@ -202,6 +204,7 @@ REST_FRAMEWORK = {
         "auth": "10/minute",
         "admin": "20/minute",
         "grade": "60/minute",
+        "error": "10/minute",
     },
 
     "DEFAULT_PAGINATION_CLASS":
@@ -250,7 +253,9 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 # Seguridad en producción: cookies Secure, HSTS, redirect a HTTPS.
-if not DEBUG:
+# Durante los tests (manage.py test) se omite para que el test client HTTP no
+# sea redirigido a HTTPS (equivalente al entorno de desarrollo local).
+if not DEBUG and "test" not in sys.argv:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True

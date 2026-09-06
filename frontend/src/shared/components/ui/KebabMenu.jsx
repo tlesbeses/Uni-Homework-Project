@@ -5,7 +5,9 @@ export const KebabMenu = ({ items }) => {
     const menuRef = useRef(null);
 
     useEffect(() => {
-        if (!open) return;
+        if (!open) {
+            return;
+        }
 
         const handleClickOutside = (event) => {
             if (menuRef.current && !menuRef.current.contains(event.target)) {

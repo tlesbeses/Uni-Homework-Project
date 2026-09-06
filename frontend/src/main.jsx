@@ -9,6 +9,10 @@ import { queryClient } from "@/lib/queryClient";
 import { ToastContainer } from 'react-toastify';
 import "react-toastify/dist/ReactToastify.css";
 import { ThrottleManager } from "@/shared/components/ThrottleManager";
+import { ErrorBoundary } from "@/shared/components/ErrorBoundary";
+import { installGlobalErrorListeners } from "@/shared/utils/reportError";
+
+installGlobalErrorListeners();
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
@@ -20,7 +24,9 @@ createRoot(document.getElementById('root')).render(
           theme="colored"
         />
         <ThrottleManager />
-        <RouterProvider router={router} />
+        <ErrorBoundary name="App">
+          <RouterProvider router={router} />
+        </ErrorBoundary>
       </AuthProvider>
     </QueryClientProvider>
   </React.StrictMode>

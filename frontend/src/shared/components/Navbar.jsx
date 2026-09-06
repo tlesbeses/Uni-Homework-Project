@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/providers/AuthProvider";
+import { NotificationBell } from "@/features/notifications/components/NotificationBell";
 
 const NAV_ITEMS = [
   {
@@ -31,6 +32,12 @@ const NAV_ITEMS = [
     teacherOnly: true,
   },
   {
+    to: "/snapshots",
+    label: "Histórico",
+    d: "M2.25 12a9 9 0 1 1 18 0 9 9 0 0 1-18 0Zm7.5 0c0 1.335 1.09 2.25 2.25 2.25s2.25-.915 2.25-2.25-1.09-2.25-2.25-2.25-2.25.915-2.25 2.25Zm-3.25 0a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Zm9.5 0a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z",
+    leadOnly: true,
+  },
+  {
     to: "/admin/users",
     label: "Usuarios",
     d: "M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.963 0a9 9 0 1 0-11.963 0m11.963 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z",
@@ -40,6 +47,12 @@ const NAV_ITEMS = [
     to: "/admin/activity",
     label: "Actividad",
     d: "M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z",
+    adminOnly: true,
+  },
+  {
+    to: "/admin/errors",
+    label: "Errores",
+    d: "M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z",
     adminOnly: true,
   },
 ];
@@ -55,10 +68,12 @@ export function Navbar() {
     () =>
       NAV_ITEMS.filter((item) => {
         if (isAdmin) {
-          return !item.teacherOnly && (item.adminOnly || item.to === "/dashboard");
+          return item.adminOnly || item.leadOnly || (!item.teacherOnly && item.to === "/dashboard");
         }
         return (
-          (!item.teacherOnly || isTeacher) && (!item.adminOnly || isAdmin)
+          (!item.teacherOnly || isTeacher) &&
+          (!item.adminOnly || isAdmin) &&
+          (!item.leadOnly || isTeacher)
         );
       }),
     [isTeacher, isAdmin]
@@ -113,6 +128,7 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center space-x-4">
+          <NotificationBell />
           <div className="relative">
             <button
               onClick={() => {

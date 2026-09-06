@@ -3,7 +3,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import get_user_model
 from djoser.serializers import UserCreateSerializer as DjoserUserCreateSerializer, UserSerializer as DjoserUserSerializer
 
-from authentication.models import EventLog
+from authentication.models import ErrorLog, EventLog
 
 User = get_user_model()
 
@@ -133,5 +133,53 @@ class EventLogSerializer(serializers.ModelSerializer):
             "target",
             "metadata",
             "created_at",
+        )
+
+
+class ClientErrorSerializer(serializers.Serializer):
+    """Campos sanitizados que el frontend envía al reportar un error."""
+
+    kind = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
+    message = serializers.CharField(max_length=5000, required=False, allow_blank=True, default="")
+    stack = serializers.CharField(max_length=40000, required=False, allow_blank=True, default="")
+    url = serializers.CharField(max_length=500, required=False, allow_blank=True, default="")
+    component = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
+    error_id_ref = serializers.CharField(max_length=16, required=False, allow_blank=True, default="")
+
+    def validate(self, attrs):
+        if not any(attrs.get(k) for k in ("kind", "message", "stack", "component")):
+            raise serializers.ValidationError(
+                {"detail": "Envía al menos 'kind', 'message' o 'stack'."}
+            )
+        return attrs
+
+
+class ErrorLogSerializer(serializers.ModelSerializer):
+    """Listado de errores para la consola admin (sin traceback)."""
+
+    class Meta:
+        model = ErrorLog
+        fields = (
+            "id",
+            "error_id",
+            "source",
+            "kind",
+            "message",
+            "path",
+            "method",
+            "status_code",
+            "user_id",
+            "created_at",
+        )
+
+
+class ErrorLogDetailSerializer(ErrorLogSerializer):
+    """Detalle de un error incluyendo traceback y metadata del cliente."""
+
+    class Meta(ErrorLogSerializer.Meta):
+        fields = ErrorLogSerializer.Meta.fields + (
+            "traceback",
+            "client_metadata",
+            "error_id_ref",
         )
         read_only_fields = fields

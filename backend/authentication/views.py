@@ -20,12 +20,15 @@ from .csrf import CSRF_COOKIE_NAME, assert_csrf, auth_cookie_secure, set_csrf_co
 from .permissions import IsSuperuser
 from .serializers import (
     AdminUserSerializer,
+    ClientErrorSerializer,
+    ErrorLogDetailSerializer,
+    ErrorLogSerializer,
     EventLogSerializer,
     LoginSerializer,
 )
 from .services import log_event
-from .throttle import AdminThrottle, AuthThrottle, LoginThrottle
-from authentication.models import EventLog, User
+from .throttle import AdminThrottle, AuthThrottle, ErrorThrottle, LoginThrottle
+from authentication.models import ErrorLog, EventLog, User
 
 REFRESH_COOKIE_NAME = "refresh_token"
 REFRESH_COOKIE_PATH = "/auth/"
@@ -316,3 +319,79 @@ class AdminActivityView(APIView):
         page = paginator.paginate_queryset(qs, request)
         payload = EventLogSerializer(page, many=True).data
         return paginator.get_paginated_response(payload)
+
+
+class ErrorLogEndpoint(APIView):
+    """Observabilidad in-house de errores.
+
+    - ``GET``: listado paginado (solo superusuarios) para la consola admin.
+    - ``POST``: reporte sanitizado de errores del frontend (AllowAny, con
+      throttle propio) que devuelve el ``error_id`` público para soporte.
+    """
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [IsSuperuser()]
+        return [AllowAny()]
+
+    def get_throttles(self):
+        if self.request.method == "POST":
+            return [ErrorThrottle()]
+        return [AdminThrottle()]
+
+    def get(self, request):
+        qs = ErrorLog.objects.all()
+
+        source = request.query_params.get("source")
+        if source in (ErrorLog.SOURCE_SERVER, ErrorLog.SOURCE_CLIENT):
+            qs = qs.filter(source=source)
+
+        qs = qs.order_by("-created_at")
+
+        paginator = ActivityPagination()
+        page = paginator.paginate_queryset(qs, request)
+        payload = ErrorLogSerializer(page, many=True).data
+        return paginator.get_paginated_response(payload)
+
+    def post(self, request):
+        serializer = ClientErrorSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        user = getattr(request, "user", None)
+        user_id = user.id if user is not None and user.is_authenticated else None
+
+        error_log = ErrorLog.objects.create(
+            source=ErrorLog.SOURCE_CLIENT,
+            kind=data.get("kind")[:200],
+            message=data.get("message")[:2000],
+            traceback=data.get("stack")[:20000],
+            path=request.path,
+            method=request.method or "",
+            user_id=user_id,
+            error_id_ref=data.get("error_id_ref")[:16],
+            client_metadata={
+                "component": data.get("component")[:200],
+                "url": data.get("url")[:500],
+            },
+        )
+
+        return Response(
+            {"error_id": error_log.error_id},
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class ErrorLogDetailView(APIView):
+    """Detalle de un error (con traceback) para la consola admin."""
+
+    permission_classes = [IsSuperuser]
+    throttle_classes = [AdminThrottle]
+    serializer_class = ErrorLogDetailSerializer
+
+    def get(self, request, pk):
+        try:
+            error_log = ErrorLog.objects.get(pk=pk)
+        except ErrorLog.DoesNotExist:
+            raise NotFound("Error no encontrado.")
+        return Response(ErrorLogDetailSerializer(error_log).data)

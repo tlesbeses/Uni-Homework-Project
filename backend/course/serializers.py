@@ -8,6 +8,7 @@ from course.models import (
     CourseSettings,
     Enrollment,
     Section,
+    SectionSnapshot,
     Status,
 )
 from grading.models import Grade
@@ -227,6 +228,40 @@ class EnrollmentSerializer(serializers.ModelSerializer):
 
 
 # ── Dashboard serializers (lightweight, read-only) ──────────────────
+
+
+class SectionSnapshotListSerializer(serializers.ModelSerializer):
+    """List view of a captured section: headers plus a small stats block."""
+
+    stats = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SectionSnapshot
+        fields = [
+            "id",
+            "course_id",
+            "course_title",
+            "teacher_id",
+            "teacher_name",
+            "section_id",
+            "section_name",
+            "reason",
+            "stats",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+    def get_stats(self, obj):
+        if obj.payload and "stats" in obj.payload:
+            return obj.payload["stats"]
+        return None
+
+
+class SectionSnapshotDetailSerializer(SectionSnapshotListSerializer):
+    """Detail view of a snapshot that includes the frozen payload."""
+
+    class Meta(SectionSnapshotListSerializer.Meta):
+        fields = SectionSnapshotListSerializer.Meta.fields + ["payload"]
 
 
 class DashboardCourseSerializer(serializers.ModelSerializer):

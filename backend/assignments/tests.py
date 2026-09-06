@@ -11,6 +11,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from assignments.models import Assignment
+from authentication.models import EventLog
 from course.models import Course, Enrollment, Section, Status
 
 User = get_user_model()
@@ -292,6 +293,65 @@ class AssignmentWriteTests(AssignmentAPITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(Assignment.objects.filter(pk=self.assignment.pk).exists())
+
+    def test_weight_update_creates_event_log(self):
+        self.authenticate(self.teacher)
+
+        response = self.client.patch(
+            reverse("assignment-detail", args=[self.assignment.id]),
+            {"weight": "3.00"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        log = EventLog.objects.filter(
+            action=EventLog.ACTION_UPDATE, entity_type="assignment"
+        ).first()
+        self.assertIsNotNone(log)
+        self.assertEqual(log.actor, self.teacher)
+        self.assertEqual(log.entity_id, self.assignment.id)
+        self.assertEqual(log.metadata["course_id"], self.course.id)
+        self.assertEqual(log.metadata["title"], "Homework 1")
+        self.assertEqual(
+            log.metadata["changes"]["weight"],
+            {"from": "1.00", "to": "3.00"},
+        )
+        self.assertNotIn("is_published", log.metadata["changes"])
+
+    def test_publish_toggle_creates_event_log(self):
+        self.authenticate(self.teacher)
+
+        response = self.client.patch(
+            reverse("assignment-detail", args=[self.assignment.id]),
+            {"is_published": False},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        log = EventLog.objects.filter(
+            action=EventLog.ACTION_UPDATE, entity_type="assignment"
+        ).first()
+        self.assertIsNotNone(log)
+        self.assertEqual(
+            log.metadata["changes"]["is_published"],
+            {"from": True, "to": False},
+        )
+
+    def test_title_only_update_does_not_create_event_log(self):
+        self.authenticate(self.teacher)
+
+        response = self.client.patch(
+            reverse("assignment-detail", args=[self.assignment.id]),
+            {"title": "Homework 1 Revised"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.assertFalse(
+            EventLog.objects.filter(
+                action=EventLog.ACTION_UPDATE, entity_type="assignment"
+            ).exists()
+        )
 
     def test_student_cannot_delete_assignment(self):
         self.authenticate(self.student)

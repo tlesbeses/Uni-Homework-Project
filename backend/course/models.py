@@ -246,6 +246,47 @@ class Enrollment(TimeStampedModel):
         return f"{self.student} - {self.course}"
 
 
+class SectionSnapshot(TimeStampedModel):
+    """Immutable copy of a section taken right before it is deleted.
+
+    The payload is a fully denormalized JSON document (course, section,
+    teacher, students, teams, assignments, grades, final grades and stats)
+    so the data survives the deletion of the original rows. It is written
+    only by the ``capture_section_snapshot`` service before the cascade
+    delete of a section (reason ``section_delete``) or of its course
+    (reason ``course_delete``), hence the integer ids and text headers that
+    would otherwise be dangling foreign keys.
+    """
+
+    REASON_SECTION_DELETE = "section_delete"
+    REASON_COURSE_DELETE = "course_delete"
+
+    course_id = models.IntegerField(db_index=True)
+    course_title = models.CharField(max_length=150)
+    teacher_id = models.IntegerField(db_index=True)
+    teacher_name = models.CharField(max_length=300)
+    section_id = models.IntegerField(db_index=True)
+    section_name = models.CharField(max_length=100)
+    reason = models.CharField(
+        max_length=32,
+        default=REASON_SECTION_DELETE,
+        db_index=True,
+    )
+    payload = models.JSONField(
+        help_text="Denormalized snapshot of the section data.",
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["teacher_id", "created_at"]),
+            models.Index(fields=["course_id"]),
+        ]
+
+    def __str__(self):
+        return f"{self.course_title} - {self.section_name} ({self.id})"
+
+
 class CourseSettings(TimeStampedModel):
     course = models.OneToOneField(
         "Course",
