@@ -8,6 +8,7 @@ import {
     userName,
 } from "@/shared/utils/activityMeta";
 import { Button } from "@/shared/components/ui/Button";
+import { SelectField } from "@/shared/components/ui/SelectField";
 
 function formatDate(value) {
     if (!value) {
@@ -70,13 +71,14 @@ export const AdminActivityPage = () => {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-                <select
+                <SelectField
+                    compact
                     value={action}
                     onChange={(event) => {
                         setAction(event.target.value);
                         setPage(1);
                     }}
-                    className="px-3 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                    aria-label="Filtrar por acción"
                 >
                     <option value="">Todas las acciones</option>
                     <option value="impersonate">Impersonación</option>
@@ -84,20 +86,21 @@ export const AdminActivityPage = () => {
                     <option value="create">Creación</option>
                     <option value="delete">Eliminación</option>
                     <option value="login">Inicio de sesión</option>
-                </select>
-                <select
+                </SelectField>
+                <SelectField
+                    compact
                     value={entityType}
                     onChange={(event) => {
                         setEntityType(event.target.value);
                         setPage(1);
                     }}
-                    className="px-3 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                    aria-label="Filtrar por entidad"
                 >
                     <option value="">Todas las entidades</option>
                     <option value="user">Usuario</option>
                     <option value="grade">Nota</option>
                     <option value="course">Curso</option>
-                </select>
+                </SelectField>
                 <input
                     type="text"
                     value={userId}

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useCreateAssignmentForm } from "@/features/assignments/hooks/useCreateAssignmentForm";
 import { InputField } from "@/shared/components/ui/InputField";
+import { SelectField } from "@/shared/components/ui/SelectField";
+import { TextareaField } from "@/shared/components/ui/TextareaField";
 import { Button } from "@/shared/components/ui/Button";
 
 export const CreateAssignmentModal = ({
@@ -43,24 +45,17 @@ export const CreateAssignmentModal = ({
                     noValidate
                 >
                     {courses && (courses ?? []).length > 0 && (
-                        <div>
-                            <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                                Curso
-                            </label>
-                            <select
-                                value={selectedCourse}
-                                onChange={(e) =>
-                                    setSelectedCourse(e.target.value)
-                                }
-                                className="w-full px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                            >
-                                {(courses ?? []).map((course) => (
-                                    <option key={course.id} value={course.id}>
-                                        {course.title}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
+                        <SelectField
+                            label="Curso"
+                            value={selectedCourse}
+                            onChange={(e) => setSelectedCourse(e.target.value)}
+                        >
+                            {(courses ?? []).map((course) => (
+                                <option key={course.id} value={course.id}>
+                                    {course.title}
+                                </option>
+                            ))}
+                        </SelectField>
                     )}
 
                     <InputField
@@ -71,21 +66,13 @@ export const CreateAssignmentModal = ({
                         placeholder="Tarea 1"
                     />
 
-                    <div>
-                        <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                            Descripción
-                        </label>
-                        <textarea
-                            {...register("description")}
-                            rows={3}
-                            className="w-full px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                        />
-                        {errors.description?.message && (
-                            <p className="text-red-500 text-xs mt-1">
-                                {errors.description.message}
-                            </p>
-                        )}
-                    </div>
+                    <TextareaField
+                        label="Descripción"
+                        name="description"
+                        register={register}
+                        rows={3}
+                        error={errors.description?.message}
+                    />
 
                     <InputField
                         label="Puntaje máximo"

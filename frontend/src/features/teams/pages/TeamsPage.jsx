@@ -13,6 +13,7 @@ import {
 } from "@/features/courses/services/courseService";
 import { ConfirmModal } from "@/shared/components/ConfirmModal";
 import { Button } from "@/shared/components/ui/Button";
+import { SelectField } from "@/shared/components/ui/SelectField";
 
 export const TeamsPage = () => {
     const { user, isTeacher } = useAuth();
@@ -151,13 +152,10 @@ export const TeamsPage = () => {
                     teacherSectionOptions.length > 0) && (
                     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 grid gap-4 sm:grid-cols-2">
                         <div>
-                            <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                                Filtrar por curso
-                            </label>
-                            <select
+                            <SelectField
+                                label="Filtrar por curso"
                                 value={filterCourse}
                                 onChange={handleCourseChange}
-                                className="w-full px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                             >
                                 <option value="">Todos los cursos</option>
                                 {(courseOptions ?? []).map((course) => (
@@ -165,19 +163,17 @@ export const TeamsPage = () => {
                                         {course.title}
                                     </option>
                                 ))}
-                            </select>
+                            </SelectField>
                         </div>
                         <div>
-                            <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                                Filtrar por sección
-                            </label>
-                            <select
+                            <SelectField
+                                label="Filtrar por sección"
                                 value={filterSection}
                                 onChange={(event) =>
                                     setFilterSection(event.target.value)
                                 }
                                 disabled={!filterCourse}
-                                className="w-full px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:text-gray-400"
+                                className="disabled:bg-gray-100 disabled:text-gray-400"
                             >
                                 <option value="">
                                     {filterCourse
@@ -194,22 +190,20 @@ export const TeamsPage = () => {
                                         </option>
                                     )
                                 )}
-                            </select>
+                            </SelectField>
                         </div>
                     </div>
                 )
             ) : (
                 studentSectionOptions.length > 1 && (
                     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-                        <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                            Filtrar por grupo
-                        </label>
-                        <select
+                        <SelectField
+                            label="Filtrar por grupo"
                             value={filterSection}
                             onChange={(event) =>
                                 setFilterSection(event.target.value)
                             }
-                            className="w-full max-w-md px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            className="max-w-md"
                         >
                             <option value="">Todos mis grupos</option>
                             {(studentSectionOptions ?? []).map((section) => (
@@ -219,7 +213,7 @@ export const TeamsPage = () => {
                                         : section.name}
                                 </option>
                             ))}
-                        </select>
+                        </SelectField>
                     </div>
                 )
             )}

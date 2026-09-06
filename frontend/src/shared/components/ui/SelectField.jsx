@@ -1,6 +1,6 @@
 import { useId } from "react";
 
-export const SelectField = ({ label, name, register, error, helpText, className = "", children, ...rest }) => {
+export const SelectField = ({ label, name, register, error, helpText, compact = false, className = "", children, ...rest }) => {
     const fieldId = useId();
     const fieldProps = register && name ? register(name) : {};
 
@@ -15,7 +15,7 @@ export const SelectField = ({ label, name, register, error, helpText, className 
                 id={fieldId}
                 {...fieldProps}
                 {...rest}
-                className={`w-full px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm ${error
+                className={`w-full ${compact ? "px-3 py-2" : "px-4 py-3"} rounded-lg border outline-none transition text-gray-700 text-sm ${error
                     ? "border-red-400 focus:ring-2 focus:ring-red-200 focus:border-red-400"
                     : "border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     } ${className}`}

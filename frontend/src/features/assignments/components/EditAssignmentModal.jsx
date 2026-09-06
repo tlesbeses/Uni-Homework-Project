@@ -1,5 +1,6 @@
 import { useEditAssignmentForm } from "@/features/assignments/hooks/useEditAssignmentForm";
 import { InputField } from "@/shared/components/ui/InputField";
+import { TextareaField } from "@/shared/components/ui/TextareaField";
 import { Button } from "@/shared/components/ui/Button";
 
 export const EditAssignmentModal = ({ assignment, open, onClose, onSaved }) => {
@@ -40,21 +41,13 @@ export const EditAssignmentModal = ({ assignment, open, onClose, onSaved }) => {
                         placeholder="Tarea 1"
                     />
 
-                    <div>
-                        <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                            Descripción
-                        </label>
-                        <textarea
-                            {...register("description")}
-                            rows={3}
-                            className="w-full px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                        />
-                        {errors.description?.message && (
-                            <p className="text-red-500 text-xs mt-1">
-                                {errors.description.message}
-                            </p>
-                        )}
-                    </div>
+                    <TextareaField
+                        label="Descripción"
+                        name="description"
+                        register={register}
+                        rows={3}
+                        error={errors.description?.message}
+                    />
 
                     <InputField
                         label="Puntaje máximo"

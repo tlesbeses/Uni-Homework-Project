@@ -9,6 +9,7 @@ import {
 } from "@/features/admin/services/adminService";
 import { SearchInput } from "@/shared/components/SearchInput";
 import { Button } from "@/shared/components/ui/Button";
+import { SelectField } from "@/shared/components/ui/SelectField";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 import { formatUser } from "@/features/teams/utils/formatUser";
 import { ConfirmModal } from "@/shared/components/ConfirmModal";
@@ -159,15 +160,17 @@ export const AdminUsersPage = () => {
                         placeholder="Buscar por nombre, usuario o email..."
                     />
                 </div>
-                <select
+                <SelectField
+                    compact
+                    className="sm:w-48"
                     value={role}
                     onChange={(event) => setRole(event.target.value)}
-                    className="sm:w-48 px-3 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                    aria-label="Filtrar por rol"
                 >
                     <option value="">Todos los roles</option>
                     <option value="Teacher">Profesores</option>
                     <option value="Student">Estudiantes</option>
-                </select>
+                </SelectField>
             </div>
 
             {error && (

@@ -59,4 +59,24 @@ describe("SelectField", () => {
         );
         expect(screen.getByText("Ayuda")).toBeInTheDocument();
     });
+
+    it("aplana las variantes compact como padding reducido", () => {
+        render(
+            <SelectField label="Historial" name="page_size" compact>
+                <option value="15">15</option>
+            </SelectField>
+        );
+        expect(screen.getByRole("combobox")).toHaveClass("px-3");
+        expect(screen.getByRole("combobox")).toHaveClass("py-2");
+    });
+
+    it("usa el padding estándar por defecto", () => {
+        render(
+            <SelectField label="Historial" name="page_size">
+                <option value="15">15</option>
+            </SelectField>
+        );
+        expect(screen.getByRole("combobox")).toHaveClass("px-4");
+        expect(screen.getByRole("combobox")).toHaveClass("py-3");
+    });
 });

@@ -13,6 +13,7 @@ import { useAuth } from "@/features/auth/providers/AuthProvider";
 import { useCourses } from "@/features/courses/hooks/useCourses";
 import { ConfirmModal } from "@/shared/components/ConfirmModal";
 import { Button } from "@/shared/components/ui/Button";
+import { SelectField } from "@/shared/components/ui/SelectField";
 
 export const AssignmentsPage = () => {
     const { isTeacher } = useAuth();
@@ -79,13 +80,12 @@ export const AssignmentsPage = () => {
 
             {(courses ?? []).length > 0 && (
                 <div className="flex flex-wrap items-center gap-3">
-                    <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Curso
-                    </label>
-                    <select
+                    <SelectField
+                        compact
+                        label="Curso"
+                        name="course_filter"
                         value={courseFilter}
                         onChange={(e) => setCourseFilter(e.target.value)}
-                        className="px-3 py-2 rounded-lg border text-sm text-gray-700 border-gray-300 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     >
                         <option value="">Todos los cursos</option>
                         {(courses ?? []).map((course) => (
@@ -93,7 +93,7 @@ export const AssignmentsPage = () => {
                                 {course.title}
                             </option>
                         ))}
-                    </select>
+                    </SelectField>
                 </div>
             )}
 

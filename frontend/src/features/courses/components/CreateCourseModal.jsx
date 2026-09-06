@@ -1,5 +1,7 @@
 import { useCreateCourseForm } from "@/features/courses/hooks/useCreateCourseForm";
 import { InputField } from "@/shared/components/ui/InputField";
+import { SelectField } from "@/shared/components/ui/SelectField";
+import { TextareaField } from "@/shared/components/ui/TextareaField";
 import { Button } from "@/shared/components/ui/Button";
 
 export const CreateCourseModal = ({ open, onClose, onCreated }) => {
@@ -49,44 +51,28 @@ export const CreateCourseModal = ({ open, onClose, onCreated }) => {
                         helpText="El curso se creará con esta sección por defecto."
                     />
 
-                    <div>
-                        <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                            Descripción
-                        </label>
-                        <textarea
-                            {...register("description")}
-                            rows={3}
-                            placeholder="Contenido del curso..."
-                            className="w-full px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                        />
-                        {errors.description && (
-                            <p className="text-red-500 text-xs mt-1">
-                                {errors.description.message}
-                            </p>
-                        )}
-                    </div>
+                    <TextareaField
+                        label="Descripción"
+                        name="description"
+                        register={register}
+                        rows={3}
+                        placeholder="Contenido del curso..."
+                        error={errors.description?.message}
+                    />
 
-                    <div>
-                        <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                            Visibilidad
-                        </label>
-                        <select
-                            {...register("visibility")}
-                            className="w-full px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                        >
-                            <option value="PRIVATE">
-                                Privado (solo por código)
-                            </option>
-                            <option value="PUBLIC">
-                                Público (visible para estudiantes)
-                            </option>
-                        </select>
-                        {errors.visibility && (
-                            <p className="text-red-500 text-xs mt-1">
-                                {errors.visibility.message}
-                            </p>
-                        )}
-                    </div>
+                    <SelectField
+                        label="Visibilidad"
+                        name="visibility"
+                        register={register}
+                        error={errors.visibility?.message}
+                    >
+                        <option value="PRIVATE">
+                            Privado (solo por código)
+                        </option>
+                        <option value="PUBLIC">
+                            Público (visible para estudiantes)
+                        </option>
+                    </SelectField>
 
                     <div className="flex justify-end gap-3 pt-2">
                         <Button onClick={onClose} variant="ghost">

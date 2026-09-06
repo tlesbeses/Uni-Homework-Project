@@ -5,6 +5,7 @@ import { useEnrollment } from "@/features/courses/hooks/useEnrollment";
 import { useEnrollments } from "@/features/courses/hooks/useEnrollments";
 import { getSections } from "@/features/courses/services/courseService";
 import { Button } from "@/shared/components/ui/Button";
+import { SelectField } from "@/shared/components/ui/SelectField";
 
 export const EnrollmentSection = ({
     courseId,
@@ -115,17 +116,14 @@ export const EnrollmentSection = ({
                         sections.length > 0 && (
                             <>
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                                        Sección
-                                    </label>
-                                    <select
+                                    <SelectField
+                                        label="Sección"
                                         value={selectedSectionId}
                                         onChange={(event) =>
                                             setSelectedSectionId(
                                                 event.target.value
                                             )
                                         }
-                                        className="px-4 py-2.5 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                     >
                                         <option value="">
                                             Selecciona una sección...
@@ -138,7 +136,7 @@ export const EnrollmentSection = ({
                                                 {section.name}
                                             </option>
                                         ))}
-                                    </select>
+                                    </SelectField>
                                 </div>
                                 <Button
                                     onClick={enroll}

@@ -14,6 +14,7 @@ import { getTeams } from "@/features/teams/services/teamService";
 import { getGradeHistory } from "@/features/grades/services/gradeService";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 import { Button } from "@/shared/components/ui/Button";
+import { SelectField } from "@/shared/components/ui/SelectField";
 
 const DOT_COLORS = [
     "bg-red-500",
@@ -718,13 +719,10 @@ export const TeacherGradingPanel = () => {
         <div className="space-y-6">
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-wrap items-end gap-4">
                 <div className="min-w-[180px] flex-1">
-                    <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                        Curso
-                    </label>
-                    <select
+                    <SelectField
+                        label="Curso"
                         value={courseFilter}
                         onChange={handleSelectCourse}
-                        className="w-full px-4 py-2.5 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     >
                         <option value="">Todos los cursos</option>
                         {(courses ?? []).map((course) => (
@@ -732,32 +730,28 @@ export const TeacherGradingPanel = () => {
                                 {course.title}
                             </option>
                         ))}
-                    </select>
+                    </SelectField>
                 </div>
                 <div className="min-w-[220px] flex-[2]">
-                    <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                        Asignación
-                    </label>
-                    {filteredAssignments.length === 0 ? (
+                    <SelectField
+                        label="Asignación"
+                        value={selectedAssignmentId}
+                        onChange={handleSelectAssignment}
+                    >
+                        <option value="">
+                            Selecciona una asignación...
+                        </option>
+                        {(filteredAssignments ?? []).map((assignment) => (
+                            <option key={assignment.id} value={assignment.id}>
+                                {assignment.course.title} —{" "}
+                                {assignment.title}
+                            </option>
+                        ))}
+                    </SelectField>
+                    {filteredAssignments.length === 0 && (
                         <p className="text-sm text-gray-500 py-2.5">
                             Este curso no tiene asignaciones.
                         </p>
-                    ) : (
-                        <select
-                            value={selectedAssignmentId}
-                            onChange={handleSelectAssignment}
-                            className="w-full px-4 py-2.5 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                        >
-                            <option value="">
-                                Selecciona una asignación...
-                            </option>
-                            {(filteredAssignments ?? []).map((assignment) => (
-                                <option key={assignment.id} value={assignment.id}>
-                                    {assignment.course.title} —{" "}
-                                    {assignment.title}
-                                </option>
-                            ))}
-                        </select>
                     )}
                 </div>
                 {selectedAssignment && (
@@ -789,15 +783,13 @@ export const TeacherGradingPanel = () => {
 
                         {sections.length > 0 && (
                             <div>
-                                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1.5">
-                                    Grupo de clase
-                                </label>
-                                <select
+                                <SelectField
+                                    compact
+                                    label="Grupo de clase"
                                     value={sectionFilter}
                                     onChange={(e) =>
                                         setSectionFilter(e.target.value)
                                     }
-                                    className="w-full px-3 py-2 rounded-lg border outline-none transition text-sm text-gray-700 border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                 >
                                     {sections.map((section) => (
                                         <option
@@ -807,7 +799,7 @@ export const TeacherGradingPanel = () => {
                                             {section.name}
                                         </option>
                                     ))}
-                                </select>
+                                </SelectField>
                                 {sectionFilter && (
                                     <Link
                                         to={`/grades/report?section=${sectionFilter}`}

@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useErrorLogs } from "@/features/admin/hooks/useErrorLogs";
 import { Button } from "@/shared/components/ui/Button";
+import { SelectField } from "@/shared/components/ui/SelectField";
 import { useState } from "react";
 
 function formatDate(value) {
@@ -47,18 +48,19 @@ export const AdminErrorLogsPage = () => {
             </div>
 
             <div className="flex items-center gap-3">
-                <select
+                <SelectField
+                    compact
                     value={source}
                     onChange={(event) => {
                         setSource(event.target.value);
                         setPage(1);
                     }}
-                    className="px-3 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                    aria-label="Filtrar por fuente"
                 >
                     <option value="">Todas las fuentes</option>
                     <option value="server">Servidor</option>
                     <option value="client">Frontend</option>
-                </select>
+                </SelectField>
                 <span className="text-sm text-gray-400">
                     {count} error{count !== 1 ? "es" : ""}
                 </span>

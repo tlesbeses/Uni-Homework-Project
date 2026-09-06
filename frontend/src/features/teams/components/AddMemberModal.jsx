@@ -3,6 +3,7 @@ import { useAddMemberForm } from "@/features/teams/hooks/useAddMemberForm";
 import { getAvailableStudents } from "@/features/teams/services/teamService";
 import { formatUser } from "@/features/teams/utils/formatUser";
 import { Button } from "@/shared/components/ui/Button";
+import { SelectField } from "@/shared/components/ui/SelectField";
 
 const toList = (data) =>
     Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
@@ -74,29 +75,22 @@ export const AddMemberModal = ({ team, open, onClose, onAdded }) => {
                     className="p-6 space-y-4"
                     noValidate
                 >
-                    <div>
-                        <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                            Estudiante
-                        </label>
-                        <select
-                            {...register("student_id")}
-                            className="w-full px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                        >
-                            <option value="">Selecciona un estudiante...</option>
-                            {(candidates ?? []).map((enrollment) => (
-                                <option
-                                    key={enrollment.student.id}
-                                    value={enrollment.student.id}
-                                >
-                                    {formatUser(enrollment.student)}
-                                </option>
-                            ))}
-                        </select>
-                        {errors.student_id && (
-                            <p className="text-red-500 text-xs mt-1">
-                                {errors.student_id.message}
-                            </p>
-                        )}
+                    <SelectField
+                        label="Estudiante"
+                        name="student_id"
+                        register={register}
+                        error={errors.student_id?.message}
+                    >
+                        <option value="">Selecciona un estudiante...</option>
+                        {(candidates ?? []).map((enrollment) => (
+                            <option
+                                key={enrollment.student.id}
+                                value={enrollment.student.id}
+                            >
+                                {formatUser(enrollment.student)}
+                            </option>
+                        ))}
+                    </SelectField>
                         {loadingCandidates && (
                             <p className="text-gray-500 text-xs mt-1">
                                 Cargando estudiantes...
@@ -107,7 +101,6 @@ export const AddMemberModal = ({ team, open, onClose, onAdded }) => {
                                 No hay estudiantes disponibles para agregar.
                             </p>
                         )}
-                    </div>
 
                     <div className="flex justify-end gap-3 pt-2">
                         <Button onClick={onClose} variant="ghost">

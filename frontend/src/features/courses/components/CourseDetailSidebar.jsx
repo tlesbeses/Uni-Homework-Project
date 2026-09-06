@@ -15,6 +15,7 @@ import { Pager } from "@/shared/components/Pager";
 import { SearchInput } from "@/shared/components/SearchInput";
 import { ConfirmModal } from "@/shared/components/ConfirmModal";
 import { Button } from "@/shared/components/ui/Button";
+import { SelectField } from "@/shared/components/ui/SelectField";
 
 const DEFAULT_MEMBER_PAGE_SIZE = 5;
 
@@ -343,10 +344,10 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse, selectedS
           </p>
         ) : (
           <>
-            <select
+            <SelectField
               value={selectedSectionId ?? ""}
               onChange={(event) => selectSection(Number(event.target.value))}
-              className="w-full px-4 py-2.5 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 mb-4"
+              className="mb-4"
             >
               <option value="" disabled>
                 Selecciona una sección...
@@ -356,7 +357,7 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse, selectedS
                   {section.name} ({section.enrollments_count ?? 0} inscritos)
                 </option>
               ))}
-            </select>
+            </SelectField>
 
             {selectedSection && (
               <div className="rounded-lg border border-gray-200 p-4">
