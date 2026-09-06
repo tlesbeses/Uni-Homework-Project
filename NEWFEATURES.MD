@@ -115,3 +115,32 @@ Checklist maestra con lo implementado, lo pendiente y lo descartado (con motivo)
 - **TanStack Query / cache / polling:** implementados (polling de cursos a 30s, solo pestaña enfocada).
 
 **Esta lista es el backlog técnico.** Cuando termines algo, decime _"ya terminé X"_ y vamos actualizando y tachando.
+
+---
+
+### PR — Mejoras de UX, notificaciones y acceso administrativo (backlog)
+
+| Prioridad | Área             | Tarea                                                                                  | Estado       |
+| --------- | ---------------- | -------------------------------------------------------------------------------------- | ------------ |
+| P0        | Acceso admin     | Corregir ruta del Admin Dashboard (404)                                                | ✅ Hecho     |
+| P0        | Acceso admin     | Autorización backend del panel (solo rol/permiso admin, no confiar en React)           | ✅ Hecho     |
+| P0        | Acceso admin     | Feature flag `ADMIN_PANEL_ENABLED` vía `.env` (no sustituye autorización)              | ✅ Hecho     |
+| P0        | Acceso admin     | Pruebas: autorizado / sin permisos / no autenticado / flag deshabilitado               | ✅ Hecho     |
+| P1        | Calificaciones   | Toast de éxito/error al guardar nota individual y fuera de Team                        | ✅ Hecho     |
+| P1        | Calificaciones   | Estado loading + evitar envíos duplicados (multi-clic)                                 | ✅ Ya cubierto (`beginSave`/`savingKey`) |
+| P1        | Notificaciones   | Fetch inicial en el primer render del Dashboard (contador no depende del polling)      | ✅ Ya cubierto (fetch inicial + polling 30s) |
+| P1        | Notificaciones   | Inicializar unread count antes del polling; el polling solo actualiza                  | ✅ Ya cubierto |
+| P1        | Notificaciones   | Preview limitado + acción "Ver todas" (no renderizar todas en el Dashboard)            | ✅ Hecho     |
+| P2        | Inscripciones    | Rediseñar CTA de inscripción en Course Detail (Inscribirme / Inscribiendo… / Inscrito / Solicitud enviada) | ✅ Hecho |
+| P2        | Inscripciones    | Feedback visual (éxito/solicitud/ya inscrito/error) + anti doble-clic                  | ✅ Hecho     |
+| P2        | UX/UI            | Componente `Button` compartido en Super Admin (variantes y tamaños)                    | ✅ Hecho     |
+
+#### Notas de la PR
+
+- **Acceso admin:** `ADMIN_PANEL_ENABLED=true` en `.env`. Si el panel está deshabilitado, nadie accede aunque tenga permisos; la autorización se valida siempre en backend y los no autorizados reciben la respuesta definida por la política del proyecto.
+- **Calificaciones:** feedback visible confirmando guardado/error y estado de carga; comportamiento consistente entre nota individual, nota fuera de Team y notas de Team.
+- **Notificaciones:** separar carga inicial, unread count, preview limitado y polling (el polling actualiza el estado existente, no lo inicializa).
+- **Inscripción (Course Detail):** el CTA refleja cada estado (puede inscribirse, en proceso, completado, pendiente de aprobación, ya inscrito, error).
+- **Super Admin UI:** estandarizar tamaño, padding, tipografía, border-radius, estados hover/active/disabled/loading vía componente compartido (variantes Primary/Secondary/Danger/Ghost, tamaños sm/md/lg).
+- **Orden de implementación:** P0 (acceso admin) → P1 (calificaciones + notificaciones) → P2 (Course Detail + Super Admin UI).
+- **Verificación extra (junto a la PR):** `TeamIsolationTests` en `teams/tests.py` (12 escenarios: no-miembro 404 en team ajeno, teacher de otro curso 404, miembro común 403 en gestión de equipo, leader 200) y cierre de JWT en `RefreshCsrfSyncTests` (rotación + blacklist del token viejo, blacklist en logout, sincronización CSRF). `ADMIN_PANEL_ENABLED` se expone al frontend como `isAdminPanelEnabled` (flag ausente = habilitado) y oculta los ítems admin de la navbar y la ruta `/admin`.

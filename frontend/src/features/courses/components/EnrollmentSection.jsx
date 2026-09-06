@@ -4,6 +4,7 @@ import { StatusBadge } from "@/features/courses/components/StatusBadge";
 import { useEnrollment } from "@/features/courses/hooks/useEnrollment";
 import { useEnrollments } from "@/features/courses/hooks/useEnrollments";
 import { getSections } from "@/features/courses/services/courseService";
+import { Button } from "@/shared/components/ui/Button";
 
 export const EnrollmentSection = ({
     courseId,
@@ -139,18 +140,15 @@ export const EnrollmentSection = ({
                                         ))}
                                     </select>
                                 </div>
-                                <button
-                                    type="button"
+                                <Button
                                     onClick={enroll}
-                                    disabled={
-                                        enrolling || !selectedSectionId
-                                    }
-                                    className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2.5 rounded-lg shadow transition"
+                                    disabled={!selectedSectionId}
+                                    loading={enrolling}
                                 >
                                     {enrolling
                                         ? "Inscribiéndose..."
                                         : "Inscribirme"}
-                                </button>
+                                </Button>
                             </>
                         )}
                 </div>

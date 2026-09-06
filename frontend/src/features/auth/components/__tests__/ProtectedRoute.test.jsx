@@ -82,10 +82,24 @@ describe("ProtectedRoute", () => {
 
     it("superuserOnly permite al superusuario", () => {
         useAuthMock.mockReturnValue(
-            authed({ user: { ...authed().user, is_superuser: true } })
+            authed({
+                user: { ...authed().user, is_superuser: true },
+                isAdminPanelEnabled: true,
+            })
         );
         renderProtected({ superuserOnly: true });
         expect(screen.getByText("contenido protegido")).toBeInTheDocument();
+    });
+
+    it("superuserOnly bloquea al superusuario si el panel está deshabilitado", () => {
+        useAuthMock.mockReturnValue(
+            authed({
+                user: { ...authed().user, is_superuser: true },
+                isAdminPanelEnabled: false,
+            })
+        );
+        renderProtected({ superuserOnly: true });
+        expect(screen.getByText("forbidden page")).toBeInTheDocument();
     });
 
     it("blockSuperuser bloquea al superusuario fuera de impersonación", () => {

@@ -103,6 +103,16 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: "/admin",
+        element: (
+          <ProtectedRoute superuserOnly>
+            <SuspenseWrapper>
+              <DashboardPage />
+            </SuspenseWrapper>
+          </ProtectedRoute>
+        ),
+      },
+      {
         path: "/courses",
         element: (
           <ProtectedRoute blockSuperuser>

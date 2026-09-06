@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/features/auth/providers/AuthProvider";
 import { useDashboard } from "@/features/courses/hooks/useDashboard";
+import { RecentNotificationsCard } from "@/features/notifications/components/RecentNotificationsCard";
 import {
     actionLabel,
     actionStyle,
@@ -499,6 +500,8 @@ function TeacherDashboard({ stats }) {
                     ))}
                 </div>
             </div>
+
+            <RecentNotificationsCard />
         </>
     );
 }
@@ -675,6 +678,8 @@ function StudentDashboard({ stats }) {
                     ))}
                 </div>
             </div>
+
+            <RecentNotificationsCard />
         </>
     );
 }

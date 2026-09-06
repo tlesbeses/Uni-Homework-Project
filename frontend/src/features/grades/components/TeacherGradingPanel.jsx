@@ -297,6 +297,7 @@ export const TeacherGradingPanel = () => {
                     score: raw,
                 });
                 clearDraft(key);
+                toast.success("Nota individual guardada");
             } catch (err) {
                 toast.error(getErrorMessage(err));
             } finally {
@@ -352,6 +353,7 @@ export const TeacherGradingPanel = () => {
                     overwriteIndividual,
                 });
                 clearDraft(key);
+                toast.success(`Nota aplicada al ${team.name}`);
             } catch (err) {
                 toast.error(getErrorMessage(err));
             } finally {

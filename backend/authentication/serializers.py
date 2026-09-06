@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from djoser.serializers import UserCreateSerializer as DjoserUserCreateSerializer, UserSerializer as DjoserUserSerializer
 
@@ -10,6 +11,7 @@ User = get_user_model()
 class LoginUserSerializer(serializers.ModelSerializer):
     roles = serializers.SerializerMethodField()
     permissions = serializers.SerializerMethodField()
+    admin_panel_enabled = serializers.SerializerMethodField()
 
     class Meta:
         model = get_user_model()
@@ -24,6 +26,7 @@ class LoginUserSerializer(serializers.ModelSerializer):
             "is_active",
             "roles",
             "permissions",
+            "admin_panel_enabled",
         )
         read_only_fields = ("is_staff", "is_superuser", "is_active")
 
@@ -32,6 +35,9 @@ class LoginUserSerializer(serializers.ModelSerializer):
 
     def get_permissions(self, obj):
         return list(obj.get_all_permissions())
+
+    def get_admin_panel_enabled(self, obj):
+        return getattr(settings, "ADMIN_PANEL_ENABLED", True)
 
 class LoginSerializer(TokenObtainPairSerializer):
 
@@ -60,10 +66,11 @@ class UserCreateSerializer(DjoserUserCreateSerializer):
 class UserSerializer(DjoserUserSerializer):
     roles = serializers.SerializerMethodField()
     permissions = serializers.SerializerMethodField()
+    admin_panel_enabled = serializers.SerializerMethodField()
 
     class Meta(DjoserUserSerializer.Meta):
         model = User
-        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'is_staff', 'is_superuser', 'is_active', 'roles', 'permissions')
+        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'is_staff', 'is_superuser', 'is_active', 'roles', 'permissions', 'admin_panel_enabled')
         read_only_fields = ('is_staff', 'is_superuser', 'is_active',)
 
     def get_roles(self, obj):
@@ -71,6 +78,9 @@ class UserSerializer(DjoserUserSerializer):
 
     def get_permissions(self, obj):
         return list(obj.get_all_permissions())
+
+    def get_admin_panel_enabled(self, obj):
+        return getattr(settings, "ADMIN_PANEL_ENABLED", True)
 
 
 class AdminUserSerializer(serializers.ModelSerializer):

@@ -80,6 +80,8 @@ export function AuthProvider({ children }) {
 
     const isAdmin = user?.is_superuser ?? false;
 
+    const isAdminPanelEnabled = user?.admin_panel_enabled ?? true;
+
     const login = useCallback(async (credentials) => {
         setIsLoading(true);
         try {
@@ -179,6 +181,7 @@ export function AuthProvider({ children }) {
         isTeacher,
         isStudent,
         isAdmin,
+        isAdminPanelEnabled,
         impersonatedAs: impersonatedUser,
         isImpersonating: impersonatedUser !== null,
         login,
@@ -192,6 +195,7 @@ export function AuthProvider({ children }) {
         isTeacher,
         isStudent,
         isAdmin,
+        isAdminPanelEnabled,
         impersonatedUser,
         login,
         logout,
