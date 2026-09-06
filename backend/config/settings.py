@@ -253,7 +253,9 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 # Seguridad en producción: cookies Secure, HSTS, redirect a HTTPS.
-if not DEBUG:
+# Durante los tests (manage.py test) se omite para que el test client HTTP no
+# sea redirigido a HTTPS (equivalente al entorno de desarrollo local).
+if not DEBUG and "test" not in sys.argv:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
