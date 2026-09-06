@@ -15,6 +15,7 @@ import { getGradeHistory } from "@/features/grades/services/gradeService";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 import { Button } from "@/shared/components/ui/Button";
 import { SelectField } from "@/shared/components/ui/SelectField";
+import { Modal } from "@/shared/components/ui/Modal";
 
 const DOT_COLORS = [
     "bg-red-500",
@@ -1145,15 +1146,8 @@ export const TeacherGradingPanel = () => {
             )}
 
             {historyGrade && (
-                <div
-                    className="fixed inset-0 z-50 bg-black/40 grid place-items-center p-4"
-                    onClick={closeHistory}
-                >
-                    <div
-                        className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[80vh] overflow-hidden"
-                        onClick={(event) => event.stopPropagation()}
-                    >
-                        <div className="flex items-start justify-between gap-3 px-6 py-4 border-b border-gray-100">
+                <Modal open onClose={closeHistory} className="max-h-[80vh] overflow-hidden">
+                    <div className="flex items-start justify-between gap-3 px-6 py-4 border-b border-gray-100">
                             <div>
                                 <h3 className="text-base font-bold text-gray-800">
                                     Historial de {studentName(historyStudent)}
@@ -1225,8 +1219,7 @@ export const TeacherGradingPanel = () => {
                                 </ol>
                             )}
                         </div>
-                    </div>
-                </div>
+                </Modal>
             )}
         </div>
     );

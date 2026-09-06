@@ -4,6 +4,7 @@ import { getAvailableStudents } from "@/features/teams/services/teamService";
 import { formatUser } from "@/features/teams/utils/formatUser";
 import { Button } from "@/shared/components/ui/Button";
 import { SelectField } from "@/shared/components/ui/SelectField";
+import { Modal } from "@/shared/components/ui/Modal";
 
 const toList = (data) =>
     Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
@@ -54,27 +55,12 @@ export const AddMemberModal = ({ team, open, onClose, onAdded }) => {
     );
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-            <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                    <h2 className="text-lg font-semibold text-gray-800">
-                        Agregar miembro
-                    </h2>
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        aria-label="Cerrar"
-                        className="text-gray-400 hover:text-gray-600 text-xl leading-none transition"
-                    >
-                        &times;
-                    </button>
-                </div>
-
-                <form
-                    onSubmit={handleSubmit(onSubmit)}
-                    className="p-6 space-y-4"
-                    noValidate
-                >
+        <Modal open={open} title="Agregar miembro" onClose={onClose}>
+            <form
+                onSubmit={handleSubmit(onSubmit)}
+                className="p-6 space-y-4"
+                noValidate
+            >
                     <SelectField
                         label="Estudiante"
                         name="student_id"
@@ -118,7 +104,6 @@ export const AddMemberModal = ({ team, open, onClose, onAdded }) => {
                         </Button>
                     </div>
                 </form>
-            </div>
-        </div>
+        </Modal>
     );
 };

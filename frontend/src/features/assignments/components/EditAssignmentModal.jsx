@@ -1,6 +1,7 @@
 import { useEditAssignmentForm } from "@/features/assignments/hooks/useEditAssignmentForm";
 import { InputField } from "@/shared/components/ui/InputField";
 import { TextareaField } from "@/shared/components/ui/TextareaField";
+import { Modal } from "@/shared/components/ui/Modal";
 import { Button } from "@/shared/components/ui/Button";
 
 export const EditAssignmentModal = ({ assignment, open, onClose, onSaved }) => {
@@ -12,27 +13,12 @@ export const EditAssignmentModal = ({ assignment, open, onClose, onSaved }) => {
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-            <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                    <h2 className="text-lg font-semibold text-gray-800">
-                        Editar asignación
-                    </h2>
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        aria-label="Cerrar"
-                        className="text-gray-400 hover:text-gray-600 text-xl leading-none transition"
-                    >
-                        &times;
-                    </button>
-                </div>
-
-                <form
-                    onSubmit={handleSubmit(onSubmit)}
-                    className="p-6 space-y-4"
-                    noValidate
-                >
+        <Modal open={open} title="Editar asignación" onClose={onClose}>
+            <form
+                onSubmit={handleSubmit(onSubmit)}
+                className="p-6 space-y-4"
+                noValidate
+            >
                     <InputField
                         label="Título"
                         name="title"
@@ -100,7 +86,6 @@ export const EditAssignmentModal = ({ assignment, open, onClose, onSaved }) => {
                         </Button>
                     </div>
                 </form>
-            </div>
-        </div>
+        </Modal>
     );
 };

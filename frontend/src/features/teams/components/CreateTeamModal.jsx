@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useCreateTeamForm } from "@/features/teams/hooks/useCreateTeamForm";
 import { InputField } from "@/shared/components/ui/InputField";
 import { SelectField } from "@/shared/components/ui/SelectField";
+import { Modal } from "@/shared/components/ui/Modal";
 import { Button } from "@/shared/components/ui/Button";
 import { formatUser } from "@/features/teams/utils/formatUser";
 
@@ -86,27 +87,12 @@ export const CreateTeamModal = ({
     );
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-            <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                    <h2 className="text-lg font-semibold text-gray-800">
-                        Nuevo equipo
-                    </h2>
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        aria-label="Cerrar"
-                        className="text-gray-400 hover:text-gray-600 text-xl leading-none transition"
-                    >
-                        &times;
-                    </button>
-                </div>
-
-                <form
-                    onSubmit={handleSubmit(onSubmit)}
-                    className="p-6 space-y-4"
-                    noValidate
-                >
+        <Modal open={open} title="Nuevo equipo" onClose={onClose}>
+            <form
+                onSubmit={handleSubmit(onSubmit)}
+                className="p-6 space-y-4"
+                noValidate
+            >
                     <InputField
                         label="Nombre"
                         name="name"
@@ -183,7 +169,6 @@ export const CreateTeamModal = ({
                         </Button>
                     </div>
                 </form>
-            </div>
-        </div>
+        </Modal>
     );
 };

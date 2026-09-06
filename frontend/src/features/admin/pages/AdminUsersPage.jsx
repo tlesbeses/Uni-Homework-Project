@@ -10,6 +10,7 @@ import {
 import { SearchInput } from "@/shared/components/SearchInput";
 import { Button } from "@/shared/components/ui/Button";
 import { SelectField } from "@/shared/components/ui/SelectField";
+import { Modal } from "@/shared/components/ui/Modal";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 import { formatUser } from "@/features/teams/utils/formatUser";
 import { ConfirmModal } from "@/shared/components/ConfirmModal";
@@ -341,12 +342,14 @@ export const AdminUsersPage = () => {
             </div>
 
             {pendingDeactivate && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-                    <div className="w-full max-w-md rounded-2xl bg-white shadow-xl p-6 animate-pop">
-                        <h2 className="text-lg font-bold text-gray-800">
-                            Desactivar cuenta
-                        </h2>
-                        <p className="text-sm text-gray-600 mt-2">
+                <Modal
+                    open
+                    title="Desactivar cuenta"
+                    onClose={() => setPendingDeactivate(null)}
+                    size="md"
+                >
+                    <div className="p-6">
+                        <p className="text-sm text-gray-600">
                             ¿Desactivar la cuenta de{" "}
                             <strong>{formatUser(pendingDeactivate)}</strong>?
                             El usuario no podrá iniciar sesión ni ser
@@ -367,7 +370,7 @@ export const AdminUsersPage = () => {
                             </Button>
                         </div>
                     </div>
-                </div>
+                </Modal>
             )}
 
             <ConfirmModal
