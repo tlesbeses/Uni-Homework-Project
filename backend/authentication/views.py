@@ -3,7 +3,6 @@ from django.contrib.auth.models import Group
 from django.db.models import Q
 from rest_framework import status, viewsets
 from rest_framework.filters import SearchFilter
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
@@ -15,6 +14,9 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
+
+from config.pagination import ListPagination
+from course.permissions import is_teacher
 
 from .csrf import CSRF_COOKIE_NAME, assert_csrf, auth_cookie_secure, set_csrf_cookie
 from .permissions import IsSuperuser
@@ -36,7 +38,7 @@ REFRESH_COOKIE_PATH = "/auth/"
 
 def _get_user_role(user):
     """Nombre del grupo de rol de un usuario, o None si no tiene rol."""
-    if user.groups.filter(name="Teacher").exists():
+    if is_teacher(user):
         return "Teacher"
     if user.groups.filter(name="Student").exists():
         return "Student"
@@ -273,12 +275,6 @@ class ImpersonateView(APIView):
         return Response({"access": str(token)})
 
 
-class ActivityPagination(PageNumberPagination):
-    page_size = 15
-    page_size_query_param = "page_size"
-    max_page_size = 100
-
-
 class AdminActivityView(APIView):
     """Historial de actividad (EventLog) para la consola de administración.
 
@@ -287,7 +283,7 @@ class AdminActivityView(APIView):
     """
 
     permission_classes = [IsSuperuser]
-    pagination_class = ActivityPagination
+    pagination_class = ListPagination
     throttle_classes = [AdminThrottle]
 
     def get(self, request):
@@ -315,7 +311,7 @@ class AdminActivityView(APIView):
 
         qs = qs.order_by("-created_at")
 
-        paginator = ActivityPagination()
+        paginator = ListPagination()
         page = paginator.paginate_queryset(qs, request)
         payload = EventLogSerializer(page, many=True).data
         return paginator.get_paginated_response(payload)
@@ -348,7 +344,7 @@ class ErrorLogEndpoint(APIView):
 
         qs = qs.order_by("-created_at")
 
-        paginator = ActivityPagination()
+        paginator = ListPagination()
         page = paginator.paginate_queryset(qs, request)
         payload = ErrorLogSerializer(page, many=True).data
         return paginator.get_paginated_response(payload)

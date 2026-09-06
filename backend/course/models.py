@@ -8,6 +8,7 @@ from django.utils import timezone
 from django.db.models import Q
 
 from common.models import TimeStampedModel
+from course.permissions import is_teacher
 
 
 def generate_join_code(length=8):
@@ -72,7 +73,7 @@ class Course(TimeStampedModel):
 
     def clean(self):
         super().clean()
-        if self.teacher_id and not self.teacher.groups.filter(name="Teacher").exists():
+        if self.teacher_id and not is_teacher(self.teacher):
             raise ValidationError(
                 {
                     "teacher": (

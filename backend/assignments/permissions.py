@@ -2,6 +2,8 @@
 
 from rest_framework.permissions import BasePermission
 
+from course.permissions import is_teacher
+
 
 class IsCourseTeacher(BasePermission):
     """Allow the teacher who owns the course to manage its assignments.
@@ -15,7 +17,7 @@ class IsCourseTeacher(BasePermission):
     def has_permission(self, request, view) -> bool:
         if not (request.user and request.user.is_authenticated):
             return False
-        return request.user.groups.filter(name="Teacher").exists()
+        return is_teacher(request.user)
 
     def has_object_permission(self, request, view, obj) -> bool:
         return obj.course.teacher_id == request.user.id

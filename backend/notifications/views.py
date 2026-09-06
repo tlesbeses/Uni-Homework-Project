@@ -7,11 +7,11 @@ viewset) so the count/badge list and the read actions stay unambiguous.
 
 from django.utils import timezone
 from rest_framework import status
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from config.pagination import ListPagination
 from notifications.serializers import NotificationSerializer
 
 
@@ -43,10 +43,7 @@ class NotificationListView(_BaseNotificationView):
         if request.query_params.get("unread_only") == "true":
             queryset = queryset.filter(is_read=False)
 
-        paginator = PageNumberPagination()
-        paginator.page_size = 15
-        paginator.page_size_query_param = "page_size"
-        paginator.max_page_size = 100
+        paginator = ListPagination()
         page = paginator.paginate_queryset(queryset, request)
         payload = NotificationSerializer(page, many=True).data
         return paginator.get_paginated_response(payload)
