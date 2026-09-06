@@ -35,7 +35,7 @@ Checklist maestra con lo implementado, lo pendiente y lo descartado (con motivo)
 | 🔴 Alta     | Testing         | Tests de API                                            | ✅ Implementado |
 | 🔴 Alta     | Testing         | Tests de frontend (Vitest + RTL)                        | ✅ Implementado |
 | 🟠 Media    | Testing         | Tests frontend críticos (ProtectedRoute, grading, enrollment, exports) | ✅ Implementado (lote 1) |
-| 🟠 Media    | Cursos          | Estados del curso                                       | 🚧 Revisar      |
+| 🟠 Media    | Cursos          | Estados del curso                                       | ✅ Revisado      |
 | 🟠 Media    | Cursos          | Archivar cursos                                         | ✅ Implementado |
 | 🟠 Media    | Cursos          | Polling de cursos (refetchInterval 30s)                 | ✅ Implementado |
 | 🟠 Media    | Inscripciones   | Estados de inscripción                                  | ✅ Implementado |
@@ -53,10 +53,10 @@ Checklist maestra con lo implementado, lo pendiente y lo descartado (con motivo)
 
 | Área         | Tarea                                          | Estado           |
 | ------------ | ---------------------------------------------- | ---------------- |
-| Arquitectura | Revisar estructura de apps Django              | 🔍 Revisar       |
-| Arquitectura | Separar lógica de negocio de views             | 🔍 Revisar       |
-| Arquitectura | Servicios/repositories donde realmente aporten | 🔍 Revisar       |
-| Arquitectura | Manejo global de errores API                   | 🔍 Revisar       |
+| Arquitectura | Revisar estructura de apps Django              | ✅ Revisado      |
+| Arquitectura | Separar lógica de negocio de views             | ✅ Hecho (enrollment) |
+| Arquitectura | Servicios/repositories donde realmente aporten | ✅ Revisado      |
+| Arquitectura | Manejo global de errores API                   | ✅ Revisado      |
 | Arquitectura | Paginación consistente                         | ✅ Implementado  |
 | Arquitectura | Cancelación de requests                        | ✅ Implementado  |
 | Arquitectura | TanStack Query                                 | ✅ Implementado  |
@@ -109,7 +109,9 @@ Checklist maestra con lo implementado, lo pendiente y lo descartado (con motivo)
 - **Observabilidad (implementación):** el `EXCEPTION_HANDLER` de DRF envuelve el default y solo persiste excepciones no esperadas (5xx); los errores esperados (400/401/403/404/405/429) conservan la respuesta estándar. Todo 500 responde JSON estable con `error_id` público de soporte y guarda traceback solo en la BD. El reporte del frontend es `POST /api/errors/` con throttle propio, validación (al menos kind/message/stack), truncados y sin aceptar el body del request; `GET /api/errors/` (lista sin traceback) y `GET /api/errors/<id>/` (detalle con traceback/metadata) son superuser-only. En el frontend, `ErrorBoundary` + listeners `error`/`unhandledrejection` (con dedupe por firma, máx. 5 cada 10 s, se ignora AbortError/CanceledError y offline) reportan sin romper la app; la consola admin muestra la lista con filtro por fuente y el detalle con traceback.
 - **CI/CD (decisión):** pipeline de verificación en GitHub Actions (lint, tests backend, test/build frontend) que corre en PRs y push; **sin deploy automático** (Render despliega al mergear `main`).
 - **CI (fix):** el bloque de seguridad de producción (`if not DEBUG:` con `SECURE_SSL_REDIRECT`/HSTS/cookies Secure) se saltaba en los tests CI porque `DEBUG` no está definido, y el `SecurityMiddleware` redirigía a HTTPS cada request del test client con 301 (210 failures + 19 errors). Se corrigió abriendo el bloque solo con `if not DEBUG and "test" not in sys.argv` (mismo idiom ya usado para el throttle): producción y local quedan inalterados.
-- **Tests backend:** 244 tests en 6 apps (auth, course, grading, teams, assignments, notifications), incluidos 12 de observabilidad, 21 de notificaciones y 1 de regresión del handler de errores. **Tests frontend:** Vitest + React Testing Library (46 tests: autenticación/interceptor CSRF, AuthProvider, notificationMeta, queryKeys, ProtectedRoute, useGradeMutations, GradesReportPage con validación 0..max + exports, y hooks de admisión/join). El reporte `frontend/coverage/` está en `.gitignore` (no se sube). Durante los tests de la página de reporte se detectó y corrigió un import faltante (`getSectionGradesReport`) que rompía la página en runtime.
+- **Refactor backend (fase 6, parte B):** capa de servicios de enrollment en `course/services.py` (`create_enrollment`, `approve_enrollment`, `reject_enrollment`, `delete_enrollment` con notify + audit + limpieza de equipos; los errores de estado lanzan `EnrollmentInvalidStateError` y las views lo mapean al mismo `Response` 400 de antes, la API no cambia), helper `is_teacher(user)` cacheado en `course/permissions.py` (sustituye los `user.groups.filter(name="Teacher")` de course/teams/assignments/grading/authentication; la caché de grupos se invalida con la señal m2m de `authentication/signals.py`), y paginación unificada: `config/pagination.py` define `ListPagination` (15), usada en activity/errors de admin y notificaciones (`ActivityPagination` eliminado). +7 tests del servicio de enrollment en `course/tests.py`.
+- **Revisión arquitectura (punto 2):** la estructura de apps (course, authentication, grading, teams, assignments, notifications + config) es sólida y se mantiene; los **estados del curso** ya quedan cubiertos por visibilidad + `is_active` + snapshots por borrado (no hace falta `is_closed`); **no hay design system** (Tailwind inline duplicado: ~37 botones, 9 modals, 16 selects/textareas) y la **estandarización de respuestas 4xx** (algunos `Response({...}, 4xx)` ad-hoc) quedan como mejora futura fuera de este alcance.
+- **Tests backend:** 250 tests en 6 apps (auth, course, grading, teams, assignments, notifications), incluidos 12 de observabilidad, 21 de notificaciones, 7 del servicio de enrollment y 1 de regresión del handler de errores. **Tests frontend:** Vitest + React Testing Library (46 tests: autenticación/interceptor CSRF, AuthProvider, notificationMeta, queryKeys, ProtectedRoute, useGradeMutations, GradesReportPage con validación 0..max + exports, y hooks de admisión/join). El reporte `frontend/coverage/` está en `.gitignore` (no se sube). Durante los tests de la página de reporte se detectó y corrigió un import faltante (`getSectionGradesReport`) que rompía la página en runtime.
 - **TanStack Query / cache / polling:** implementados (polling de cursos a 30s, solo pestaña enfocada).
 
 **Esta lista es el backlog técnico.** Cuando termines algo, decime _"ya terminé X"_ y vamos actualizando y tachando.

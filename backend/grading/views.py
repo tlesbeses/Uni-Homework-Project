@@ -11,6 +11,7 @@ from rest_framework.views import APIView
 from assignments.models import Assignment
 from authentication.throttle import GradeThrottle
 from course.models import Status
+from course.permissions import is_teacher
 from grading.models import Grade
 from grading.permissions import IsCourseTeacherOfAssignment
 from grading.serializers import (
@@ -116,9 +117,7 @@ class GradeViewSet(viewsets.ReadOnlyModelViewSet):
         """Only teachers may see whether a grade is individual."""
         context = super().get_serializer_context()
         user = self.request.user
-        context["show_grade_origin"] = user.groups.filter(
-            name="Teacher"
-        ).exists()
+        context["show_grade_origin"] = is_teacher(user)
         return context
 
     def get_queryset(self):
@@ -128,7 +127,7 @@ class GradeViewSet(viewsets.ReadOnlyModelViewSet):
             "student",
             "graded_by",
         )
-        if user.groups.filter(name="Teacher").exists():
+        if is_teacher(user):
             return queryset.filter(assignment__course__teacher=user)
         return (
             queryset.filter(

@@ -13,6 +13,11 @@ def _has_group(user, group_name):
     return result
 
 
+def is_teacher(user) -> bool:
+    """Whether the user belongs to the Teacher group (cached 5 minutes)."""
+    return _has_group(user, "Teacher")
+
+
 class IsTeacher(BasePermission):
     def has_permission(self, request, view):
         return _has_group(request.user, "Teacher")

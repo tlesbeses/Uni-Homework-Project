@@ -16,7 +16,16 @@ from course.models import (
     Status,
     Visibility,
 )
+from course.services import (
+    EnrollmentInvalidStateError,
+    approve_enrollment,
+    create_enrollment,
+    delete_enrollment,
+    reject_enrollment,
+)
 from grading.models import Grade
+from notifications.models import Notification, NotificationType
+from teams.models import Team
 
 User = get_user_model()
 
@@ -933,7 +942,7 @@ class DashboardFinalScoreTests(BaseCourseTestCase):
             {str(self.course.id): "80.00"},
         )
 
-    def test_dashboard_assignment_payload_includes_weight(self):
+def test_dashboard_assignment_payload_includes_weight(self):
         self.client.force_authenticate(self.student)
         response = self.client.get("/api/dashboard/")
         assignment = next(
@@ -942,3 +951,163 @@ class DashboardFinalScoreTests(BaseCourseTestCase):
         )
         self.assertIn("weight", assignment)
         self.assertEqual(assignment["weight"], "1.00")
+
+
+class EnrollmentServiceTests(BaseCourseTestCase):
+    """Unit tests for the enrollment service layer."""
+
+    def test_create_enrollment_pending_notifies_teacher_and_audits(self):
+        enrollment = create_enrollment(
+            section=self.section,
+            student=self.student,
+            actor=self.student,
+        )
+        self.assertEqual(enrollment.status, Status.PENDING)
+        self.assertIsNone(enrollment.approved_at)
+        self.assertTrue(
+            Notification.objects.filter(
+                recipient=self.teacher,
+                type=NotificationType.ENROLLMENT_REQUESTED,
+            ).exists()
+        )
+        self.assertTrue(
+            EventLog.objects.filter(
+                entity_type="enrollment",
+                action=EventLog.ACTION_CREATE,
+                entity_id=enrollment.pk,
+            ).exists()
+        )
+
+    def test_create_enrollment_auto_accepts_when_course_settings_enabled(self):
+        CourseSettings.objects.update_or_create(
+            course=self.course,
+            defaults={"auto_accept_students": True},
+        )
+        enrollment = create_enrollment(
+            section=self.section,
+            student=self.student,
+            actor=self.student,
+        )
+        enrollment.refresh_from_db()
+        self.assertEqual(enrollment.status, Status.APPROVED)
+        self.assertIsNotNone(enrollment.approved_at)
+        self.assertTrue(
+            Notification.objects.filter(
+                recipient=self.student,
+                type=NotificationType.ENROLLMENT_APPROVED,
+            ).exists()
+        )
+
+    def test_approve_enrollment_approves_notifies_and_audits(self):
+        enrollment = create_enrollment(
+            section=self.section,
+            student=self.student,
+            actor=self.student,
+        )
+        approve_enrollment(enrollment=enrollment, actor=self.teacher)
+        enrollment.refresh_from_db()
+        self.assertEqual(enrollment.status, Status.APPROVED)
+        self.assertIsNotNone(enrollment.approved_at)
+        self.assertTrue(
+            Notification.objects.filter(
+                recipient=self.student,
+                type=NotificationType.ENROLLMENT_APPROVED,
+            ).exists()
+        )
+        self.assertTrue(
+            EventLog.objects.filter(
+                entity_type="enrollment",
+                action=EventLog.ACTION_UPDATE,
+                entity_id=enrollment.pk,
+            ).exists()
+        )
+
+    def test_approve_enrollment_already_approved_raises(self):
+        enrollment = create_enrollment(
+            section=self.section,
+            student=self.student,
+            actor=self.student,
+        )
+        approve_enrollment(enrollment=enrollment, actor=self.teacher)
+        with self.assertRaises(EnrollmentInvalidStateError):
+            approve_enrollment(enrollment=enrollment, actor=self.teacher)
+
+    def test_reject_enrollment_from_approved_detaches_from_teams(self):
+        CourseSettings.objects.update_or_create(
+            course=self.course,
+            defaults={"auto_accept_students": True},
+        )
+        enrollment = create_enrollment(
+            section=self.section,
+            student=self.student,
+            actor=self.student,
+        )
+        self.assertEqual(enrollment.status, Status.APPROVED)
+
+        team = Team.objects.create(
+            section=self.section,
+            name="Team A",
+            leader=self.student,
+        )
+        self.assertTrue(team.members.filter(student=self.student).exists())
+
+        reject_enrollment(enrollment=enrollment, actor=self.teacher)
+        enrollment.refresh_from_db()
+
+        self.assertEqual(enrollment.status, Status.REJECTED)
+        self.assertIsNone(enrollment.approved_at)
+        self.assertFalse(Team.objects.filter(pk=team.pk).exists())
+        self.assertFalse(
+            self.student.team_memberships.filter(course=self.course).exists()
+        )
+        self.assertTrue(
+            Notification.objects.filter(
+                recipient=self.student,
+                type=NotificationType.ENROLLMENT_APPROVED,
+            ).exists()
+        )
+
+    def test_reject_enrollment_already_rejected_raises(self):
+        enrollment = Enrollment.objects.create(
+            section=self.section,
+            student=self.student,
+            status=Status.REJECTED,
+        )
+        with self.assertRaises(EnrollmentInvalidStateError):
+            reject_enrollment(enrollment=enrollment, actor=self.teacher)
+
+    def test_delete_enrollment_detaches_approved_student_from_teams(self):
+        CourseSettings.objects.update_or_create(
+            course=self.course,
+            defaults={"auto_accept_students": True},
+        )
+        enrollment = create_enrollment(
+            section=self.section,
+            student=self.student,
+            actor=self.student,
+        )
+
+        team = Team.objects.create(
+            section=self.section,
+            name="Team B",
+            leader=self.student,
+        )
+
+        enrollment_id = enrollment.pk
+
+        delete_enrollment(enrollment=enrollment, actor=self.teacher)
+
+        self.assertFalse(
+            Enrollment.objects.filter(pk=enrollment_id).exists()
+        )
+        self.assertFalse(Team.objects.filter(pk=team.pk).exists())
+        self.assertFalse(
+            self.student.team_memberships.filter(course=self.course).exists()
+        )
+        self.assertTrue(
+            EventLog.objects.filter(
+                entity_type="enrollment",
+                action=EventLog.ACTION_DELETE,
+                entity_id=enrollment_id,
+            ).exists()
+        )

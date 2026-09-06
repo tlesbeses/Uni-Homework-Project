@@ -13,6 +13,7 @@ from assignments.serializers import AssignmentSerializer
 from authentication.models import EventLog
 from authentication.services import log_event
 from course.models import Course, Status
+from course.permissions import is_teacher
 
 
 def _json_safe(value):
@@ -30,7 +31,7 @@ def get_assignments_for_user(user):
     sections) is approved.
     """
     queryset = Assignment.objects.select_related("course__teacher")
-    if user.groups.filter(name="Teacher").exists():
+    if is_teacher(user):
         return queryset.filter(course__teacher=user)
     return queryset.filter(
         course__sections__enrollments__student=user,

@@ -1,4 +1,3 @@
-from django.db import transaction
 from django.db.models import Count, Exists, OuterRef, Q
 from django.http import HttpResponse
 from rest_framework import status, viewsets
@@ -37,6 +36,13 @@ from course.serializers import (
     SectionSnapshotDetailSerializer,
     SectionSnapshotListSerializer,
 )
+from course.services import (
+    EnrollmentInvalidStateError,
+    approve_enrollment,
+    create_enrollment,
+    delete_enrollment,
+    reject_enrollment,
+)
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import OrderingFilter, SearchFilter
 from grading.exports import (
@@ -48,13 +54,13 @@ from grading.exports import (
 )
 from grading.final import final_grade_for_student
 from grading.models import Grade
-from notifications.services import (
-    notify_enrollment_approved,
-    notify_enrollment_requested,
-)
-from teams.services import remove_student_from_course_teams
 from .filters import EnrollmentFilter, SectionFilter
-from .permissions import IsCourseTeacherOfSection, IsTeacher, IsStudent
+from .permissions import (
+    IsCourseTeacherOfSection,
+    IsStudent,
+    IsTeacher,
+    is_teacher,
+)
 
 class CourseViewSet(viewsets.ModelViewSet):
     serializer_class = CourseSerializer
@@ -90,10 +96,8 @@ class CourseViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
     @staticmethod
-    #poisble refactorizacion si el proyecto crece y ageregar esta funcion como un helper
-    #asi no se repite el mismo codigo en varios lugares
     def is_teacher(user):
-        return user.groups.filter(name="Teacher").exists()
+        return is_teacher(user)
 
     def perform_create(self, serializer):
         course = serializer.save(teacher=self.request.user)
@@ -220,33 +224,10 @@ class CourseViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        enrollment = Enrollment.objects.create(
+        enrollment = create_enrollment(
             section=section,
             student=request.user,
-        )
-
-        course_settings, _ = CourseSettings.objects.get_or_create(course=course)
-        if course_settings.auto_accept_students:
-            enrollment.status = Status.APPROVED
-            enrollment.save()
-
-        if enrollment.status == Status.APPROVED:
-            notify_enrollment_approved(enrollment=enrollment)
-        else:
-            notify_enrollment_requested(enrollment=enrollment, course=course, section=section)
-
-        log_event(
             actor=request.user,
-            action=EventLog.ACTION_CREATE,
-            entity_type="enrollment",
-            entity_id=enrollment.pk,
-            target=enrollment.student,
-            metadata={
-                "course_id": course.id,
-                "section_id": section.pk,
-                "student_id": enrollment.student_id,
-                "status": enrollment.status,
-            },
         )
 
         serializer = EnrollmentSerializer(
@@ -365,8 +346,7 @@ class DashboardView(APIView):
         user = request.user
         if user.is_superuser:
             return self._admin_dashboard()
-        is_teacher = user.groups.filter(name="Teacher").exists()
-        if is_teacher:
+        if is_teacher(user):
             return self._teacher_dashboard(user)
         return self._student_dashboard(user)
 
@@ -507,7 +487,7 @@ class SectionViewSet(viewsets.ModelViewSet):
             )
             .order_by("name")
         )
-        if user.groups.filter(name="Teacher").exists():
+        if is_teacher(user):
             return queryset.filter(course__teacher=user)
         is_enrolled = Exists(
             Enrollment.objects.filter(
@@ -763,7 +743,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         )
 
 
-        if user.groups.filter(name="Teacher").exists():
+        if is_teacher(user):
             return queryset.filter(section__course__teacher=user)
         return queryset.filter(
             student=user,
@@ -804,30 +784,10 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                 }
             )
 
-        enrollment = serializer.save(student=self.request.user)
-
-        course_settings, _ = CourseSettings.objects.get_or_create(course=section.course)
-        if course_settings.auto_accept_students:
-            enrollment.status = Status.APPROVED
-            enrollment.save()
-
-        if enrollment.status == Status.APPROVED:
-            notify_enrollment_approved(enrollment=enrollment)
-        else:
-            notify_enrollment_requested(enrollment=enrollment, course=section.course, section=section)
-
-        log_event(
+        create_enrollment(
+            section=section,
+            student=self.request.user,
             actor=self.request.user,
-            action=EventLog.ACTION_CREATE,
-            entity_type="enrollment",
-            entity_id=enrollment.pk,
-            target=enrollment.student,
-            metadata={
-                "course_id": section.course_id,
-                "section_id": section.pk,
-                "student_id": enrollment.student_id,
-                "status": enrollment.status,
-            },
         )
 
     def perform_destroy(self, instance):
@@ -836,57 +796,19 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         Only approved enrollments can have team memberships, so pending or
         rejected ones are removed without touching teams.
         """
-        with transaction.atomic():
-            if instance.status == Status.APPROVED:
-                remove_student_from_course_teams(
-                    student=instance.student,
-                    course=instance.section.course,
-                )
-            course_id = instance.section.course_id
-            student_id = instance.student_id
-            status_before = instance.status
-            enrollment_id = instance.pk
-            instance.delete()
-        log_event(
-            actor=self.request.user,
-            action=EventLog.ACTION_DELETE,
-            entity_type="enrollment",
-            entity_id=enrollment_id,
-            target=instance.student,
-            metadata={
-                "course_id": course_id,
-                "student_id": student_id,
-                "status": status_before,
-            },
-        )
+        delete_enrollment(enrollment=instance, actor=self.request.user)
 
     @action(detail=True, methods=["post"])
     def approve(self, request, pk=None):
         enrollment = self.get_object()
 
-        if enrollment.status == Status.APPROVED:
+        try:
+            approve_enrollment(enrollment=enrollment, actor=request.user)
+        except EnrollmentInvalidStateError as exc:
             return Response(
-                {"detail": "Enrollment is already approved."},
+                {"detail": exc.detail},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
-        enrollment.status = Status.APPROVED
-        enrollment.save()
-
-        notify_enrollment_approved(enrollment=enrollment)
-
-        log_event(
-            actor=request.user,
-            action=EventLog.ACTION_UPDATE,
-            entity_type="enrollment",
-            entity_id=enrollment.pk,
-            target=enrollment.student,
-            metadata={
-                "course_id": enrollment.section.course_id,
-                "student_id": enrollment.student_id,
-                "status": enrollment.status,
-            },
-        )
 
         serializer = EnrollmentSerializer(
             enrollment,
@@ -898,36 +820,13 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
     def reject(self, request, pk=None):
         enrollment = self.get_object()
 
-        if enrollment.status == Status.REJECTED:
+        try:
+            reject_enrollment(enrollment=enrollment, actor=request.user)
+        except EnrollmentInvalidStateError as exc:
             return Response(
-                {"detail": "Enrollment is already rejected."},
+                {"detail": exc.detail},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
-        with transaction.atomic():
-            # Revoking an approval must also detach the student from the
-            # course teams, mirroring an enrollment deletion.
-            if enrollment.status == Status.APPROVED:
-                remove_student_from_course_teams(
-                    student=enrollment.student,
-                    course=enrollment.section.course,
-                )
-            enrollment.status = Status.REJECTED
-            enrollment.approved_at = None
-            enrollment.save()
-
-        log_event(
-            actor=request.user,
-            action=EventLog.ACTION_UPDATE,
-            entity_type="enrollment",
-            entity_id=enrollment.pk,
-            target=enrollment.student,
-            metadata={
-                "course_id": enrollment.section.course_id,
-                "student_id": enrollment.student_id,
-                "status": enrollment.status,
-            },
-        )
 
         serializer = EnrollmentSerializer(
             enrollment,

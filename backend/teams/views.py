@@ -13,6 +13,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from course.models import Enrollment, Section, Status
+from course.permissions import is_teacher
 from course.serializers import EnrollmentSerializer
 from teams.models import Team, TeamMember
 from teams.permissions import IsTeamManagerOrTeacher
@@ -44,7 +45,7 @@ class TeamViewSet(viewsets.ModelViewSet):
             .prefetch_related("members__student")
         )
 
-        if user.groups.filter(name="Teacher").exists():
+        if is_teacher(user):
             return queryset.filter(section__course__teacher=user)
 
         enrolled_sections = Enrollment.objects.filter(
@@ -78,7 +79,7 @@ class TeamViewSet(viewsets.ModelViewSet):
 
     @staticmethod
     def is_teacher(user) -> bool:
-        return user.groups.filter(name="Teacher").exists()
+        return is_teacher(user)
 
     def create(self, request, *args, **kwargs):
         """Restrict team creation to teachers and approved section students.
