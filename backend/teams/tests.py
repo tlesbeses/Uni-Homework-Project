@@ -701,3 +701,66 @@ class TeamIsolationTests(TeamAPITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+class ArchivedCourseTeamTests(TeamAPITestCase):
+    """Archiving a course locks every team management write."""
+
+    def setUp(self):
+        super().setUp()
+        self.team = self.create_team(name="Existing", leader=self.student)
+        TeamMember.objects.create(team=self.team, student=self.student_two)
+        self.course.is_active = False
+        self.course.save()
+
+    def test_student_cannot_create_team_in_archived_course(self):
+        self.authenticate(self.student)
+        response = self.client.post(
+            reverse("team-list"),
+            {"name": "New", "section_id": self.section.id},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_teacher_cannot_create_team_in_archived_course(self):
+        self.authenticate(self.teacher)
+        response = self.client.post(
+            reverse("team-list"),
+            {"name": "New", "section_id": self.section.id},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_cannot_add_member_in_archived_course(self):
+        self.authenticate(self.teacher)
+        response = self.client.post(
+            reverse("team-members", args=[self.team.id]),
+            {"student": self.other_student.id},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_cannot_edit_team_in_archived_course(self):
+        self.authenticate(self.teacher)
+        response = self.client.patch(
+            reverse("team-detail", args=[self.team.id]),
+            {"name": "Renamed"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_cannot_delete_team_in_archived_course(self):
+        self.authenticate(self.teacher)
+        response = self.client.delete(
+            reverse("team-detail", args=[self.team.id])
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_cannot_change_leader_in_archived_course(self):
+        self.authenticate(self.teacher)
+        response = self.client.post(
+            reverse("team-change-leader", args=[self.team.id]),
+            {"leader": self.other_student.id},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

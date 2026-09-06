@@ -221,11 +221,16 @@ class CourseViewSet(viewsets.ModelViewSet):
                 {"detail": "You already requested to join this course."}
             )
 
-        enrollment = create_enrollment(
-            section=section,
-            student=request.user,
-            actor=request.user,
-        )
+        try:
+            enrollment = create_enrollment(
+                section=section,
+                student=request.user,
+                actor=request.user,
+            )
+        except EnrollmentInvalidStateError as exc:
+            # A concurrent request created the enrollment first; surface the
+            # same business error instead of a 500.
+            raise ValidationError({"detail": exc.detail}) from None
 
         serializer = EnrollmentSerializer(
             enrollment,
@@ -766,11 +771,14 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                 }
             )
 
-        create_enrollment(
-            section=section,
-            student=self.request.user,
-            actor=self.request.user,
-        )
+        try:
+            create_enrollment(
+                section=section,
+                student=self.request.user,
+                actor=self.request.user,
+            )
+        except EnrollmentInvalidStateError as exc:
+            raise ValidationError({"section": [exc.detail]}) from None
 
     def perform_destroy(self, instance):
         """Delete the enrollment and detach the student from course teams.

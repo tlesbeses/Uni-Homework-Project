@@ -1,9 +1,12 @@
+import threading
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
+from django.db import connections
+from django.test import TransactionTestCase
 from rest_framework import status
-from rest_framework.test import APITestCase
+from rest_framework.test import APIClient, APITestCase
 
 from assignments.models import Assignment
 from authentication.models import EventLog
@@ -782,6 +785,24 @@ class ArchiveCourseTests(BaseCourseTestCase):
         detail = self.client.get(f"/api/courses/{self.course.id}/")
         self.assertTrue(detail.data["is_active"])
 
+    def test_student_cannot_join_archived_course(self):
+        self.client.force_authenticate(self.student)
+        response = self.client.post(
+            "/api/courses/join/",
+            {"join_code": self.course.join_code, "section": self.section.id},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_student_cannot_enroll_in_archived_course(self):
+        self.client.force_authenticate(self.student)
+        response = self.client.post(
+            f"/api/courses/{self.course.id}/enroll/",
+            {"section": self.section.id},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
 
 def test_dashboard_assignment_payload_includes_weight(self):
         self.client.force_authenticate(self.student)
@@ -792,6 +813,110 @@ def test_dashboard_assignment_payload_includes_weight(self):
         )
         self.assertIn("weight", assignment)
         self.assertEqual(assignment["weight"], "1.00")
+
+
+class CourseForeignOwnershipTests(BaseCourseTestCase):
+    """A teacher cannot manage a course they do not own."""
+
+    def setUp(self):
+        super().setUp()
+        self.other_teacher = User.objects.create_user(
+            username="other_teacher",
+            email="other_teacher@example.com",
+            password="pass",
+        )
+        self.other_teacher.groups.add(self.teacher_group)
+        self.foreign_course = Course.objects.create(
+            title="Foreign 101",
+            teacher=self.other_teacher,
+        )
+
+    def test_other_teacher_cannot_update_foreign_course(self):
+        self.client.force_authenticate(self.teacher)
+        response = self.client.patch(
+            f"/api/courses/{self.foreign_course.id}/",
+            {"title": "Hacked"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_other_teacher_cannot_delete_foreign_course(self):
+        self.client.force_authenticate(self.teacher)
+        response = self.client.delete(f"/api/courses/{self.foreign_course.id}/")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertTrue(
+            Course.objects.filter(pk=self.foreign_course.id).exists()
+        )
+
+
+class ConcurrentEnrollmentTests(TransactionTestCase):
+    """Two simultaneous join requests must never create a duplicate enrollment
+    nor an HTTP 500.
+
+    PostgreSQL serializes both requests through the course row lock; SQLite
+    has no row locks, so the unique constraint plus the service retry enforce
+    the same invariant. Either way the outcomes are exactly one enrollment
+    and one success/one duplicate error.
+    """
+
+    def setUp(self):
+        self.teacher_group, _ = Group.objects.get_or_create(name="Teacher")
+        self.student_group, _ = Group.objects.get_or_create(name="Student")
+
+        self.teacher = User.objects.create_user(
+            username="race_teacher",
+            password="pass",
+        )
+        self.teacher.groups.add(self.teacher_group)
+
+        self.student = User.objects.create_user(
+            username="race_student",
+            password="pass",
+        )
+        self.student.groups.add(self.student_group)
+
+        self.course = Course.objects.create(
+            title="Race 101",
+            teacher=self.teacher,
+            visibility=Visibility.PUBLIC,
+        )
+        self.section = Section.objects.create(course=self.course, name="S1")
+
+    def _join(self, results, barrier):
+        client = APIClient()
+        client.force_authenticate(user=self.student)
+        try:
+            barrier.wait()
+            response = client.post(
+                "/api/courses/join/",
+                {
+                    "join_code": self.course.join_code,
+                    "section": self.section.id,
+                },
+                format="json",
+            )
+            results.append(response.status_code)
+        finally:
+            connections.close_all()
+
+    def test_concurrent_joins_create_single_enrollment(self):
+        results = []
+        barrier = threading.Barrier(2)
+        threads = [
+            threading.Thread(target=self._join, args=(results, barrier))
+            for _ in range(2)
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=30)
+
+        self.assertEqual(set(results), {status.HTTP_201_CREATED, status.HTTP_400_BAD_REQUEST})
+        count = Enrollment.objects.filter(
+            section=self.section,
+            student=self.student,
+        ).count()
+        self.assertEqual(count, 1)
 
 
 class SectionSnapshotTests(BaseCourseTestCase):

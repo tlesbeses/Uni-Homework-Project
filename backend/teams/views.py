@@ -34,6 +34,15 @@ class TeamViewSet(viewsets.ModelViewSet):
     search_fields = ["name"]
     ordering_fields = ["name", "created_at"]
 
+    manager_actions = {
+        "update",
+        "partial_update",
+        "destroy",
+        "remove_member",
+        "change_leader",
+        "available_students",
+    }
+
     def get_queryset(self):
         """Scope teams to the sections the current user can see."""
         user = self.request.user
@@ -63,19 +72,23 @@ class TeamViewSet(viewsets.ModelViewSet):
         students (approved members of the section); the specific eligibility
         is enforced inside ``create``.
         """
-        manager_actions = {
-            "update",
-            "partial_update",
-            "destroy",
-            "remove_member",
-            "change_leader",
-            "available_students",
-        }
-        if self.action in manager_actions:
+        if self.action in self.manager_actions:
             return [IsAuthenticated(), IsTeamManagerOrTeacher()]
         if self.action == "members" and self.request.method == "POST":
             return [IsAuthenticated(), IsTeamManagerOrTeacher()]
         return [IsAuthenticated()]
+
+    def get_object(self):
+        """Team management is disabled once its course is archived."""
+        team = super().get_object()
+        managing = self.action in self.manager_actions or (
+            self.action == "members" and self.request.method == "POST"
+        )
+        if managing and not team.section.course.is_active:
+            raise PermissionDenied(
+                "This course is archived and team management is disabled."
+            )
+        return team
 
     @staticmethod
     def is_teacher(user) -> bool:
@@ -96,6 +109,10 @@ class TeamViewSet(viewsets.ModelViewSet):
                 section = Section.objects.get(pk=section_id)
             except Section.DoesNotExist:
                 raise NotFound("Section not found.")
+            if not section.course.is_active:
+                raise PermissionDenied(
+                    "This course is archived and teams cannot be created."
+                )
             user = request.user
             if self.is_teacher(user):
                 if section.course.teacher_id != user.id:

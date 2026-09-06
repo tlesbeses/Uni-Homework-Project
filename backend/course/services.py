@@ -6,11 +6,11 @@ the ``EnrollmentViewSet``, keeping their notifications and audit events next to
 the code that causes them.
 """
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 
 from authentication.models import EventLog
 from authentication.services import log_event
-from course.models import CourseSettings, Enrollment, Status
+from course.models import Course, CourseSettings, Enrollment, Status
 from notifications.services import (
     notify_enrollment_approved,
     notify_enrollment_requested,
@@ -26,13 +26,42 @@ class EnrollmentInvalidStateError(Exception):
         super().__init__(detail)
 
 
+@transaction.atomic
 def create_enrollment(*, section, student, actor):
     """Create an enrollment request, applying auto-accept when configured.
 
     Fires the matching notification (approved vs requested) and the audit
     event alongside the creation. Returns the created enrollment.
     """
-    enrollment = Enrollment.objects.create(section=section, student=student)
+    # Serialize concurrent join/enroll calls for the same course: taking a
+    # row lock on the course makes a second simultaneous request wait for the
+    # first to commit, so its duplicate check below sees the committed row
+    # instead of racing the INSERT.
+    Course.objects.select_for_update().get(pk=section.course_id)
+
+    if Enrollment.objects.filter(
+        section__course=section.course,
+        student=student,
+    ).exclude(status=Status.REJECTED).exists():
+        raise EnrollmentInvalidStateError(
+            "You already requested to join this course."
+        )
+
+    try:
+        enrollment = Enrollment.objects.create(section=section, student=student)
+    except IntegrityError:
+        # Backends without row locks (e.g. SQLite) can still let two requests
+        # reach the INSERT: the unique constraint protects the invariant, and
+        # here we convert the resulting IntegrityError into the same business
+        # error instead of a 500.
+        if Enrollment.objects.filter(
+            section__course=section.course,
+            student=student,
+        ).exists():
+            raise EnrollmentInvalidStateError(
+                "You already requested to join this course."
+            ) from None
+        raise
 
     course_settings, _ = CourseSettings.objects.get_or_create(
         course=section.course

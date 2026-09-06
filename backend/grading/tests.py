@@ -4,16 +4,18 @@ Covers the 16 core business rules of the grading module.
 """
 
 import csv
+import threading
 from decimal import Decimal
 from io import BytesIO, StringIO
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
-from django.db import IntegrityError
+from django.db import IntegrityError, connections
+from django.test import TransactionTestCase
 from django.urls import reverse
 from openpyxl import load_workbook
 from rest_framework import status
-from rest_framework.test import APITestCase
+from rest_framework.test import APIClient, APITestCase
 
 from assignments.models import Assignment
 from authentication.models import EventLog
@@ -864,3 +866,112 @@ class SuperuserIsolationTests(GradingAPITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class ArchivedCourseGradingTests(GradingAPITestCase):
+    """Archiving a course locks its grading, and restoring re-opens it."""
+
+    def test_teacher_cannot_grade_student_in_archived_course(self):
+        self.course.is_active = False
+        self.course.save()
+
+        response = self.grade_student(
+            self.assignment, self.student, "80.00", self.teacher
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_teacher_cannot_grade_team_in_archived_course(self):
+        self.course.is_active = False
+        self.course.save()
+
+        response = self.grade_team(
+            self.assignment, self.team, "80.00", self.teacher
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_restored_course_can_be_graded_again(self):
+        self.course.is_active = False
+        self.course.save()
+        blocked = self.grade_student(
+            self.assignment, self.student, "80.00", self.teacher
+        )
+        self.assertEqual(blocked.status_code, status.HTTP_403_FORBIDDEN)
+
+        self.course.is_active = True
+        self.course.save()
+        response = self.grade_student(
+            self.assignment, self.student, "80.00", self.teacher
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            Grade.objects.filter(
+                assignment=self.assignment, student=self.student
+            ).count(),
+            1,
+        )
+
+
+class ConcurrentGradingTests(TransactionTestCase):
+    """Two simultaneous individual grades for the same student must converge
+    on a single grade row (never a duplicate or an HTTP 500)."""
+
+    def setUp(self):
+        self.teacher_group, _ = Group.objects.get_or_create(name="Teacher")
+        self.teacher = User.objects.create_user(username="race_teacher")
+        self.teacher.groups.add(self.teacher_group)
+
+        self.student = User.objects.create_user(username="race_student")
+
+        self.course = Course.objects.create(title="Race", teacher=self.teacher)
+        self.section, _ = Section.objects.get_or_create(
+            course=self.course, name="S1"
+        )
+        Enrollment.objects.create(
+            section=self.section,
+            student=self.student,
+            status=Status.APPROVED,
+        )
+        self.assignment = Assignment.objects.create(
+            course=self.course,
+            title="Homework",
+            max_score="100.00",
+            is_published=True,
+        )
+
+    def _grade(self, results, barrier):
+        client = APIClient()
+        client.force_authenticate(user=self.teacher)
+        try:
+            barrier.wait()
+            response = client.post(
+                reverse(
+                    "assignment-grade-student",
+                    kwargs={"assignment_id": self.assignment.id},
+                ),
+                {"student": self.student.id, "score": "80.00"},
+                format="json",
+            )
+            results.append(response.status_code)
+        finally:
+            connections.close_all()
+
+    def test_concurrent_individual_grades_create_single_grade(self):
+        results = []
+        barrier = threading.Barrier(2)
+        threads = [
+            threading.Thread(target=self._grade, args=(results, barrier))
+            for _ in range(2)
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=30)
+
+        self.assertEqual(set(results), {status.HTTP_200_OK})
+        count = Grade.objects.filter(
+            assignment=self.assignment, student=self.student
+        ).count()
+        self.assertEqual(count, 1)
