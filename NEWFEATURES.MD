@@ -25,7 +25,7 @@ Checklist maestra con lo implementado, lo pendiente y lo descartado (con motivo)
 | 🔴 Alta     | Auditoría       | Auditar alta de inscripción y cambios de tarea (weight/published/max_score) | ✅ Implementado |
 | 🔴 Alta     | Historial       | Snapshot automático al borrar sección/curso (inmutable) | ✅ Implementado |
 | 🔴 Alta     | Observabilidad  | Error tracking in-house (ErrorLog + EXCEPTION_HANDLER + ErrorBoundary) | ✅ Implementado |
-| 🔴 Alta     | DevOps          | GitHub Actions: lint + tests backend + test/build frontend (sin deploy) | ⬜ Pendiente |
+| 🔴 Alta     | DevOps          | GitHub Actions: lint + tests backend + test/build frontend (sin deploy) | ✅ Implementado |
 | 🔴 Alta     | Calificaciones  | Gradebook                                               | ✅ Implementado |
 | 🔴 Alta     | Calificaciones  | Cálculo de nota final                                   | ✅ Implementado |
 | 🔴 Alta     | Calificaciones  | Ponderaciones por tarea/examen                          | ✅ Implementado |
@@ -34,7 +34,7 @@ Checklist maestra con lo implementado, lo pendiente y lo descartado (con motivo)
 | 🔴 Alta     | Testing         | Tests de permisos                                       | ✅ Implementado |
 | 🔴 Alta     | Testing         | Tests de API                                            | ✅ Implementado |
 | 🔴 Alta     | Testing         | Tests de frontend (Vitest + RTL)                        | ✅ Implementado |
-| 🟠 Media    | Testing         | Tests frontend críticos (ProtectedRoute, grading, enrollment, exports) | 🚧 Parcial |
+| 🟠 Media    | Testing         | Tests frontend críticos (ProtectedRoute, grading, enrollment, exports) | ✅ Implementado (lote 1) |
 | 🟠 Media    | Cursos          | Estados del curso                                       | 🚧 Revisar      |
 | 🟠 Media    | Cursos          | Archivar cursos                                         | ✅ Implementado |
 | 🟠 Media    | Cursos          | Polling de cursos (refetchInterval 30s)                 | ✅ Implementado |
@@ -108,7 +108,8 @@ Checklist maestra con lo implementado, lo pendiente y lo descartado (con motivo)
 - **Observabilidad (decisión):** in-house, sin Sentry — `ErrorLog` + custom `EXCEPTION_HANDLER` + `POST /api/errors/` + `ErrorBoundary` frontend.
 - **Observabilidad (implementación):** el `EXCEPTION_HANDLER` de DRF envuelve el default y solo persiste excepciones no esperadas (5xx); los errores esperados (400/401/403/404/405/429) conservan la respuesta estándar. Todo 500 responde JSON estable con `error_id` público de soporte y guarda traceback solo en la BD. El reporte del frontend es `POST /api/errors/` con throttle propio, validación (al menos kind/message/stack), truncados y sin aceptar el body del request; `GET /api/errors/` (lista sin traceback) y `GET /api/errors/<id>/` (detalle con traceback/metadata) son superuser-only. En el frontend, `ErrorBoundary` + listeners `error`/`unhandledrejection` (con dedupe por firma, máx. 5 cada 10 s, se ignora AbortError/CanceledError y offline) reportan sin romper la app; la consola admin muestra la lista con filtro por fuente y el detalle con traceback.
 - **CI/CD (decisión):** pipeline de verificación en GitHub Actions (lint, tests backend, test/build frontend) que corre en PRs y push; **sin deploy automático** (Render despliega al mergear `main`).
-- **Tests backend:** 243 tests en 6 apps (auth, course, grading, teams, assignments, notifications), incluidos 12 de observabilidad y 21 de notificaciones. **Tests frontend:** Vitest + React Testing Library (15 tests sobre autenticación/interceptor CSRF, AuthProvider y notificationMeta; cobertura inicial con `npm run coverage`). El reporte `frontend/coverage/` está en `.gitignore` (no se sube).
+- **CI (fix):** el bloque de seguridad de producción (`if not DEBUG:` con `SECURE_SSL_REDIRECT`/HSTS/cookies Secure) se saltaba en los tests CI porque `DEBUG` no está definido, y el `SecurityMiddleware` redirigía a HTTPS cada request del test client con 301 (210 failures + 19 errors). Se corrigió abriendo el bloque solo con `if not DEBUG and "test" not in sys.argv` (mismo idiom ya usado para el throttle): producción y local quedan inalterados.
+- **Tests backend:** 244 tests en 6 apps (auth, course, grading, teams, assignments, notifications), incluidos 12 de observabilidad, 21 de notificaciones y 1 de regresión del handler de errores. **Tests frontend:** Vitest + React Testing Library (46 tests: autenticación/interceptor CSRF, AuthProvider, notificationMeta, queryKeys, ProtectedRoute, useGradeMutations, GradesReportPage con validación 0..max + exports, y hooks de admisión/join). El reporte `frontend/coverage/` está en `.gitignore` (no se sube). Durante los tests de la página de reporte se detectó y corrigió un import faltante (`getSectionGradesReport`) que rompía la página en runtime.
 - **TanStack Query / cache / polling:** implementados (polling de cursos a 30s, solo pestaña enfocada).
 
 **Esta lista es el backlog técnico.** Cuando termines algo, decime _"ya terminé X"_ y vamos actualizando y tachando.

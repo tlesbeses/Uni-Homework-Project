@@ -12,6 +12,7 @@ import { getSections } from "@/features/courses/services/courseService";
 import {
     exportSectionGrades,
     exportSectionGradesCsv,
+    getSectionGradesReport,
 } from "@/features/grades/services/gradeService";
 import { useGradeStudent } from "@/features/grades/hooks/useGradeMutations";
 import { downloadBlob } from "@/shared/utils/downloadBlob";
