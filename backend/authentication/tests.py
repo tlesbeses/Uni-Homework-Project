@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser, Group
 from django.test import RequestFactory, TestCase
@@ -501,6 +503,17 @@ class ExceptionHandlerTests(TestCase):
         error_id_one = report_exception(exc=ValueError("first"))
         error_id_two = report_exception(exc=ValueError("second"))
         self.assertNotEqual(error_id_one, error_id_two)
+
+    def test_report_exception_degrades_gracefully_when_persist_fails(self):
+        from config.errors import report_exception
+
+        with patch(
+            "config.errors.ErrorLog.objects.create",
+            side_effect=Exception("table missing"),
+        ):
+            result = report_exception(exc=ValueError("boom"))
+
+        self.assertEqual(result, "")
 
 
 class ErrorLogConsoleTests(BaseAdminTestCase):

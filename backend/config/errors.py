@@ -65,7 +65,10 @@ def report_exception(*, exc, request=None, error_id_ref="", source=ErrorLog.SOUR
         error_log = ErrorLog.objects.create(**payload)
     except Exception:  # pragma: no cover - defensive
         logger.exception("Failed to persist ErrorLog")
-        return error_id
+        # Si no se pudo persistir (p. ej. tabla sin migrar), no hay error_id:
+        # se degrada a vacío para que el handler devuelva el envelope sin
+        # enmascarar el error original con un NameError.
+        return ""
 
     return error_log.error_id
 
