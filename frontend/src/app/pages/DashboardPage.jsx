@@ -378,6 +378,17 @@ function AdminDashboard({ stats }) {
                     })}
                 </div>
             </div>
+
+            <div>
+                <a
+                    href="/django-admin/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-800"
+                >
+                    Admin de Django (base de datos)
+                </a>
+            </div>
         </>
     );
 }
