@@ -19,3 +19,13 @@ class CspMiddlewareTests(SimpleTestCase):
         response = self.client.get("/django-admin/")
         self.assertEqual(response.status_code, 302)
         self.assertNotIn("Content-Security-Policy", response.headers)
+
+    def test_django_admin_without_slash_redirects_to_canonical(self):
+        response = self.client.get("/django-admin")
+        self.assertEqual(response.status_code, 301)
+        self.assertEqual(response["Location"], "/django-admin/")
+
+    def test_django_admin_without_slash_is_not_served_by_spa(self):
+        response = self.client.get("/django-admin")
+        self.assertEqual(response.status_code, 301)
+        self.assertNotIn("<!doctype html>", response.content.decode().lower())
