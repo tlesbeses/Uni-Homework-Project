@@ -18,6 +18,8 @@ import { useGradeStudent } from "@/features/grades/hooks/useGradeMutations";
 import { downloadBlob } from "@/shared/utils/downloadBlob";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 import { SearchInput } from "@/shared/components/SearchInput";
+import { Button } from "@/shared/components/ui/Button";
+import { SelectField } from "@/shared/components/ui/SelectField";
 
 function EditableGradeCell({
     score,
@@ -307,14 +309,12 @@ export const GradesReportPage = () => {
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1.5">
-                            Curso
-                        </label>
-                        <select
+                        <SelectField
+                            compact
+                            label="Curso"
                             value={courseId}
                             onChange={handleCourseChange}
                             disabled={coursesLoading}
-                            className="w-full px-3 py-2 rounded-lg border outline-none transition text-sm text-gray-700 border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                         >
                             <option value="">
                                 {coursesLoading ? "Cargando..." : "Selecciona un curso"}
@@ -324,17 +324,15 @@ export const GradesReportPage = () => {
                                     {c.title}
                                 </option>
                             ))}
-                        </select>
+                        </SelectField>
                     </div>
                     <div>
-                        <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1.5">
-                            Sección
-                        </label>
-                        <select
+                        <SelectField
+                            compact
+                            label="Sección"
                             value={sectionId}
                             onChange={handleSectionChange}
                             disabled={!courseId || sectionsLoading}
-                            className="w-full px-3 py-2 rounded-lg border outline-none transition text-sm text-gray-700 border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                         >
                             <option value="">
                                 {sectionsLoading
@@ -348,7 +346,7 @@ export const GradesReportPage = () => {
                                     {s.name}
                                 </option>
                             ))}
-                        </select>
+                        </SelectField>
                     </div>
                 </div>
             </div>
@@ -373,22 +371,22 @@ export const GradesReportPage = () => {
                             </p>
                         </div>
                         <div className="flex items-center gap-2">
-                            <button
+                            <Button
                                 type="button"
                                 onClick={handleExportCsv}
                                 disabled={exportingCsv}
-                                className="px-4 py-2 text-sm font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition disabled:opacity-50"
+                                variant="soft"
                             >
                                 {exportingCsv ? "Exportando..." : "Descargar CSV"}
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 type="button"
                                 onClick={handleExport}
                                 disabled={exporting}
-                                className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition disabled:opacity-50"
+                                variant="success"
                             >
                                 {exporting ? "Exportando..." : "Descargar Excel"}
-                            </button>
+                            </Button>
                         </div>
                     </div>
 
@@ -400,14 +398,15 @@ export const GradesReportPage = () => {
                                 placeholder="Buscar estudiante por nombre..."
                             />
                         </div>
-                        <select
+                        <SelectField
+                            compact
                             value={orderBy}
                             onChange={(e) => setOrderBy(e.target.value)}
-                            className="px-3 py-2 rounded-lg border outline-none transition text-sm text-gray-700 border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            aria-label="Ordenar estudiantes"
                         >
                             <option value="last_name">Ordenar por apellido</option>
                             <option value="first_name">Ordenar por nombre</option>
-                        </select>
+                        </SelectField>
                     </div>
 
                     {report.students.length === 0 ? (

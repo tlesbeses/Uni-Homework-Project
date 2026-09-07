@@ -24,6 +24,7 @@ export async function fetchAllPages(request, params = {}) {
     if (hasMore && page > MAX_PAGES) {
         // Evitar cargar cientos de páginas: el límite evita un DoS y la
         // advertencia evita que el truncado pase desapercibido.
+        // eslint-disable-next-line no-console
         console.warn(
             `fetchAllPages: se alcanzó el límite de ${MAX_PAGES} páginas` +
                 " y la lista pudo quedar incompleta."

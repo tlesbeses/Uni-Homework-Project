@@ -8,6 +8,9 @@ import {
     setUserRole,
 } from "@/features/admin/services/adminService";
 import { SearchInput } from "@/shared/components/SearchInput";
+import { Button } from "@/shared/components/ui/Button";
+import { SelectField } from "@/shared/components/ui/SelectField";
+import { Modal } from "@/shared/components/ui/Modal";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 import { formatUser } from "@/features/teams/utils/formatUser";
 import { ConfirmModal } from "@/shared/components/ConfirmModal";
@@ -158,15 +161,17 @@ export const AdminUsersPage = () => {
                         placeholder="Buscar por nombre, usuario o email..."
                     />
                 </div>
-                <select
+                <SelectField
+                    compact
+                    className="sm:w-48"
                     value={role}
                     onChange={(event) => setRole(event.target.value)}
-                    className="sm:w-48 px-3 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                    aria-label="Filtrar por rol"
                 >
                     <option value="">Todos los roles</option>
                     <option value="Teacher">Profesores</option>
                     <option value="Student">Estudiantes</option>
-                </select>
+                </SelectField>
             </div>
 
             {error && (
@@ -297,22 +302,21 @@ export const AdminUsersPage = () => {
                                                         ? "Desactivar"
                                                         : "Activar"}
                                                 </button>
-                                                <button
-                                                    type="button"
+                                                <Button
                                                     onClick={() =>
                                                         setPendingRoleChange(u)
                                                     }
                                                     disabled={busy}
-                                                    className="px-3 py-1.5 rounded-lg text-xs font-medium text-indigo-600 border border-indigo-200 hover:bg-indigo-50 transition disabled:opacity-50"
+                                                    size="sm"
+                                                    variant="outline"
                                                 >
                                                     {u.roles.includes(
                                                         "Teacher"
                                                     )
                                                         ? "Hacer estudiante"
                                                         : "Hacer profesor"}
-                                                </button>
-                                                <button
-                                                    type="button"
+                                                </Button>
+                                                <Button
                                                     onClick={() =>
                                                         handleImpersonate(u)
                                                     }
@@ -320,12 +324,13 @@ export const AdminUsersPage = () => {
                                                         busy ||
                                                         impersonating
                                                     }
-                                                    className="px-3 py-1.5 rounded-lg text-xs font-medium text-gray-700 border border-gray-200 hover:bg-gray-50 transition disabled:opacity-50"
+                                                    size="sm"
+                                                    variant="secondary"
                                                 >
                                                     {impersonating
                                                         ? "Probando..."
                                                         : "Probar como"}
-                                                </button>
+                                                </Button>
                                             </div>
                                         )}
                                     </td>
@@ -337,35 +342,35 @@ export const AdminUsersPage = () => {
             </div>
 
             {pendingDeactivate && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-                    <div className="w-full max-w-md rounded-2xl bg-white shadow-xl p-6 animate-pop">
-                        <h2 className="text-lg font-bold text-gray-800">
-                            Desactivar cuenta
-                        </h2>
-                        <p className="text-sm text-gray-600 mt-2">
+                <Modal
+                    open
+                    title="Desactivar cuenta"
+                    onClose={() => setPendingDeactivate(null)}
+                    size="md"
+                >
+                    <div className="p-6">
+                        <p className="text-sm text-gray-600">
                             ¿Desactivar la cuenta de{" "}
                             <strong>{formatUser(pendingDeactivate)}</strong>?
                             El usuario no podrá iniciar sesión ni ser
                             impersonado; sus datos se conservan.
                         </p>
                         <div className="flex justify-end gap-3 pt-5">
-                            <button
-                                type="button"
+                            <Button
+                                variant="ghost"
                                 onClick={() => setPendingDeactivate(null)}
-                                className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition"
                             >
                                 Cancelar
-                            </button>
-                            <button
-                                type="button"
+                            </Button>
+                            <Button
+                                variant="danger"
                                 onClick={confirmDeactivate}
-                                className="px-4 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition"
                             >
                                 Desactivar
-                            </button>
+                            </Button>
                         </div>
                     </div>
-                </div>
+                </Modal>
             )}
 
             <ConfirmModal
@@ -383,7 +388,7 @@ export const AdminUsersPage = () => {
                         : ""
                 }
                 confirmLabel="Cambiar rol"
-                confirmClassName="bg-indigo-600 hover:bg-indigo-700"
+                confirmVariant="primary"
                 onCancel={() => setPendingRoleChange(null)}
                 onConfirm={handleRoleChange}
                 busy={Boolean(busyId)}

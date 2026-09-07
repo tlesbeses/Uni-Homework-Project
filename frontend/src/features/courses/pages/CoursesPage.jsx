@@ -9,6 +9,7 @@ import { EditCourseModal } from "@/features/courses/components/EditCourseModal";
 import { JoinCourseForm } from "@/features/courses/components/JoinCourseForm";
 import { Pager } from "@/shared/components/Pager";
 import { ConfirmModal } from "@/shared/components/ConfirmModal";
+import { Button } from "@/shared/components/ui/Button";
 
 export const CoursesPage = () => {
     const { isTeacher, isStudent } = useAuth();
@@ -72,13 +73,9 @@ export const CoursesPage = () => {
                 </div>
 
                 {isTeacher && (
-                    <button
-                        type="button"
-                        onClick={() => setIsCreateOpen(true)}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-lg shadow transition"
-                    >
+                    <Button onClick={() => setIsCreateOpen(true)}>
                         + Nuevo curso
-                    </button>
+                    </Button>
                 )}
             </div>
 

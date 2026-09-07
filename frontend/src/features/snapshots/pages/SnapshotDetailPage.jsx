@@ -5,6 +5,7 @@ import {
     exportSnapshotGradesCsv,
 } from "@/features/snapshots/services/snapshotService";
 import { useSnapshot } from "@/features/snapshots/hooks/useSnapshot";
+import { Button } from "@/shared/components/ui/Button";
 
 function formatDate(value) {
     if (!value) {
@@ -104,7 +105,7 @@ export const SnapshotDetailPage = () => {
             } else {
                 await exportSnapshotGradesCsv(snapshot.id);
             }
-        } catch (err) {
+        } catch {
             setActionError("No se pudo generar el archivo. Inténtalo de nuevo.");
         }
     };
@@ -149,20 +150,12 @@ export const SnapshotDetailPage = () => {
                         </p>
                     </div>
                     <div className="flex items-center gap-3">
-                        <button
-                            type="button"
-                            onClick={() => handleExport("xlsx")}
-                            className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition"
-                        >
+                        <Button onClick={() => handleExport("xlsx")}>
                             Descargar Excel
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => handleExport("csv")}
-                            className="px-4 py-2 rounded-lg text-sm font-medium text-indigo-700 border border-indigo-300 hover:bg-indigo-50 transition"
-                        >
+                        </Button>
+                        <Button onClick={() => handleExport("csv")} variant="outline">
                             Descargar CSV
-                        </button>
+                        </Button>
                     </div>
                 </div>
                 {actionError && (

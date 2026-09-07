@@ -1,5 +1,7 @@
 import { useJoinCourseForm } from "@/features/courses/hooks/useJoinEnrollments";
 import { InputField } from "@/shared/components/ui/InputField";
+import { SelectField } from "@/shared/components/ui/SelectField";
+import { Button } from "@/shared/components/ui/Button";
 
 export const JoinCourseForm = ({ onJoined }) => {
     const {
@@ -31,15 +33,12 @@ export const JoinCourseForm = ({ onJoined }) => {
 
             {pendingSections && (
                 <div className="flex-1">
-                    <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                        Sección
-                    </label>
-                    <select
+                    <SelectField
+                        label="Sección"
                         value={selectedSectionId}
                         onChange={(event) =>
                             setSelectedSectionId(event.target.value)
                         }
-                        className="w-full px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                         required
                     >
                         <option value="">Selecciona una sección...</option>
@@ -48,17 +47,17 @@ export const JoinCourseForm = ({ onJoined }) => {
                                 {section.name}
                             </option>
                         ))}
-                    </select>
+                    </SelectField>
                 </div>
             )}
 
-            <button
+            <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-5 py-3 rounded-lg transition disabled:opacity-60"
+                size="lg"
             >
                 {isSubmitting ? "Uniendo..." : "Unirse al curso"}
-            </button>
+            </Button>
         </form>
     );
 };

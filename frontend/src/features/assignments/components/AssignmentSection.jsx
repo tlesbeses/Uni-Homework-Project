@@ -11,6 +11,7 @@ import {
 import { Pager } from "@/shared/components/Pager";
 import { SearchInput } from "@/shared/components/SearchInput";
 import { ConfirmModal } from "@/shared/components/ConfirmModal";
+import { Button } from "@/shared/components/ui/Button";
 
 const DEFAULT_PAGE_SIZE = 6;
 
@@ -102,13 +103,9 @@ export const AssignmentSection = ({ courseId, isTeacher, isOwner, selectedSectio
                     Asignaciones
                 </h2>
                 {canManage && (
-                    <button
-                        type="button"
-                        onClick={() => setIsCreateOpen(true)}
-                        className="px-3 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition"
-                    >
+                    <Button onClick={() => setIsCreateOpen(true)}>
                         + Nueva asignación
-                    </button>
+                    </Button>
                 )}
             </div>
 

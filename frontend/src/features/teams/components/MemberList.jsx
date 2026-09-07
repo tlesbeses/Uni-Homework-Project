@@ -1,4 +1,5 @@
 import { formatUser } from "@/features/teams/utils/formatUser";
+import { Button } from "@/shared/components/ui/Button";
 
 export const MemberList = ({
     members,
@@ -40,21 +41,21 @@ export const MemberList = ({
 
                         {canManage && !isLeader && (
                             <div className="flex items-center gap-2">
-                                <button
-                                    type="button"
+                                <Button
+                                    size="sm"
+                                    variant="outline"
                                     onClick={() => onMakeLeader(member.student.id)}
-                                    className="px-3 py-1.5 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
                                 >
                                     Hacer líder
-                                </button>
-                                <button
-                                    type="button"
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="danger"
                                     onClick={() => onRemove(member.student.id)}
                                     disabled={busy}
-                                    className="px-3 py-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition disabled:opacity-50"
                                 >
                                     {busy ? "Quitando..." : "Quitar"}
-                                </button>
+                                </Button>
                             </div>
                         )}
                     </li>

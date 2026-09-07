@@ -11,7 +11,7 @@ export function ProtectedRoute({
     redirectTo = "/login",
     forbiddenTo = "/403",
 }) {
-    const { user, isLoading, isImpersonating } = useAuth();
+    const { user, isLoading, isImpersonating, isAdminPanelEnabled } = useAuth();
     if (isLoading) {
         return <FullScreenLoader />;
     }
@@ -20,7 +20,10 @@ export function ProtectedRoute({
         return <Navigate to={redirectTo} replace />;
     }
 
-    if (superuserOnly && !user?.is_superuser) {
+    if (
+        superuserOnly &&
+        (!user?.is_superuser || isAdminPanelEnabled === false)
+    ) {
         return <Navigate to={forbiddenTo} replace />;
     }
 

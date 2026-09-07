@@ -13,6 +13,9 @@ import {
 import { getTeams } from "@/features/teams/services/teamService";
 import { getGradeHistory } from "@/features/grades/services/gradeService";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
+import { Button } from "@/shared/components/ui/Button";
+import { SelectField } from "@/shared/components/ui/SelectField";
+import { Modal } from "@/shared/components/ui/Modal";
 
 const DOT_COLORS = [
     "bg-red-500",
@@ -133,7 +136,7 @@ export const TeacherGradingPanel = () => {
         )
     );
 
-    const teams = rawTeams ?? [];
+    const teams = useMemo(() => rawTeams ?? [], [rawTeams]);
     const enrollments = rawEnrollments ?? [];
 
     const students = enrollments.filter(
@@ -244,24 +247,30 @@ export const TeacherGradingPanel = () => {
         inFlightRef.current.delete(key);
     }, []);
 
-    const isValidScore = (raw) => {
-        if (raw === "" || raw === null || raw === undefined) {
-            return false;
-        }
-        const value = Number(raw);
-        return (
-            Number.isFinite(value) &&
-            value >= 0 &&
-            value <= maxScore
-        );
-    };
+    const isValidScore = useCallback(
+        (raw) => {
+            if (raw === "" || raw === null || raw === undefined) {
+                return false;
+            }
+            const value = Number(raw);
+            return (
+                Number.isFinite(value) &&
+                value >= 0 &&
+                value <= maxScore
+            );
+        },
+        [maxScore]
+    );
 
-    const studentPersistedScore = (studentId) => {
-        const grade = gradesByStudentId.get(String(studentId));
-        return grade?.score === null || grade?.score === undefined
-            ? null
-            : Number(grade.score);
-    };
+    const studentPersistedScore = useCallback(
+        (studentId) => {
+            const grade = gradesByStudentId.get(String(studentId));
+            return grade?.score === null || grade?.score === undefined
+                ? null
+                : Number(grade.score);
+        },
+        [gradesByStudentId]
+    );
 
     const autosaveMemberKey = useCallback(
         async (key) => {
@@ -297,6 +306,7 @@ export const TeacherGradingPanel = () => {
                     score: raw,
                 });
                 clearDraft(key);
+                toast.success("Nota individual guardada");
             } catch (err) {
                 toast.error(getErrorMessage(err));
             } finally {
@@ -307,12 +317,12 @@ export const TeacherGradingPanel = () => {
         [
             drafts,
             selectedAssignmentId,
-            gradesByStudentId,
+            isValidScore,
+            studentPersistedScore,
             beginSave,
             endSave,
             clearDraft,
             gradeStudentMutation,
-            maxScore,
         ]
     );
 
@@ -352,6 +362,7 @@ export const TeacherGradingPanel = () => {
                     overwriteIndividual,
                 });
                 clearDraft(key);
+                toast.success(`Nota aplicada al ${team.name}`);
             } catch (err) {
                 toast.error(getErrorMessage(err));
             } finally {
@@ -365,11 +376,11 @@ export const TeacherGradingPanel = () => {
             teams,
             overwriteIndividual,
             getTeamGrade,
+            isValidScore,
             beginSave,
             endSave,
             clearDraft,
             gradeTeamMutation,
-            maxScore,
         ]
     );
 
@@ -456,14 +467,14 @@ export const TeacherGradingPanel = () => {
         teams,
         selectedAssignmentId,
         overwriteIndividual,
-        gradesByStudentId,
         getTeamGrade,
+        isValidScore,
+        studentPersistedScore,
         beginSave,
         endSave,
         clearDraft,
         gradeStudentMutation,
         gradeTeamMutation,
-        maxScore,
     ]);
 
     const handleSelectCourse = (e) => {
@@ -693,8 +704,8 @@ export const TeacherGradingPanel = () => {
                         placeholder="__"
                     />
                     <span className="text-xs text-gray-400">/ {maxScore}</span>
-                    <button
-                        type="button"
+                    <Button
+                        size="sm"
                         onClick={() =>
                             handleSaveMember(teamId, student.id)
                         }
@@ -703,10 +714,9 @@ export const TeacherGradingPanel = () => {
                             !inputValue(key, fallback)
                         }
                         title="Guardar nota individual"
-                        className="px-2 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition disabled:opacity-50"
                     >
                         {savingKey === key ? "…" : "✓"}
-                    </button>
+                    </Button>
                 </span>
             </li>
         );
@@ -716,13 +726,10 @@ export const TeacherGradingPanel = () => {
         <div className="space-y-6">
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-wrap items-end gap-4">
                 <div className="min-w-[180px] flex-1">
-                    <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                        Curso
-                    </label>
-                    <select
+                    <SelectField
+                        label="Curso"
                         value={courseFilter}
                         onChange={handleSelectCourse}
-                        className="w-full px-4 py-2.5 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     >
                         <option value="">Todos los cursos</option>
                         {(courses ?? []).map((course) => (
@@ -730,32 +737,28 @@ export const TeacherGradingPanel = () => {
                                 {course.title}
                             </option>
                         ))}
-                    </select>
+                    </SelectField>
                 </div>
                 <div className="min-w-[220px] flex-[2]">
-                    <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                        Asignación
-                    </label>
-                    {filteredAssignments.length === 0 ? (
+                    <SelectField
+                        label="Asignación"
+                        value={selectedAssignmentId}
+                        onChange={handleSelectAssignment}
+                    >
+                        <option value="">
+                            Selecciona una asignación...
+                        </option>
+                        {(filteredAssignments ?? []).map((assignment) => (
+                            <option key={assignment.id} value={assignment.id}>
+                                {assignment.course.title} —{" "}
+                                {assignment.title}
+                            </option>
+                        ))}
+                    </SelectField>
+                    {filteredAssignments.length === 0 && (
                         <p className="text-sm text-gray-500 py-2.5">
                             Este curso no tiene asignaciones.
                         </p>
-                    ) : (
-                        <select
-                            value={selectedAssignmentId}
-                            onChange={handleSelectAssignment}
-                            className="w-full px-4 py-2.5 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                        >
-                            <option value="">
-                                Selecciona una asignación...
-                            </option>
-                            {(filteredAssignments ?? []).map((assignment) => (
-                                <option key={assignment.id} value={assignment.id}>
-                                    {assignment.course.title} —{" "}
-                                    {assignment.title}
-                                </option>
-                            ))}
-                        </select>
                     )}
                 </div>
                 {selectedAssignment && (
@@ -787,15 +790,13 @@ export const TeacherGradingPanel = () => {
 
                         {sections.length > 0 && (
                             <div>
-                                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1.5">
-                                    Grupo de clase
-                                </label>
-                                <select
+                                <SelectField
+                                    compact
+                                    label="Grupo de clase"
                                     value={sectionFilter}
                                     onChange={(e) =>
                                         setSectionFilter(e.target.value)
                                     }
-                                    className="w-full px-3 py-2 rounded-lg border outline-none transition text-sm text-gray-700 border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                 >
                                     {sections.map((section) => (
                                         <option
@@ -805,7 +806,7 @@ export const TeacherGradingPanel = () => {
                                             {section.name}
                                         </option>
                                     ))}
-                                </select>
+                                </SelectField>
                                 {sectionFilter && (
                                     <Link
                                         to={`/grades/report?section=${sectionFilter}`}
@@ -1088,8 +1089,9 @@ export const TeacherGradingPanel = () => {
                                             <span className="text-xs text-gray-400">
                                                 / {maxScore}
                                             </span>
-                                            <button
+                                            <Button
                                                 type="submit"
+                                                size="sm"
                                                 disabled={
                                                     savingKey ===
                                                         teamDraftKey(
@@ -1104,13 +1106,12 @@ export const TeacherGradingPanel = () => {
                                                         )
                                                     )
                                                 }
-                                                className="px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition disabled:opacity-50"
                                             >
                                                 {savingKey ===
                                                 teamDraftKey(selectedTeam.id)
                                                     ? "Guardando..."
                                                     : "Aplicar a todos"}
-                                            </button>
+                                            </Button>
                                         </span>
                                     </form>
 
@@ -1151,15 +1152,8 @@ export const TeacherGradingPanel = () => {
             )}
 
             {historyGrade && (
-                <div
-                    className="fixed inset-0 z-50 bg-black/40 grid place-items-center p-4"
-                    onClick={closeHistory}
-                >
-                    <div
-                        className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[80vh] overflow-hidden"
-                        onClick={(event) => event.stopPropagation()}
-                    >
-                        <div className="flex items-start justify-between gap-3 px-6 py-4 border-b border-gray-100">
+                <Modal open onClose={closeHistory} className="max-h-[80vh] overflow-hidden">
+                    <div className="flex items-start justify-between gap-3 px-6 py-4 border-b border-gray-100">
                             <div>
                                 <h3 className="text-base font-bold text-gray-800">
                                     Historial de {studentName(historyStudent)}
@@ -1231,8 +1225,7 @@ export const TeacherGradingPanel = () => {
                                 </ol>
                             )}
                         </div>
-                    </div>
-                </div>
+                </Modal>
             )}
         </div>
     );

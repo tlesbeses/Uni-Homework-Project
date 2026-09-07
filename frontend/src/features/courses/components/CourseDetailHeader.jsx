@@ -11,6 +11,11 @@ export const CourseDetailHeader = ({ course, teacher, isOwner, onEdit }) => {
                     </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
+                    {course.is_active === false && (
+                        <span className="text-xs font-medium uppercase tracking-wide px-2 py-1 rounded-full bg-gray-200 text-gray-600">
+                            Archivado
+                        </span>
+                    )}
                     <span className="text-xs font-medium uppercase tracking-wide px-2 py-1 rounded-full bg-indigo-50 text-indigo-600">
                         {course.visibility === "PUBLIC" ? "Público" : "Privado"}
                     </span>

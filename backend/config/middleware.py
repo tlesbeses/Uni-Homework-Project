@@ -18,6 +18,12 @@ class CspMiddleware:
         if settings.DEBUG:
             return response
 
+        # El Django admin (/django-admin/) trae sus propios scripts inline que
+        # no calzan con los hashes calculados sobre el index.html de la SPA; se
+        # lo excluye de la política estricta (API y SPA la mantienen intacta).
+        if request.path.startswith("/django-admin/"):
+            return response
+
         csp = getattr(settings, "CSP", None)
         if csp:
             response["Content-Security-Policy"] = csp

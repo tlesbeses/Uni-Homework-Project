@@ -78,7 +78,7 @@ def _server_error_response(error_id, status_code=status.HTTP_500_INTERNAL_SERVER
         {
             "type": "server_error",
             "error_id": error_id,
-            "message": (
+            "detail": (
                 "Ocurrió un error inesperado. Comparte este código de "
                 "soporte: " + error_id
             ),

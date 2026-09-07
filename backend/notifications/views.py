@@ -6,7 +6,7 @@ viewset) so the count/badge list and the read actions stay unambiguous.
 """
 
 from django.utils import timezone
-from rest_framework import status
+from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -59,10 +59,7 @@ class NotificationReadView(_BaseNotificationView):
     def post(self, request, pk):
         notification = self.get_queryset().filter(pk=pk).first()
         if notification is None:
-            return Response(
-                {"detail": "Notificación no encontrada."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            raise NotFound("Notificación no encontrada.")
         if not notification.is_read:
             notification.is_read = True
             notification.save(update_fields=["is_read"])

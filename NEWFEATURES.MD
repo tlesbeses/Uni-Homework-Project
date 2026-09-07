@@ -47,7 +47,13 @@ Checklist maestra con lo implementado, lo pendiente y lo descartado (con motivo)
 | 🟠 Media    | Dashboard       | Dashboard de estudiante                                 | ✅ Implementado |
 | 🟠 Media    | UX/UI           | Estados loading/empty/error                             | ✅ Implementado |
 | 🟠 Media    | UX/UI           | Responsive mobile                                       | ✅ Implementado |
-| 🟠 Media    | UX/UI           | Design system                                           | 🔍 Revisar      |
+| 🟠 Media    | UX/UI           | Design system                                           | ✅ Implementado |
+| 🔴 Alta     | Seguridad       | Estandarizar respuestas de error 4xx (DRF, `detail` estable) | ✅ Implementado |
+| 🔴 Alta     | Seguridad       | Autenticación de doble factor (TOTP)                     | ⏳ Pendiente   |
+| 🔴 Alta     | Seguridad       | Concurrencia: joins/calificaciones simultáneas no duplican | ✅ Implementado |
+| 🔴 Alta     | Seguridad       | IDOR: editar/borrar curso ajeno → 404                    | ✅ Verificado   |
+| 🟠 Media    | Cursos          | Cierre de curso = bloquear acciones (calificar, inscribirse, equipos) | ✅ Implementado |
+| 🟠 Media    | UX/UI           | Detalle de curso archivado: guard de inscripción + badge              | ✅ Implementado |
 
 ### Y agregaría una categoría especial: arquitectura
 
@@ -110,8 +116,72 @@ Checklist maestra con lo implementado, lo pendiente y lo descartado (con motivo)
 - **CI/CD (decisión):** pipeline de verificación en GitHub Actions (lint, tests backend, test/build frontend) que corre en PRs y push; **sin deploy automático** (Render despliega al mergear `main`).
 - **CI (fix):** el bloque de seguridad de producción (`if not DEBUG:` con `SECURE_SSL_REDIRECT`/HSTS/cookies Secure) se saltaba en los tests CI porque `DEBUG` no está definido, y el `SecurityMiddleware` redirigía a HTTPS cada request del test client con 301 (210 failures + 19 errors). Se corrigió abriendo el bloque solo con `if not DEBUG and "test" not in sys.argv` (mismo idiom ya usado para el throttle): producción y local quedan inalterados.
 - **Refactor backend (fase 6, parte B):** capa de servicios de enrollment en `course/services.py` (`create_enrollment`, `approve_enrollment`, `reject_enrollment`, `delete_enrollment` con notify + audit + limpieza de equipos; los errores de estado lanzan `EnrollmentInvalidStateError` y las views lo mapean al mismo `Response` 400 de antes, la API no cambia), helper `is_teacher(user)` cacheado en `course/permissions.py` (sustituye los `user.groups.filter(name="Teacher")` de course/teams/assignments/grading/authentication; la caché de grupos se invalida con la señal m2m de `authentication/signals.py`), y paginación unificada: `config/pagination.py` define `ListPagination` (15), usada en activity/errors de admin y notificaciones (`ActivityPagination` eliminado). +7 tests del servicio de enrollment en `course/tests.py`.
-- **Revisión arquitectura (punto 2):** la estructura de apps (course, authentication, grading, teams, assignments, notifications + config) es sólida y se mantiene; los **estados del curso** ya quedan cubiertos por visibilidad + `is_active` + snapshots por borrado (no hace falta `is_closed`); **no hay design system** (Tailwind inline duplicado: ~37 botones, 9 modals, 16 selects/textareas) y la **estandarización de respuestas 4xx** (algunos `Response({...}, 4xx)` ad-hoc) quedan como mejora futura fuera de este alcance.
-- **Tests backend:** 250 tests en 6 apps (auth, course, grading, teams, assignments, notifications), incluidos 12 de observabilidad, 21 de notificaciones, 7 del servicio de enrollment y 1 de regresión del handler de errores. **Tests frontend:** Vitest + React Testing Library (46 tests: autenticación/interceptor CSRF, AuthProvider, notificationMeta, queryKeys, ProtectedRoute, useGradeMutations, GradesReportPage con validación 0..max + exports, y hooks de admisión/join). El reporte `frontend/coverage/` está en `.gitignore` (no se sube). Durante los tests de la página de reporte se detectó y corrigió un import faltante (`getSectionGradesReport`) que rompía la página en runtime.
+- **Revisión arquitectura (punto 2):** la estructura de apps (course, authentication, grading, teams, assignments, notifications + config) es sólida y se mantiene; los **estados del curso** ya quedan cubiertos por visibilidad + `is_active` + snapshots por borrado (no hace falta `is_closed`); la **estandarización de respuestas 4xx** (algunos `Response({...}, 4xx)` ad-hoc) se marcó aquí como mejora futura y se implementó después en `ac036e2` (ver sección «Respuestas de error API»). El **design system** señalado ahí como pendiente se implementó después por fases independientes (ver nota `Design system` más abajo).
+- **Tests backend:** 284 tests en 6 apps (auth, course, grading, teams, assignments, notifications), incluidos 12 de observabilidad, 21 de notificaciones, 7 del servicio de enrollment, +17 de blindaje de concurrencia/IDOR/cierre de cursos y 1 de regresión del handler de errores. **Tests frontend:** Vitest + React Testing Library (77 tests: autenticación/interceptor CSRF, AuthProvider, notificationMeta, queryKeys, ProtectedRoute, useGradeMutations, GradesReportPage con validación 0..max + exports, hooks de admisión/join, estados de curso archivado (CourseCard/useToggleCourseActive/EnrollmentSection/CourseDetailHeader) y primitivas del design system Modal/SelectField/TextareaField/Button). El reporte `frontend/coverage/` está en `.gitignore` (no se sube). Durante los tests de la página de reporte se detectó y corrigió un import faltante (`getSectionGradesReport`) que rompía la página en runtime.
 - **TanStack Query / cache / polling:** implementados (polling de cursos a 30s, solo pestaña enfocada).
+- **Design system (fases 1–4, commits `a97265d`, `67bcf93`, `854b399`, `d96e7f9`):** primitivas en `src/shared/components/ui/` — `Modal` (overlay, cierre por Escape/backdrop/×, `role="dialog"` + `aria-modal`, tamaños md/lg), `SelectField`/`TextareaField` (misma API que `InputField`: `label/name/register/error/helpText/className` + `...rest`; labels asociados con `useId()`, prop `compact` para filtros de toolbar) y `Button` (variantes primary/secondary/outline/soft/neutral/danger/success/ghost, tamaños sm/md/lg). **Botones:** ~27 primarios `bg-indigo-600` + rojos/verdes/grises inline → `<Button>` en ~26 archivos; se dejaron intencionalmente como `<Link>`-botón las páginas de error (Forbidden/Unauthorized/NotFound), el CTA de Landing y el botón "Instalar" del banner oscuro, además de controles de menú/icono de la Navbar. **Modals:** 7 modals de formulario + confirm de `AdminUsersPage` + historial de notas del panel de profesor + `ConfirmModal` reescritos sobre `Modal` (`ConfirmModal` cambió `confirmClassName` → `confirmVariant`, default `"danger"`). **Selects/textareas:** los 23 selects y 4 textareas restantes → `SelectField`/`TextareaField`; solo el select compacto de `Pager` y `FullScreenLoader` se mantienen especializados. Los exports emerald de `GradesReportPage` mapean a `variant="soft"`/`"success"` (cambio de tono sutil). Accesibilidad: labels vinculados con `htmlFor`/`id` vía `useId`. El refactor además redujo chunks (p. ej. GradesPage 24.21→23.02 kB, CourseDetailPage 26.05→24.03 kB). Suite: 77 tests frontend / 284 backend / lint / build todos verdes.
+
+### Cambios e implementaciones — Design system
+
+| Fase | Alcance | Archivos | Tests / verificación | Commit |
+|------|---------|----------|----------------------|--------|
+| **1 — Primitivas** | `Modal`, `SelectField`, `TextareaField` nuevos; labels accesibles con `useId()` (`htmlFor`/`id`); variantes `soft`/`neutral`/`success` en `Button` | `ui/Modal.jsx`, `ui/SelectField.jsx`, `ui/TextareaField.jsx`, `ui/Button.jsx` + 3 archivos de test | +16 tests primitivas → suite 47→63; lint/build OK | `a97265d` |
+| **2 — Botones** | ~27 botones inline (`bg-indigo-600`, `bg-red-600`, `bg-green-600`, `bg-gray-100`, `bg-indigo-50`) → `<Button>` en ~26 archivos; `ConfirmModal` `confirmClassName` → `confirmVariant` (default `danger`) | 27 archivos (`features/*` + `shared/components`) | 63 tests; build OK (chunks más chicos) | `67bcf93` |
+| **3 — Selects y textareas** | 23 selects + 4 textareas → `SelectField`/`TextareaField`; prop `compact` para filtros de toolbar; cleanup exports emerald→`soft`/`success` | 18 archivos (admin, assignments, courses, grades, teams) | +2 tests `compact` → 65 tests; lint/build OK | `854b399` |
+| **4 — Modals** | 7 modals de formulario (assignments/courses/teams) + confirm inline `AdminUsersPage` + modal historial de notas `TeacherGradingPanel` + `ConfirmModal` → `<Modal>` (beneficio extra: cierre por Escape/backdrop) | 10 archivos | 65 tests; lint/build OK | `d96e7f9` |
+| **5 — Verificación y docs** | Suite completa (backend 266, frontend 65, lint, build) + `NEWFEATURES.MD` (Design system ✅, contadores actualizados) | `NEWFEATURES.MD` | ✅ backend 266 OK · frontend 65 OK · lint sin errores · build OK | `8af0d15` |
+
+**Excepciones intencionales** (no se tocaron): `<Link>`-botón de `ForbiddenPage`/`UnauthorizedPage`/`NotFoundPage`, CTA de `LandingPage`, botón "Instalar" de `InstallBanner`, iconos/ítems de `Navbar`, select compacto de `Pager`, `FullScreenLoader`.
+
+### Cambios e implementaciones — Respuestas de error API (4xx)
+
+| Alcance | Archivos | Tests / verificación | Commit |
+|---------|----------|----------------------|--------|
+| Estandarizar los `Response({...}, status.HTTP_4xx)` ad-hoc de `course` y `notifications` al patrón DRF (`ValidationError`/`PermissionDenied`), de modo que toda respuesta 4xx tenga `detail` estable y el frontend (`getErrorMessage`) las presente uniformemente | `config/errors.py`, `course/views.py`, `course/tests.py`, `notifications/views.py`, `notifications/tests.py` (+1 test regresión handler) | suite backend OK | `ac036e2` |
+
+### Cambios e implementaciones — Blindaje de concurrencia, IDOR de cursos y cierre de cursos
+
+| Alcance | Archivos | Tests / verificación | Commit |
+|---------|----------|----------------------|--------|
+| Serializar writes concurrentes: `create_enrollment` (course/services.py) y `grade_team`/`grade_student` (grading/services.py) toman `select_for_update()` sobre la fila del curso/assignment; backstop `IntegrityError` → mismo error de negocio (400) en backends sin row locks | `course/services.py`, `course/views.py`, `grading/services.py` | tests `TransactionTestCase` con 2 threads (`Barrier`): join×2 → {201,400} y 1 enrollment; enroll×2 → {201,400} y 1 enrollment (auto-accept off y on → APPROVED); grade×2 → {200} y 1 grade | `67b60d3` + `23ed2f8` |
+| **Cierre de curso = bloqueo**: archivar bloquea calificar (student/team, `PermissionDenied`, sin duplicar `Grade`), join (404)/enroll (403) e inscribirse, y toda gestión de equipos (create, add member, edit, delete, change_leader → 403) | `course/services.py`, `course/views.py`, `teams/views.py` (`manager_actions` + `get_object`) | `ArchiveCourseTests` +2, `ArchivedCourseGradingTests` (incl. restaurar vuelve a habilitar), `ArchivedCourseTeamTests` | `67b60d3` |
+| IDOR de cursos: editar/borrar curso ajeno → 404 y el curso no se modifica | `course/tests.py` (`CourseForeignOwnershipTests`) | PUT/DELETE sobre `/api/courses/{ajeno}/` → 404 | `67b60d3` |
+
+**Notas:**
+- Se corrigió `create_enrollment` para que esté envuelto en `@transaction.atomic` (sin él, `select_for_update` lanzaba `TransactionManagementError` y el endpoint respondía 500; con `ATOMIC_REQUESTS` desactivado el servicio lo necesita explícito).
+- Los workers de los tests de concurrencia cierran su conexión DB en `finally` (`connections.close_all()`) para no dejar la BD de test de PostgreSQL bloqueada en el teardown.
+- Los tests usan la BD real (PostgreSQL), donde `select_for_update` sí serializa; el manejo de `IntegrityError` es el backstop para backends sin row locks. Los tests con threads (`join`/`enroll`/`grade` concurrentes) se saltan en backends sin row locks (`@skipUnless(vendor=="postgresql")`): SQLite no soporta row locks y dos writers hacen `database is locked` (OperationalError, no IntegrityError) en vez de serializar, así que en CI (SQLite) quedan skipped; el invariant de "1 enrollment/grade por alumno" está cubierto igual por la unique constraint en local/Postgres.
+- Backend: **284 tests OK** (267 previos + 17 nuevos: 2 join/enroll archivado, 2 IDOR, 3 joins/enrolls concurrentes (join, enroll, enroll auto-accept), 4 grading archivado/concurrente, 6 equipos archivado).
+- UX de curso archivado (frontend): `EnrollmentSection` no ofrece "Inscribirme" ni carga secciones cuando `is_active=false` (texto "Este curso está archivado y no acepta nuevas inscripciones") y `CourseDetailHeader` muestra la insignia "Archivado". Tests: `CourseCard` (badge + kebab Archivar/Restaurar), `useToggleCourseActive` (PATCH `{is_active}`, toasts e invalidación), `CourseDetailArchivedStates` (guard de inscripción + badge). Frontend: **77 tests OK** (65 + 12), lint 0 warnings, build OK.
 
 **Esta lista es el backlog técnico.** Cuando termines algo, decime _"ya terminé X"_ y vamos actualizando y tachando.
+
+---
+
+### PR — Mejoras de UX, notificaciones y acceso administrativo (backlog)
+
+| Prioridad | Área             | Tarea                                                                                  | Estado       |
+| --------- | ---------------- | -------------------------------------------------------------------------------------- | ------------ |
+| P0        | Acceso admin     | Corregir ruta del Admin Dashboard (404)                                                | ✅ Hecho     |
+| P0        | Acceso admin     | Autorización backend del panel (solo rol/permiso admin, no confiar en React)           | ✅ Hecho     |
+| P0        | Acceso admin     | Feature flag `ADMIN_PANEL_ENABLED` vía `.env` (no sustituye autorización)              | ✅ Hecho     |
+| P0        | Acceso admin     | Pruebas: autorizado / sin permisos / no autenticado / flag deshabilitado               | ✅ Hecho     |
+| P1        | Calificaciones   | Toast de éxito/error al guardar nota individual y fuera de Team                        | ✅ Hecho     |
+| P1        | Calificaciones   | Estado loading + evitar envíos duplicados (multi-clic)                                 | ✅ Ya cubierto (`beginSave`/`savingKey`) |
+| P1        | Notificaciones   | Fetch inicial en el primer render del Dashboard (contador no depende del polling)      | ✅ Ya cubierto (fetch inicial + polling 30s) |
+| P1        | Notificaciones   | Inicializar unread count antes del polling; el polling solo actualiza                  | ✅ Ya cubierto |
+| P1        | Notificaciones   | Preview limitado + acción "Ver todas" (no renderizar todas en el Dashboard)            | ✅ Hecho     |
+| P2        | Inscripciones    | Rediseñar CTA de inscripción en Course Detail (Inscribirme / Inscribiendo… / Inscrito / Solicitud enviada) | ✅ Hecho |
+| P2        | Inscripciones    | Feedback visual (éxito/solicitud/ya inscrito/error) + anti doble-clic                  | ✅ Hecho     |
+| P2        | UX/UI            | Componente `Button` compartido en Super Admin (variantes y tamaños)                    | ✅ Hecho     |
+
+#### Notas de la PR
+
+- **Acceso admin:** `ADMIN_PANEL_ENABLED=true` en `.env`. Si el panel está deshabilitado, nadie accede aunque tenga permisos; la autorización se valida siempre en backend y los no autorizados reciben la respuesta definida por la política del proyecto.
+- **Calificaciones:** feedback visible confirmando guardado/error y estado de carga; comportamiento consistente entre nota individual, nota fuera de Team y notas de Team.
+- **Notificaciones:** separar carga inicial, unread count, preview limitado y polling (el polling actualiza el estado existente, no lo inicializa).
+- **Inscripción (Course Detail):** el CTA refleja cada estado (puede inscribirse, en proceso, completado, pendiente de aprobación, ya inscrito, error).
+- **Super Admin UI:** estandarizar tamaño, padding, tipografía, border-radius, estados hover/active/disabled/loading vía componente compartido (variantes Primary/Secondary/Danger/Ghost, tamaños sm/md/lg).
+- **Orden de implementación:** P0 (acceso admin) → P1 (calificaciones + notificaciones) → P2 (Course Detail + Super Admin UI).
+- **Verificación extra (junto a la PR):** `TeamIsolationTests` en `teams/tests.py` (12 escenarios: no-miembro 404 en team ajeno, teacher de otro curso 404, miembro común 403 en gestión de equipo, leader 200) y cierre de JWT en `RefreshCsrfSyncTests` (rotación + blacklist del token viejo, blacklist en logout, sincronización CSRF). `ADMIN_PANEL_ENABLED` se expone al frontend como `isAdminPanelEnabled` (flag ausente = habilitado) y oculta los ítems admin de la navbar y la ruta `/admin`.
+- **Django admin movido a `/django-admin/`:** para eliminar el choque con la ruta `/admin` de la SPA de React (que se veía como 404), el panel de Django/DRF ahora vive en `/django-admin/` (`config/urls.py`, catch-all de la SPA actualizado). `CspMiddleware` excluye `/django-admin/…` de la política CSP estricta (los scripts inline del admin no calzan con los hashes del index.html); API y SPA mantienen CSP. En dev, Vite proxea `/django-admin` hacia el backend. El panel React agrega un link "Admin de Django (base de datos)" (nueva pestaña). Test de regresión: `config/tests.py` (`CspMiddlewareTests`, 3 tests). Independiente siempre del flag `ADMIN_PANEL_ENABLED` y de `IsSuperuser`.

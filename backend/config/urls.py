@@ -11,7 +11,9 @@ from authentication.views import ErrorLogDetailView, ErrorLogEndpoint
 FRONTEND_DIR = settings.FRONTEND_DIR
 
 urlpatterns = [
-    path("admin/", admin.site.urls),
+    # El panel de Django (DRF) vive en /django-admin/ para no chocar con la
+    # ruta /admin de la SPA de React.
+    path("django-admin/", admin.site.urls),
 
     path("auth/", include("authentication.urls")),
 
@@ -31,7 +33,7 @@ urlpatterns = [
     path("favicon.svg", lambda r: serve(r, "favicon.svg", document_root=str(FRONTEND_DIR))),
 
     re_path(
-        r"^(?!api/|admin/|static/|auth/).*$",
+        r"^(?!api/|django-admin/|static/|auth/).*$",
         TemplateView.as_view(
             template_name="index.html"
         ),

@@ -7,6 +7,8 @@ import {
     entityTypeLabel,
     userName,
 } from "@/shared/utils/activityMeta";
+import { Button } from "@/shared/components/ui/Button";
+import { SelectField } from "@/shared/components/ui/SelectField";
 
 function formatDate(value) {
     if (!value) {
@@ -69,13 +71,14 @@ export const AdminActivityPage = () => {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-                <select
+                <SelectField
+                    compact
                     value={action}
                     onChange={(event) => {
                         setAction(event.target.value);
                         setPage(1);
                     }}
-                    className="px-3 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                    aria-label="Filtrar por acción"
                 >
                     <option value="">Todas las acciones</option>
                     <option value="impersonate">Impersonación</option>
@@ -83,20 +86,21 @@ export const AdminActivityPage = () => {
                     <option value="create">Creación</option>
                     <option value="delete">Eliminación</option>
                     <option value="login">Inicio de sesión</option>
-                </select>
-                <select
+                </SelectField>
+                <SelectField
+                    compact
                     value={entityType}
                     onChange={(event) => {
                         setEntityType(event.target.value);
                         setPage(1);
                     }}
-                    className="px-3 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                    aria-label="Filtrar por entidad"
                 >
                     <option value="">Todas las entidades</option>
                     <option value="user">Usuario</option>
                     <option value="grade">Nota</option>
                     <option value="course">Curso</option>
-                </select>
+                </SelectField>
                 <input
                     type="text"
                     value={userId}
@@ -227,27 +231,27 @@ export const AdminActivityPage = () => {
                         {count} registro{count !== 1 ? "s" : ""}
                     </p>
                     <div className="flex items-center gap-3">
-                        <button
-                            type="button"
+                        <Button
                             onClick={() => setPage((p) => Math.max(1, p - 1))}
                             disabled={page <= 1}
-                            className="px-3 py-1.5 rounded-lg text-sm font-medium text-indigo-600 border border-indigo-200 hover:bg-indigo-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                            size="sm"
+                            variant="outline"
                         >
                             Anterior
-                        </button>
+                        </Button>
                         <span className="text-sm text-gray-500">
                             Página {page} de {totalPages}
                         </span>
-                        <button
-                            type="button"
+                        <Button
                             onClick={() =>
                                 setPage((p) => Math.min(totalPages, p + 1))
                             }
                             disabled={page >= totalPages}
-                            className="px-3 py-1.5 rounded-lg text-sm font-medium text-indigo-600 border border-indigo-200 hover:bg-indigo-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                            size="sm"
+                            variant="outline"
                         >
                             Siguiente
-                        </button>
+                        </Button>
                     </div>
                 </div>
             )}

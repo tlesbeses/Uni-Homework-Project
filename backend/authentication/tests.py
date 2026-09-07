@@ -2,11 +2,12 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser, Group
-from django.test import RequestFactory, TestCase
+from django.test import RequestFactory, TestCase, override_settings
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from rest_framework.test import APITestCase
-from rest_framework_simplejwt.tokens import AccessToken
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
 from authentication.models import ErrorLog, EventLog
 
@@ -75,6 +76,47 @@ class AdminUserListTests(BaseAdminTestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         usernames = {u["username"] for u in response.data["results"]}
         self.assertEqual(usernames, {"teacher"})
+
+
+class AdminPanelFlagTests(BaseAdminTestCase):
+    """El panel admin también exige ADMIN_PANEL_ENABLED (además de rol)."""
+
+    def test_superuser_authorized_when_flag_enabled(self):
+        with override_settings(ADMIN_PANEL_ENABLED=True):
+            self.client.force_authenticate(self.admin)
+            response = self.client.get("/auth/admin/users/")
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_non_superuser_forbidden_when_flag_enabled(self):
+        with override_settings(ADMIN_PANEL_ENABLED=True):
+            self.client.force_authenticate(self.student)
+            response = self.client.get("/auth/admin/users/")
+            self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_anonymous_forbidden_when_flag_enabled(self):
+        with override_settings(ADMIN_PANEL_ENABLED=True):
+            response = self.client.get("/auth/admin/users/")
+            self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_superuser_forbidden_when_flag_disabled(self):
+        with override_settings(ADMIN_PANEL_ENABLED=False):
+            self.client.force_authenticate(self.admin)
+            response = self.client.get("/auth/admin/users/")
+            self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_profile_exposes_flag(self):
+        with override_settings(ADMIN_PANEL_ENABLED=True):
+            self.client.force_authenticate(self.admin)
+            response = self.client.get("/auth/users/me/")
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            self.assertTrue(response.data["admin_panel_enabled"])
+
+    def test_profile_exposes_flag_disabled(self):
+        with override_settings(ADMIN_PANEL_ENABLED=False):
+            self.client.force_authenticate(self.admin)
+            response = self.client.get("/auth/users/me/")
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            self.assertFalse(response.data["admin_panel_enabled"])
 
 
 class AdminUserUpdateTests(BaseAdminTestCase):
@@ -406,6 +448,49 @@ class RefreshCsrfSyncTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("access", response.data)
         self.assertIn("csrfToken", response.data)
+
+    def test_refresh_rotates_and_blacklists_old_token(self):
+        self._login()
+        old_token = self.client.cookies["refresh_token"].value
+
+        csrf_response = self.client.get("/auth/csrf/")
+        response = self.client.post(
+            "/auth/jwt/refresh/",
+            {},
+            HTTP_X_CSRFTOKEN=csrf_response.data["csrfToken"],
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("access", response.data)
+        self.assertIn("refresh_token", self.client.cookies)
+        new_token = self.client.cookies["refresh_token"].value
+        self.assertNotEqual(old_token, new_token)
+
+        # El token viejo queda blacklisteado: un refresh con él debe fallar.
+        self.client.cookies["refresh_token"] = old_token
+        csrf_response = self.client.get("/auth/csrf/")
+        stale_response = self.client.post(
+            "/auth/jwt/refresh/",
+            {},
+            HTTP_X_CSRFTOKEN=csrf_response.data["csrfToken"],
+        )
+        self.assertEqual(stale_response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_logout_blacklists_refresh_token(self):
+        self._login()
+        old_token = self.client.cookies["refresh_token"].value
+
+        csrf_response = self.client.get("/auth/csrf/")
+        response = self.client.post(
+            "/auth/jwt/blacklist/",
+            {},
+            HTTP_X_CSRFTOKEN=csrf_response.data["csrfToken"],
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(self.client.cookies["refresh_token"].value, "")
+
+        # El refresh usado queda blacklisteado: su verificación debe fallar.
+        with self.assertRaises(TokenError):
+            RefreshToken(old_token).verify()
 
 
 class ClientErrorReportTests(APITestCase):

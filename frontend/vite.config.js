@@ -52,6 +52,11 @@ export default defineConfig({
         target: "http://127.0.0.1:8000",
         changeOrigin: true,
       },
+      // El panel de Django (sin tocar la ruta /admin de React).
+      "/django-admin": {
+        target: "http://127.0.0.1:8000",
+        changeOrigin: true,
+      },
     },
   },
 

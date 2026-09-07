@@ -30,6 +30,15 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 # Secure y no filtra detalles de errores.
 DEBUG = os.getenv("DEBUG", "False").lower() in ("true", "1", "yes")
 
+# Feature flag del panel de administración. Cuando está deshabilitado, el
+# backend responde 403 aunque el usuario sea superusuario (y el frontend
+# oculta el acceso). No sustituye la autorización por rol.
+ADMIN_PANEL_ENABLED = os.getenv("ADMIN_PANEL_ENABLED", "True").lower() in (
+    "true",
+    "1",
+    "yes",
+)
+
 # Política SameSite para las cookies de autenticación (refresh token y CSRF).
 # "Lax" cubre el despliegue actual (SPA servida por Django) y el desarrollo
 # con proxy. Usar "None" solo si frontend y API viven en sitios distintos;

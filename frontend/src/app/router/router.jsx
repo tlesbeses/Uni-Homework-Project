@@ -1,18 +1,9 @@
-import { lazy, Suspense } from "react";
+import { lazy } from "react";
 import { createBrowserRouter } from "react-router-dom";
 import AppLayout from "@/app/layouts/AppLayout";
 import AuthLayout from "@/app/layouts/AuthLayout";
 import { ProtectedRoute } from "@/features/auth/components/ProtectedRoute";
-
-const PageSkeleton = () => (
-    <div className="flex items-center justify-center h-64">
-        <div className="animate-pulse text-gray-400">Cargando...</div>
-    </div>
-);
-
-const SuspenseWrapper = ({ children }) => (
-    <Suspense fallback={<PageSkeleton />}>{children}</Suspense>
-);
+import { SuspenseWrapper } from "./PageFallback";
 
 const lazyPage = (importFn, name) =>
     lazy(() => importFn().then((m) => ({ default: m[name] })));
@@ -28,7 +19,6 @@ const EditProfilePage = lazyPage(() => import("@/features/auth/pages/EditProfile
 const ChangePasswordProfilePage = lazyPage(() => import("@/features/auth/pages/ChangePasswordProfile"), "ChangePasswordProfilePage");
 const CoursesPage = lazyPage(() => import("@/features/courses/pages/CoursesPage"), "CoursesPage");
 const CourseDetailPage = lazyPage(() => import("@/features/courses/pages/CourseDetailPage"), "CourseDetailPage");
-const AssignmentsPage = lazyPage(() => import("@/features/assignments/pages/AssignmentsPage"), "AssignmentsPage");
 const GradesPage = lazyPage(() => import("@/features/grades/pages/GradesPage"), "GradesPage");
 const GradesReportPage = lazyPage(() => import("@/features/grades/pages/GradesReportPage"), "GradesReportPage");
 const TeamsPage = lazyPage(() => import("@/features/teams/pages/TeamsPage"), "TeamsPage");
@@ -100,6 +90,16 @@ export const router = createBrowserRouter([
           <SuspenseWrapper>
             <DashboardPage />
           </SuspenseWrapper>
+        ),
+      },
+      {
+        path: "/admin",
+        element: (
+          <ProtectedRoute superuserOnly>
+            <SuspenseWrapper>
+              <DashboardPage />
+            </SuspenseWrapper>
+          </ProtectedRoute>
         ),
       },
       {

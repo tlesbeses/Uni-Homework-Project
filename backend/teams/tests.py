@@ -622,3 +622,145 @@ class SuperuserIsolationTests(TeamAPITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class TeamIsolationTests(TeamAPITestCase):
+    """Los equipos quedan aislados por curso/sección y por rol (IDOR)."""
+
+    def test_student_cannot_view_team_of_other_course(self):
+        team = self.create_team(
+            course=self.other_course, name="BD Team", leader=self.student
+        )
+        self.authenticate(self.other_student)
+
+        response = self.client.get(reverse("team-detail", args=[team.id]))
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_student_enrolled_but_not_member_cannot_view_team(self):
+        team = self.create_team(name="Alpha", leader=self.student)
+        self.authenticate(self.other_student)
+
+        response = self.client.get(reverse("team-detail", args=[team.id]))
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_teacher_cannot_access_team_of_another_course(self):
+        other_teacher = self.create_user("other_teacher")
+        other_teacher.groups.add(self.teacher_group)
+        other_course = Course.objects.create(
+            title="Otro curso", teacher=other_teacher
+        )
+        team = Team.objects.create(
+            name="OtroEquipo",
+            section=self.get_section(other_course),
+            leader=other_teacher,
+        )
+        self.authenticate(self.teacher)
+
+        response = self.client.get(reverse("team-detail", args=[team.id]))
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_plain_member_cannot_manage_team(self):
+        team = self.create_team(name="Alpha", leader=self.student)
+        TeamMember.objects.create(team=team, student=self.student_two)
+        self.authenticate(self.student_two)
+
+        response = self.client.get(
+            reverse("team-available-students", args=[team.id])
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        response = self.client.post(
+            reverse("team-members", args=[team.id]),
+            {"student_id": self.other_student.id},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        response = self.client.post(
+            reverse("team-change-leader", args=[team.id]),
+            {"leader_id": self.other_student.id},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        response = self.client.delete(
+            reverse("team-remove-member", args=[team.id, self.student_two.id])
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_leader_can_manage_team(self):
+        team = self.create_team(name="Alpha", leader=self.student)
+        TeamMember.objects.create(team=team, student=self.student_two)
+        self.authenticate(self.student)
+
+        response = self.client.get(
+            reverse("team-available-students", args=[team.id])
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+class ArchivedCourseTeamTests(TeamAPITestCase):
+    """Archiving a course locks every team management write."""
+
+    def setUp(self):
+        super().setUp()
+        self.team = self.create_team(name="Existing", leader=self.student)
+        TeamMember.objects.create(team=self.team, student=self.student_two)
+        self.course.is_active = False
+        self.course.save()
+
+    def test_student_cannot_create_team_in_archived_course(self):
+        self.authenticate(self.student)
+        response = self.client.post(
+            reverse("team-list"),
+            {"name": "New", "section_id": self.section.id},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_teacher_cannot_create_team_in_archived_course(self):
+        self.authenticate(self.teacher)
+        response = self.client.post(
+            reverse("team-list"),
+            {"name": "New", "section_id": self.section.id},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_cannot_add_member_in_archived_course(self):
+        self.authenticate(self.teacher)
+        response = self.client.post(
+            reverse("team-members", args=[self.team.id]),
+            {"student": self.other_student.id},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_cannot_edit_team_in_archived_course(self):
+        self.authenticate(self.teacher)
+        response = self.client.patch(
+            reverse("team-detail", args=[self.team.id]),
+            {"name": "Renamed"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_cannot_delete_team_in_archived_course(self):
+        self.authenticate(self.teacher)
+        response = self.client.delete(
+            reverse("team-detail", args=[self.team.id])
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_cannot_change_leader_in_archived_course(self):
+        self.authenticate(self.teacher)
+        response = self.client.post(
+            reverse("team-change-leader", args=[self.team.id]),
+            {"leader": self.other_student.id},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

@@ -1,7 +1,7 @@
-import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/features/auth/providers/AuthProvider";
 import { useDashboard } from "@/features/courses/hooks/useDashboard";
+import { RecentNotificationsCard } from "@/features/notifications/components/RecentNotificationsCard";
 import {
     actionLabel,
     actionStyle,
@@ -377,6 +377,17 @@ function AdminDashboard({ stats }) {
                     })}
                 </div>
             </div>
+
+            <div>
+                <a
+                    href="/django-admin/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-800"
+                >
+                    Admin de Django (base de datos)
+                </a>
+            </div>
         </>
     );
 }
@@ -499,6 +510,8 @@ function TeacherDashboard({ stats }) {
                     ))}
                 </div>
             </div>
+
+            <RecentNotificationsCard />
         </>
     );
 }
@@ -509,37 +522,26 @@ function StudentDashboard({ stats }) {
     const assignments = stats.assignments ?? [];
     const finalScores = stats.final_scores ?? {};
 
-    const approvedCourseIds = useMemo(
-        () =>
-            new Set(
-                enrollments
-                    .filter((e) => e.status === "APPROVED")
-                    .map((e) => e.course_id)
-            ),
-        [enrollments]
+    const approvedCourseIds = new Set(
+        enrollments
+            .filter((e) => e.status === "APPROVED")
+            .map((e) => e.course_id)
     );
 
-    const approvedCourses = useMemo(
-        () => enrollments.filter((e) => e.status === "APPROVED"),
-        [enrollments]
+    const approvedCourses = enrollments.filter(
+        (e) => e.status === "APPROVED"
     );
 
-    const gradedAssignmentIds = useMemo(
-        () => new Set(grades.map((g) => g.assignment_id).filter(Boolean)),
-        [grades]
+    const gradedAssignmentIds = new Set(
+        grades.map((g) => g.assignment_id).filter(Boolean)
     );
-    const ungradedCount = useMemo(
-        () => assignments.filter((a) => !gradedAssignmentIds.has(a.id)).length,
-        [assignments, gradedAssignmentIds]
-    );
+    const ungradedCount = assignments.filter(
+        (a) => !gradedAssignmentIds.has(a.id)
+    ).length;
 
-    const recentGrades = useMemo(
-        () =>
-            [...grades]
-                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-                .slice(0, 5),
-        [grades]
-    );
+    const recentGrades = [...grades]
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        .slice(0, 5);
 
     return (
         <>
@@ -675,6 +677,8 @@ function StudentDashboard({ stats }) {
                     ))}
                 </div>
             </div>
+
+            <RecentNotificationsCard />
         </>
     );
 }

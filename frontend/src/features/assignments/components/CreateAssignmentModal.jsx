@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { useCreateAssignmentForm } from "@/features/assignments/hooks/useCreateAssignmentForm";
 import { InputField } from "@/shared/components/ui/InputField";
+import { SelectField } from "@/shared/components/ui/SelectField";
+import { TextareaField } from "@/shared/components/ui/TextareaField";
+import { Modal } from "@/shared/components/ui/Modal";
+import { Button } from "@/shared/components/ui/Button";
 
 export const CreateAssignmentModal = ({
     courseId,
@@ -20,46 +24,24 @@ export const CreateAssignmentModal = ({
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-            <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                    <h2 className="text-lg font-semibold text-gray-800">
-                        Nueva asignación
-                    </h2>
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        aria-label="Cerrar"
-                        className="text-gray-400 hover:text-gray-600 text-xl leading-none transition"
-                    >
-                        &times;
-                    </button>
-                </div>
-
-                <form
-                    onSubmit={handleSubmit(onSubmit)}
-                    className="p-6 space-y-4"
-                    noValidate
-                >
+        <Modal open={open} title="Nueva asignación" onClose={onClose}>
+            <form
+                onSubmit={handleSubmit(onSubmit)}
+                className="p-6 space-y-4"
+                noValidate
+            >
                     {courses && (courses ?? []).length > 0 && (
-                        <div>
-                            <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                                Curso
-                            </label>
-                            <select
-                                value={selectedCourse}
-                                onChange={(e) =>
-                                    setSelectedCourse(e.target.value)
-                                }
-                                className="w-full px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                            >
-                                {(courses ?? []).map((course) => (
-                                    <option key={course.id} value={course.id}>
-                                        {course.title}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
+                        <SelectField
+                            label="Curso"
+                            value={selectedCourse}
+                            onChange={(e) => setSelectedCourse(e.target.value)}
+                        >
+                            {(courses ?? []).map((course) => (
+                                <option key={course.id} value={course.id}>
+                                    {course.title}
+                                </option>
+                            ))}
+                        </SelectField>
                     )}
 
                     <InputField
@@ -70,21 +52,13 @@ export const CreateAssignmentModal = ({
                         placeholder="Tarea 1"
                     />
 
-                    <div>
-                        <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                            Descripción
-                        </label>
-                        <textarea
-                            {...register("description")}
-                            rows={3}
-                            className="w-full px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                        />
-                        {errors.description?.message && (
-                            <p className="text-red-500 text-xs mt-1">
-                                {errors.description.message}
-                            </p>
-                        )}
-                    </div>
+                    <TextareaField
+                        label="Descripción"
+                        name="description"
+                        register={register}
+                        rows={3}
+                        error={errors.description?.message}
+                    />
 
                     <InputField
                         label="Puntaje máximo"
@@ -129,23 +103,17 @@ export const CreateAssignmentModal = ({
                     </label>
 
                     <div className="flex justify-end gap-3 pt-2">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition"
-                        >
+                        <Button onClick={onClose} variant="ghost">
                             Cancelar
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             type="submit"
                             disabled={isSubmitting || !selectedCourse}
-                            className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition disabled:opacity-60"
                         >
                             {isSubmitting ? "Creando..." : "Crear"}
-                        </button>
+                        </Button>
                     </div>
                 </form>
-            </div>
-        </div>
+        </Modal>
     );
 };

@@ -1,6 +1,9 @@
 import { useEffect } from "react";
 import { useCreateTeamForm } from "@/features/teams/hooks/useCreateTeamForm";
 import { InputField } from "@/shared/components/ui/InputField";
+import { SelectField } from "@/shared/components/ui/SelectField";
+import { Modal } from "@/shared/components/ui/Modal";
+import { Button } from "@/shared/components/ui/Button";
 import { formatUser } from "@/features/teams/utils/formatUser";
 
 const sectionLabel = (section) =>
@@ -10,7 +13,6 @@ export const CreateTeamModal = ({
     open,
     onClose,
     onCreated,
-    courses,
     enrollments,
     teams,
     sections,
@@ -84,27 +86,12 @@ export const CreateTeamModal = ({
     );
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-            <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                    <h2 className="text-lg font-semibold text-gray-800">
-                        Nuevo equipo
-                    </h2>
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        aria-label="Cerrar"
-                        className="text-gray-400 hover:text-gray-600 text-xl leading-none transition"
-                    >
-                        &times;
-                    </button>
-                </div>
-
-                <form
-                    onSubmit={handleSubmit(onSubmit)}
-                    className="p-6 space-y-4"
-                    noValidate
-                >
+        <Modal open={open} title="Nuevo equipo" onClose={onClose}>
+            <form
+                onSubmit={handleSubmit(onSubmit)}
+                className="p-6 space-y-4"
+                noValidate
+            >
                     <InputField
                         label="Nombre"
                         name="name"
@@ -114,12 +101,11 @@ export const CreateTeamModal = ({
                     />
 
                     <div>
-                        <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                            Sección
-                        </label>
-                        <select
-                            {...register("section_id")}
-                            className="w-full px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        <SelectField
+                            label="Sección"
+                            name="section_id"
+                            register={register}
+                            error={errors.section_id?.message}
                         >
                             <option value="">Selecciona una sección...</option>
                             {(sectionOptions ?? []).map((section) => (
@@ -127,12 +113,7 @@ export const CreateTeamModal = ({
                                     {sectionLabel(section)}
                                 </option>
                             ))}
-                        </select>
-                        {errors.section_id && (
-                            <p className="text-red-500 text-xs mt-1">
-                                {errors.section_id.message}
-                            </p>
-                        )}
+                        </SelectField>
                         {!isTeacher && approvedSections.length === 0 && (
                             <p className="text-gray-500 text-xs mt-1">
                                 Aún no estás aprobado en ningún curso.
@@ -149,13 +130,12 @@ export const CreateTeamModal = ({
                     </div>
 
                     {isTeacher && (
-                        <div>
-                            <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                                Líder
-                            </label>
-                            <select
-                                {...register("leader_id")}
-                                className="w-full px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        <div className="space-y-4">
+                            <SelectField
+                                label="Líder"
+                                name="leader_id"
+                                register={register}
+                                error={errors.leader_id?.message}
                             >
                                 <option value="">
                                     {selectedSectionId
@@ -170,12 +150,7 @@ export const CreateTeamModal = ({
                                         {formatUser(enrollment.student)}
                                     </option>
                                 ))}
-                            </select>
-                            {errors.leader_id && (
-                                <p className="text-red-500 text-xs mt-1">
-                                    {errors.leader_id.message}
-                                </p>
-                            )}
+                            </SelectField>
                             {selectedSectionId && leaders.length === 0 && (
                                 <p className="text-gray-500 text-xs mt-1">
                                     No hay estudiantes disponibles para ser líder.
@@ -185,23 +160,14 @@ export const CreateTeamModal = ({
                     )}
 
                     <div className="flex justify-end gap-3 pt-2">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition"
-                        >
+                        <Button onClick={onClose} variant="ghost">
                             Cancelar
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={isSubmitting}
-                            className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition disabled:opacity-60"
-                        >
+                        </Button>
+                        <Button type="submit" disabled={isSubmitting}>
                             {isSubmitting ? "Creando..." : "Crear equipo"}
-                        </button>
+                        </Button>
                     </div>
                 </form>
-            </div>
-        </div>
+        </Modal>
     );
 };

@@ -4,6 +4,8 @@ import { StatusBadge } from "@/features/courses/components/StatusBadge";
 import { useEnrollment } from "@/features/courses/hooks/useEnrollment";
 import { useEnrollments } from "@/features/courses/hooks/useEnrollments";
 import { getSections } from "@/features/courses/services/courseService";
+import { Button } from "@/shared/components/ui/Button";
+import { SelectField } from "@/shared/components/ui/SelectField";
 
 export const EnrollmentSection = ({
     courseId,
@@ -26,7 +28,7 @@ export const EnrollmentSection = ({
     const [selectedSectionId, setSelectedSectionId] = useState("");
 
     useEffect(() => {
-        if (teacher || course?.visibility !== "PUBLIC") {
+        if (teacher || course?.visibility !== "PUBLIC" || course?.is_active === false) {
             return;
         }
         let active = true;
@@ -49,7 +51,7 @@ export const EnrollmentSection = ({
         return () => {
             active = false;
         };
-    }, [courseId, teacher, course?.visibility]);
+    }, [courseId, teacher, course?.visibility, course?.is_active]);
 
     const enroll = useCallback(async () => {
         if (!selectedSectionId) {
@@ -105,6 +107,10 @@ export const EnrollmentSection = ({
                         </span>
                     )}
                 </div>
+            ) : course?.is_active === false ? (
+                <p className="text-sm text-gray-500">
+                    Este curso está archivado y no acepta nuevas inscripciones.
+                </p>
             ) : (
                 <div className="flex flex-wrap items-end gap-3">
                     <p className="text-sm text-gray-500">
@@ -114,17 +120,14 @@ export const EnrollmentSection = ({
                         sections.length > 0 && (
                             <>
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                                        Sección
-                                    </label>
-                                    <select
+                                    <SelectField
+                                        label="Sección"
                                         value={selectedSectionId}
                                         onChange={(event) =>
                                             setSelectedSectionId(
                                                 event.target.value
                                             )
                                         }
-                                        className="px-4 py-2.5 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                     >
                                         <option value="">
                                             Selecciona una sección...
@@ -137,20 +140,17 @@ export const EnrollmentSection = ({
                                                 {section.name}
                                             </option>
                                         ))}
-                                    </select>
+                                    </SelectField>
                                 </div>
-                                <button
-                                    type="button"
+                                <Button
                                     onClick={enroll}
-                                    disabled={
-                                        enrolling || !selectedSectionId
-                                    }
-                                    className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2.5 rounded-lg shadow transition"
+                                    disabled={!selectedSectionId}
+                                    loading={enrolling}
                                 >
                                     {enrolling
                                         ? "Inscribiéndose..."
                                         : "Inscribirme"}
-                                </button>
+                                </Button>
                             </>
                         )}
                 </div>

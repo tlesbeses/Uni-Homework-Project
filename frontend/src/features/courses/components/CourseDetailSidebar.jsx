@@ -14,6 +14,8 @@ import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 import { Pager } from "@/shared/components/Pager";
 import { SearchInput } from "@/shared/components/SearchInput";
 import { ConfirmModal } from "@/shared/components/ConfirmModal";
+import { Button } from "@/shared/components/ui/Button";
+import { SelectField } from "@/shared/components/ui/SelectField";
 
 const DEFAULT_MEMBER_PAGE_SIZE = 5;
 
@@ -294,33 +296,33 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse, selectedS
                     )}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
+                    <Button
+                      size="sm"
+                      variant="success"
                       onClick={() => handleStatus(enrollment.id, "approve")}
                       disabled={busy}
-                      className="px-3 py-1.5 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg transition disabled:opacity-50"
                     >
                       Aprobar
-                    </button>
+                    </Button>
                     {requestsView === "PENDING" && (
-                      <button
-                        type="button"
+                      <Button
+                        size="sm"
+                        variant="danger"
                         onClick={() => handleStatus(enrollment.id, "reject")}
                         disabled={busy}
-                        className="px-3 py-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition disabled:opacity-50"
                       >
                         Rechazar
-                      </button>
+                      </Button>
                     )}
                     {requestsView === "REJECTED" && (
-                      <button
-                        type="button"
+                      <Button
+                        size="sm"
+                        variant="ghost"
                         onClick={() => setPendingRemoveEnrollment(enrollment)}
                         disabled={busy}
-                        className="px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition disabled:opacity-50"
                       >
                         Eliminar
-                      </button>
+                      </Button>
                     )}
                   </div>
                 </li>
@@ -342,10 +344,10 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse, selectedS
           </p>
         ) : (
           <>
-            <select
+            <SelectField
               value={selectedSectionId ?? ""}
               onChange={(event) => selectSection(Number(event.target.value))}
-              className="w-full px-4 py-2.5 rounded-lg border outline-none transition text-gray-700 text-sm border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 mb-4"
+              className="mb-4"
             >
               <option value="" disabled>
                 Selecciona una sección...
@@ -355,7 +357,7 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse, selectedS
                   {section.name} ({section.enrollments_count ?? 0} inscritos)
                 </option>
               ))}
-            </select>
+            </SelectField>
 
             {selectedSection && (
               <div className="rounded-lg border border-gray-200 p-4">
@@ -375,22 +377,23 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse, selectedS
                       autoFocus
                     />
                     <div className="flex items-center gap-2">
-                      <button
+                      <Button
                         type="submit"
+                        size="sm"
+                        variant="primary"
                         disabled={
                           savingId === selectedSection.id || !editingName.trim()
                         }
-                        className="px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition disabled:opacity-50"
                       >
                         Guardar
-                      </button>
-                      <button
-                        type="button"
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
                         onClick={() => setIsEditing(false)}
-                        className="px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition"
                       >
                         Cancelar
-                      </button>
+                      </Button>
                     </div>
                   </form>
                 ) : (
@@ -526,13 +529,12 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse, selectedS
                 className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
               />
             </div>
-            <button
+            <Button
               type="submit"
               disabled={creating || !newName.trim()}
-              className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2.5 rounded-lg shadow transition"
             >
               {creating ? "Creando..." : "+ Agregar"}
-            </button>
+            </Button>
           </form>
         )}
       </div>

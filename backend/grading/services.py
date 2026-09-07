@@ -10,6 +10,7 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
+from assignments.models import Assignment
 from authentication.models import EventLog
 from authentication.services import log_event
 from course.models import Enrollment, Status
@@ -23,6 +24,10 @@ def _validate_grade_params(assignment, score, graded_by):
         raise PermissionDenied(
             "Only the teacher of the course can grade this assignment."
         )
+    if not assignment.course.is_active:
+        raise PermissionDenied(
+            "This course is archived and can no longer be graded."
+        )
     if score is None or score < 0:
         raise ValidationError({"score": "Score cannot be negative."})
     if score > assignment.max_score:
@@ -34,6 +39,19 @@ def _validate_grade_params(assignment, score, graded_by):
                 )
             }
         )
+
+
+def _lock_assignment(assignment):
+    """Serialize concurrent grading for the same assignment.
+
+    Two simultaneous requests for the same assignment must not race each
+    other into a partial state: locking the assignment row makes the second
+    one wait until the first transaction commits. On backends without row
+    locks (e.g. SQLite in CI) the lock is a no-op: concurrent writers may
+    surface a "database is locked" error, but the unique constraint still
+    guarantees a single grade per student.
+    """
+    Assignment.objects.select_for_update().get(pk=assignment.pk)
 
 
 @transaction.atomic
@@ -55,6 +73,7 @@ def grade_team(
     single transaction to avoid partial states.
     """
     _validate_grade_params(assignment, score, graded_by)
+    _lock_assignment(assignment)
 
     if team.section.course_id != assignment.course_id:
         raise ValidationError(
@@ -195,6 +214,7 @@ def grade_student(*, assignment, student, score, graded_by):
     this student. Other team members are never affected.
     """
     _validate_grade_params(assignment, score, graded_by)
+    _lock_assignment(assignment)
 
     if not Enrollment.objects.filter(
         section__course=assignment.course,

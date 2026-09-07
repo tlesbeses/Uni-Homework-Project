@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useErrorDetail } from "@/features/admin/hooks/useErrorDetail";
+import { Button } from "@/shared/components/ui/Button";
 
 function formatDate(value) {
     if (!value) {
@@ -69,13 +70,13 @@ export const AdminErrorLogDetailPage = () => {
                             {log.error_id}
                         </span>
                     </h1>
-                    <button
-                        type="button"
+                    <Button
                         onClick={handleCopy}
-                        className="px-3 py-1 rounded-lg text-xs font-medium text-indigo-600 border border-indigo-200 hover:bg-indigo-50 transition"
+                        size="sm"
+                        variant="outline"
                     >
                         {copied ? "Copiado" : "Copiar código"}
-                    </button>
+                    </Button>
                 </div>
                 <p className="text-gray-500 mt-1 text-sm">
                     Detalle del error para diagnósticos.

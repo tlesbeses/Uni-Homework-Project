@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, NavLink, useNavigate } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 import { useAuth } from "@/features/auth/providers/AuthProvider";
 import { NotificationBell } from "@/features/notifications/components/NotificationBell";
 
@@ -58,8 +58,7 @@ const NAV_ITEMS = [
 ];
 
 export function Navbar() {
-  const navigate = useNavigate();
-  const { logout, isTeacher, isAdmin } = useAuth();
+  const { logout, isTeacher, isAdmin, isAdminPanelEnabled } = useAuth();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const headerRef = useRef(null);
@@ -67,6 +66,9 @@ export function Navbar() {
   const visibleNavItems = useMemo(
     () =>
       NAV_ITEMS.filter((item) => {
+        if (isAdmin && item.adminOnly && !isAdminPanelEnabled) {
+          return false;
+        }
         if (isAdmin) {
           return item.adminOnly || item.leadOnly || (!item.teacherOnly && item.to === "/dashboard");
         }
@@ -76,7 +78,7 @@ export function Navbar() {
           (!item.leadOnly || isTeacher)
         );
       }),
-    [isTeacher, isAdmin]
+    [isTeacher, isAdmin, isAdminPanelEnabled]
   );
 
   useEffect(() => {

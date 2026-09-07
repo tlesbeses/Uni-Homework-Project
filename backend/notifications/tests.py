@@ -275,6 +275,10 @@ class NotificationApiTests(NotificationBaseTestCase):
         self.client.force_authenticate(self.student2)
         response = self.client.post(f"/api/notifications/{self.notif.id}/read/")
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(
+            response.data["detail"],
+            "Notificación no encontrada.",
+        )
         self.notif.refresh_from_db()
         self.assertFalse(self.notif.is_read)
 

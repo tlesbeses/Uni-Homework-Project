@@ -1,9 +1,13 @@
+import threading
+import unittest
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
+from django.db import connections
+from django.test import TransactionTestCase
 from rest_framework import status
-from rest_framework.test import APITestCase
+from rest_framework.test import APIClient, APITestCase
 
 from assignments.models import Assignment
 from authentication.models import EventLog
@@ -264,6 +268,11 @@ class EnrollmentTests(BaseCourseTestCase):
             {"join_code": self.course.join_code},
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["section"],
+            ["This field is required."],
+        )
+        self.assertGreater(len(response.data["available_sections"]), 0)
 
     def test_join_with_invalid_section_rejected(self):
         foreign_course = Course.objects.create(
@@ -283,6 +292,11 @@ class EnrollmentTests(BaseCourseTestCase):
             },
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["detail"],
+            "Invalid section for this course.",
+        )
+        self.assertGreater(len(response.data["available_sections"]), 0)
 
     def test_duplicate_join_rejected(self):
         Enrollment.objects.create(section=self.section, student=self.student)
@@ -295,11 +309,16 @@ class EnrollmentTests(BaseCourseTestCase):
             },
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["detail"],
+            "You already requested to join this course.",
+        )
 
     def test_invalid_join_code(self):
         self.client.force_authenticate(self.student)
         response = self.client.post("/api/courses/join/", {"join_code": "NOPE1234"})
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.data["detail"], "Invalid join code.")
 
     def test_teacher_cannot_join_own_course(self):
         self.client.force_authenticate(self.teacher)
@@ -311,6 +330,10 @@ class EnrollmentTests(BaseCourseTestCase):
             },
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["detail"],
+            "You cannot join your own course.",
+        )
 
     def test_teacher_can_approve_enrollment(self):
         enrollment = Enrollment.objects.create(
@@ -429,6 +452,10 @@ class EnrollmentTests(BaseCourseTestCase):
             {"section": self.section2.id},
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["detail"],
+            "You already requested to join this course.",
+        )
 
     def test_cannot_enroll_in_private_course(self):
         private_course = Course.objects.create(
@@ -454,6 +481,27 @@ class EnrollmentTests(BaseCourseTestCase):
             {"section": self.section.id},
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["detail"],
+            "You cannot enroll in your own course.",
+        )
+
+    def test_approve_already_approved_returns_400_with_detail(self):
+        enrollment = create_enrollment(
+            section=self.section,
+            student=self.student,
+            actor=self.student,
+        )
+        approve_enrollment(enrollment=enrollment, actor=self.teacher)
+        self.client.force_authenticate(self.teacher)
+        response = self.client.post(
+            f"/api/enrollments/{enrollment.id}/approve/"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["detail"],
+            "Enrollment is already approved.",
+        )
 
     def test_enroll_respects_auto_accept(self):
         self.course.settings.auto_accept_students = True
@@ -738,6 +786,24 @@ class ArchiveCourseTests(BaseCourseTestCase):
         detail = self.client.get(f"/api/courses/{self.course.id}/")
         self.assertTrue(detail.data["is_active"])
 
+    def test_student_cannot_join_archived_course(self):
+        self.client.force_authenticate(self.student)
+        response = self.client.post(
+            "/api/courses/join/",
+            {"join_code": self.course.join_code, "section": self.section.id},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_student_cannot_enroll_in_archived_course(self):
+        self.client.force_authenticate(self.student)
+        response = self.client.post(
+            f"/api/courses/{self.course.id}/enroll/",
+            {"section": self.section.id},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
 
 def test_dashboard_assignment_payload_includes_weight(self):
         self.client.force_authenticate(self.student)
@@ -748,6 +814,157 @@ def test_dashboard_assignment_payload_includes_weight(self):
         )
         self.assertIn("weight", assignment)
         self.assertEqual(assignment["weight"], "1.00")
+
+
+class CourseForeignOwnershipTests(BaseCourseTestCase):
+    """A teacher cannot manage a course they do not own."""
+
+    def setUp(self):
+        super().setUp()
+        self.other_teacher = User.objects.create_user(
+            username="other_teacher",
+            email="other_teacher@example.com",
+            password="pass",
+        )
+        self.other_teacher.groups.add(self.teacher_group)
+        self.foreign_course = Course.objects.create(
+            title="Foreign 101",
+            teacher=self.other_teacher,
+        )
+
+    def test_other_teacher_cannot_update_foreign_course(self):
+        self.client.force_authenticate(self.teacher)
+        response = self.client.patch(
+            f"/api/courses/{self.foreign_course.id}/",
+            {"title": "Hacked"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_other_teacher_cannot_delete_foreign_course(self):
+        self.client.force_authenticate(self.teacher)
+        response = self.client.delete(f"/api/courses/{self.foreign_course.id}/")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertTrue(
+            Course.objects.filter(pk=self.foreign_course.id).exists()
+        )
+
+
+@unittest.skipUnless(
+    connections["default"].vendor == "postgresql",
+    "Threading concurrency tests require row-level locking "
+    "(SELECT ... FOR UPDATE). On SQLite concurrent writers raise "
+    "'database is locked' instead of serializing into an IntegrityError.",
+)
+class ConcurrentEnrollmentTests(TransactionTestCase):
+    """Two simultaneous join/enroll requests must never create a duplicate
+    enrollment nor an HTTP 500.
+
+    PostgreSQL serializes both requests through the course row lock; the
+    unique constraint plus the ``IntegrityError`` backstop in
+    ``create_enrollment`` keep the invariant elsewhere. Outcomes are exactly
+    one enrollment and one success/one duplicate error.
+    """
+
+    def setUp(self):
+        self.teacher_group, _ = Group.objects.get_or_create(name="Teacher")
+        self.student_group, _ = Group.objects.get_or_create(name="Student")
+
+        self.teacher = User.objects.create_user(
+            username="race_teacher",
+            password="pass",
+        )
+        self.teacher.groups.add(self.teacher_group)
+
+        self.student = User.objects.create_user(
+            username="race_student",
+            password="pass",
+        )
+        self.student.groups.add(self.student_group)
+
+        self.course = Course.objects.create(
+            title="Race 101",
+            teacher=self.teacher,
+            visibility=Visibility.PUBLIC,
+        )
+        self.section = Section.objects.create(course=self.course, name="S1")
+
+    def _join(self, results, barrier):
+        client = APIClient()
+        client.force_authenticate(user=self.student)
+        try:
+            barrier.wait()
+            response = client.post(
+                "/api/courses/join/",
+                {
+                    "join_code": self.course.join_code,
+                    "section": self.section.id,
+                },
+                format="json",
+            )
+            results.append(response.status_code)
+        finally:
+            connections.close_all()
+
+    def _enroll(self, results, barrier):
+        client = APIClient()
+        client.force_authenticate(user=self.student)
+        try:
+            barrier.wait()
+            response = client.post(
+                f"/api/courses/{self.course.id}/enroll/",
+                {"section": self.section.id},
+                format="json",
+            )
+            results.append(response.status_code)
+        finally:
+            connections.close_all()
+
+    def _run_concurrently(self, target):
+        results = []
+        barrier = threading.Barrier(2)
+        threads = [
+            threading.Thread(target=target, args=(results, barrier))
+            for _ in range(2)
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=30)
+        return results
+
+    def test_concurrent_joins_create_single_enrollment(self):
+        results = self._run_concurrently(self._join)
+
+        self.assertEqual(set(results), {status.HTTP_201_CREATED, status.HTTP_400_BAD_REQUEST})
+        count = Enrollment.objects.filter(
+            section=self.section,
+            student=self.student,
+        ).count()
+        self.assertEqual(count, 1)
+
+    def test_concurrent_enrolls_create_single_enrollment(self):
+        results = self._run_concurrently(self._enroll)
+
+        self.assertEqual(set(results), {status.HTTP_201_CREATED, status.HTTP_400_BAD_REQUEST})
+        count = Enrollment.objects.filter(
+            section=self.section,
+            student=self.student,
+        ).count()
+        self.assertEqual(count, 1)
+
+    def test_concurrent_auto_accept_enrolls_create_single_approved(self):
+        CourseSettings.objects.filter(course=self.course).update(
+            auto_accept_students=True,
+        )
+        results = self._run_concurrently(self._enroll)
+
+        self.assertEqual(set(results), {status.HTTP_201_CREATED, status.HTTP_400_BAD_REQUEST})
+        enrollment = Enrollment.objects.get(
+            section=self.section,
+            student=self.student,
+        )
+        self.assertEqual(enrollment.status, Status.APPROVED)
 
 
 class SectionSnapshotTests(BaseCourseTestCase):

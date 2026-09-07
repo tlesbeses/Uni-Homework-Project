@@ -196,39 +196,41 @@ class CourseViewSet(viewsets.ModelViewSet):
         ]
 
         if section_id is None:
-            return Response(
+            raise ValidationError(
                 {
                     "section": ["This field is required."],
                     "available_sections": available_sections,
-                },
-                status=status.HTTP_400_BAD_REQUEST,
+                }
             )
 
         try:
             section = course.sections.get(pk=section_id)
         except (Section.DoesNotExist, ValueError, TypeError):
-            return Response(
+            raise ValidationError(
                 {
                     "detail": "Invalid section for this course.",
                     "available_sections": available_sections,
-                },
-                status=status.HTTP_400_BAD_REQUEST,
+                }
             )
 
         if Enrollment.objects.filter(
             section__course=course,
             student=request.user,
         ).exclude(status=Status.REJECTED).exists():
-            return Response(
-                {"detail": "You already requested to join this course."},
-                status=status.HTTP_400_BAD_REQUEST,
+            raise ValidationError(
+                {"detail": "You already requested to join this course."}
             )
 
-        enrollment = create_enrollment(
-            section=section,
-            student=request.user,
-            actor=request.user,
-        )
+        try:
+            enrollment = create_enrollment(
+                section=section,
+                student=request.user,
+                actor=request.user,
+            )
+        except EnrollmentInvalidStateError as exc:
+            # A concurrent request created the enrollment first; surface the
+            # same business error instead of a 500.
+            raise ValidationError({"detail": exc.detail}) from None
 
         serializer = EnrollmentSerializer(
             enrollment,
@@ -240,10 +242,7 @@ class CourseViewSet(viewsets.ModelViewSet):
     def join(self, request):
         join_code = request.data.get("join_code")
         if not join_code:
-            return Response(
-                {"join_code": ["This field is required."]},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            raise ValidationError({"join_code": ["This field is required."]})
 
         try:
             course = Course.objects.get(
@@ -251,16 +250,10 @@ class CourseViewSet(viewsets.ModelViewSet):
                 is_active=True,
             )
         except Course.DoesNotExist:
-            return Response(
-                {"detail": "Invalid join code."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            raise NotFound("Invalid join code.")
 
         if course.teacher == request.user:
-            return Response(
-                {"detail": "You cannot join your own course."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            raise ValidationError({"detail": "You cannot join your own course."})
 
         return self._create_enrollment_for_section(
             request,
@@ -273,10 +266,7 @@ class CourseViewSet(viewsets.ModelViewSet):
         try:
             course = Course.objects.get(pk=pk)
         except Course.DoesNotExist:
-            return Response(
-                {"detail": "Course not found."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            raise NotFound("Course not found.")
 
         if not course.is_active:
             raise PermissionDenied("This course is not active.")
@@ -285,10 +275,7 @@ class CourseViewSet(viewsets.ModelViewSet):
                 "Only public courses can be joined directly."
             )
         if course.teacher == request.user:
-            return Response(
-                {"detail": "You cannot enroll in your own course."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            raise ValidationError({"detail": "You cannot enroll in your own course."})
 
         return self._create_enrollment_for_section(
             request,
@@ -784,11 +771,14 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                 }
             )
 
-        create_enrollment(
-            section=section,
-            student=self.request.user,
-            actor=self.request.user,
-        )
+        try:
+            create_enrollment(
+                section=section,
+                student=self.request.user,
+                actor=self.request.user,
+            )
+        except EnrollmentInvalidStateError as exc:
+            raise ValidationError({"section": [exc.detail]}) from None
 
     def perform_destroy(self, instance):
         """Delete the enrollment and detach the student from course teams.
@@ -805,10 +795,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         try:
             approve_enrollment(enrollment=enrollment, actor=request.user)
         except EnrollmentInvalidStateError as exc:
-            return Response(
-                {"detail": exc.detail},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            raise ValidationError({"detail": exc.detail})
 
         serializer = EnrollmentSerializer(
             enrollment,
@@ -823,10 +810,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         try:
             reject_enrollment(enrollment=enrollment, actor=request.user)
         except EnrollmentInvalidStateError as exc:
-            return Response(
-                {"detail": exc.detail},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            raise ValidationError({"detail": exc.detail})
 
         serializer = EnrollmentSerializer(
             enrollment,
