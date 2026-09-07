@@ -899,17 +899,35 @@ class ConcurrentEnrollmentTests(TransactionTestCase):
         finally:
             connections.close_all()
 
-    def test_concurrent_joins_create_single_enrollment(self):
+    def _enroll(self, results, barrier):
+        client = APIClient()
+        client.force_authenticate(user=self.student)
+        try:
+            barrier.wait()
+            response = client.post(
+                f"/api/courses/{self.course.id}/enroll/",
+                {"section": self.section.id},
+                format="json",
+            )
+            results.append(response.status_code)
+        finally:
+            connections.close_all()
+
+    def _run_concurrently(self, target):
         results = []
         barrier = threading.Barrier(2)
         threads = [
-            threading.Thread(target=self._join, args=(results, barrier))
+            threading.Thread(target=target, args=(results, barrier))
             for _ in range(2)
         ]
         for thread in threads:
             thread.start()
         for thread in threads:
             thread.join(timeout=30)
+        return results
+
+    def test_concurrent_joins_create_single_enrollment(self):
+        results = self._run_concurrently(self._join)
 
         self.assertEqual(set(results), {status.HTTP_201_CREATED, status.HTTP_400_BAD_REQUEST})
         count = Enrollment.objects.filter(
@@ -917,6 +935,29 @@ class ConcurrentEnrollmentTests(TransactionTestCase):
             student=self.student,
         ).count()
         self.assertEqual(count, 1)
+
+    def test_concurrent_enrolls_create_single_enrollment(self):
+        results = self._run_concurrently(self._enroll)
+
+        self.assertEqual(set(results), {status.HTTP_201_CREATED, status.HTTP_400_BAD_REQUEST})
+        count = Enrollment.objects.filter(
+            section=self.section,
+            student=self.student,
+        ).count()
+        self.assertEqual(count, 1)
+
+    def test_concurrent_auto_accept_enrolls_create_single_approved(self):
+        CourseSettings.objects.filter(course=self.course).update(
+            auto_accept_students=True,
+        )
+        results = self._run_concurrently(self._enroll)
+
+        self.assertEqual(set(results), {status.HTTP_201_CREATED, status.HTTP_400_BAD_REQUEST})
+        enrollment = Enrollment.objects.get(
+            section=self.section,
+            student=self.student,
+        )
+        self.assertEqual(enrollment.status, Status.APPROVED)
 
 
 class SectionSnapshotTests(BaseCourseTestCase):

@@ -28,7 +28,7 @@ export const EnrollmentSection = ({
     const [selectedSectionId, setSelectedSectionId] = useState("");
 
     useEffect(() => {
-        if (teacher || course?.visibility !== "PUBLIC") {
+        if (teacher || course?.visibility !== "PUBLIC" || course?.is_active === false) {
             return;
         }
         let active = true;
@@ -51,7 +51,7 @@ export const EnrollmentSection = ({
         return () => {
             active = false;
         };
-    }, [courseId, teacher, course?.visibility]);
+    }, [courseId, teacher, course?.visibility, course?.is_active]);
 
     const enroll = useCallback(async () => {
         if (!selectedSectionId) {
@@ -107,6 +107,10 @@ export const EnrollmentSection = ({
                         </span>
                     )}
                 </div>
+            ) : course?.is_active === false ? (
+                <p className="text-sm text-gray-500">
+                    Este curso está archivado y no acepta nuevas inscripciones.
+                </p>
             ) : (
                 <div className="flex flex-wrap items-end gap-3">
                     <p className="text-sm text-gray-500">
