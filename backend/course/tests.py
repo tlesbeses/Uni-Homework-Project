@@ -1,4 +1,5 @@
 import threading
+import unittest
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -849,14 +850,20 @@ class CourseForeignOwnershipTests(BaseCourseTestCase):
         )
 
 
+@unittest.skipUnless(
+    connections["default"].vendor == "postgresql",
+    "Threading concurrency tests require row-level locking "
+    "(SELECT ... FOR UPDATE). On SQLite concurrent writers raise "
+    "'database is locked' instead of serializing into an IntegrityError.",
+)
 class ConcurrentEnrollmentTests(TransactionTestCase):
-    """Two simultaneous join requests must never create a duplicate enrollment
-    nor an HTTP 500.
+    """Two simultaneous join/enroll requests must never create a duplicate
+    enrollment nor an HTTP 500.
 
-    PostgreSQL serializes both requests through the course row lock; SQLite
-    has no row locks, so the unique constraint plus the service retry enforce
-    the same invariant. Either way the outcomes are exactly one enrollment
-    and one success/one duplicate error.
+    PostgreSQL serializes both requests through the course row lock; the
+    unique constraint plus the ``IntegrityError`` backstop in
+    ``create_enrollment`` keep the invariant elsewhere. Outcomes are exactly
+    one enrollment and one success/one duplicate error.
     """
 
     def setUp(self):
