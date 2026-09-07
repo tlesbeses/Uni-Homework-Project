@@ -5,6 +5,7 @@ Covers the 16 core business rules of the grading module.
 
 import csv
 import threading
+import unittest
 from decimal import Decimal
 from io import BytesIO, StringIO
 
@@ -958,6 +959,11 @@ class ConcurrentGradingTests(TransactionTestCase):
         finally:
             connections.close_all()
 
+    @unittest.skipUnless(
+        connections["default"].vendor == "postgresql",
+        "Requires row-level locking (SELECT ... FOR UPDATE); on SQLite "
+        "concurrent writers hit 'database is locked' instead of serializing.",
+    )
     def test_concurrent_individual_grades_create_single_grade(self):
         results = []
         barrier = threading.Barrier(2)

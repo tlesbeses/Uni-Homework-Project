@@ -46,9 +46,10 @@ def _lock_assignment(assignment):
 
     Two simultaneous requests for the same assignment must not race each
     other into a partial state: locking the assignment row makes the second
-    one wait until the first transaction commits. Safe on backends without
-    row locks (e.g. SQLite), where the unique constraint plus the retrying
-    ``update_or_create`` still guarantee a single grade per student.
+    one wait until the first transaction commits. On backends without row
+    locks (e.g. SQLite in CI) the lock is a no-op: concurrent writers may
+    surface a "database is locked" error, but the unique constraint still
+    guarantees a single grade per student.
     """
     Assignment.objects.select_for_update().get(pk=assignment.pk)
 
