@@ -4,6 +4,7 @@ import { AssignmentSection } from "@/features/assignments/components/AssignmentS
 import { useAuth } from "@/features/auth/providers/AuthProvider";
 import { CourseDetailHeader } from "@/features/courses/components/CourseDetailHeader";
 import { CourseDetailSidebar } from "@/features/courses/components/CourseDetailSidebar";
+import { CourseProgress } from "@/features/courses/components/CourseProgress";
 import { EditCourseModal } from "@/features/courses/components/EditCourseModal";
 import { EnrollmentSection } from "@/features/courses/components/EnrollmentSection";
 import { QuickSettingsBar } from "@/features/courses/components/QuickSettingsBar";
@@ -56,6 +57,7 @@ export const CourseDetailPage = () => {
       {isTeacher ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
           <div className="lg:col-span-2 space-y-6">
+            <CourseProgress courseId={id} />
             <QuickSettingsBar
               course={course}
               savingField={savingField}

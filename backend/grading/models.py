@@ -146,3 +146,49 @@ class GradeHistory(TimeStampedModel):
             f"{self.grade.student_id} - {self.grade.assignment_id}: "
             f"{self.old_score} -> {self.new_score}"
         )
+
+
+class FinalScoreSnapshot(TimeStampedModel):
+    """Point-in-time record of a student's final grade in a course.
+
+    One row is written every time the grading service changes a grade, so
+    the student's final-grade evolution over time can be plotted. The
+    snapshot stores the *result* of the weighted formula (0..100), never
+    the inputs, and is only written when the course has at least one
+    published assignment (otherwise the final grade is undefined).
+    """
+
+    course = models.ForeignKey(
+        "course.Course",
+        on_delete=models.CASCADE,
+        related_name="final_score_snapshots",
+        help_text="The course the snapshot belongs to.",
+    )
+
+    student = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="final_score_snapshots",
+        help_text="The student whose final grade was captured.",
+    )
+
+    score = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        help_text="Weighted final grade (0..100) at capture time.",
+    )
+
+    class Meta:
+        ordering = ["created_at"]
+        indexes = [
+            models.Index(fields=["course", "student", "created_at"]),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(score__gte=0) & Q(score__lte=100),
+                name="grading_finalscore_score_between_0_and_100",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.student_id} - {self.course_id}: {self.score}"

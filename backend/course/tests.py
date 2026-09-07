@@ -1328,3 +1328,137 @@ class EnrollmentServiceTests(BaseCourseTestCase):
                 entity_id=enrollment_id,
             ).exists()
         )
+
+
+class CourseProgressTests(BaseCourseTestCase):
+    def setUp(self):
+        super().setUp()
+        Enrollment.objects.create(
+            section=self.section,
+            student=self.student,
+            status=Status.APPROVED,
+        )
+        Enrollment.objects.create(
+            section=self.section,
+            student=self.student2,
+            status=Status.APPROVED,
+        )
+        self.assignment = Assignment.objects.create(
+            course=self.course,
+            title="Homework 1",
+            max_score="100.00",
+            is_published=True,
+        )
+        self.draft = Assignment.objects.create(
+            course=self.course,
+            title="Draft",
+            max_score="100.00",
+            is_published=False,
+        )
+
+    def _grade(self, student, score):
+        Grade.objects.create(
+            assignment=self.assignment,
+            student=student,
+            score=score,
+            graded_by=self.teacher,
+        )
+
+    def test_teacher_sees_aggregates_for_own_course(self):
+        self._grade(self.student, Decimal("80.00"))
+
+        self.client.force_authenticate(user=self.teacher)
+        response = self.client.get(
+            f"/api/courses/{self.course.id}/progress/"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.data
+        self.assertEqual(data["course_id"], self.course.id)
+        self.assertEqual(data["student_count"], 2)
+        self.assertEqual(data["overall_avg_final"], 40.0)
+
+        assignment = next(
+            a for a in data["assignments"] if a["title"] == "Homework 1"
+        )
+        self.assertEqual(assignment["graded"], 1)
+        self.assertEqual(assignment["pending"], 1)
+        self.assertEqual(assignment["avg"], 80.0)
+        self.assertEqual(assignment["max"], 80.0)
+        self.assertEqual(assignment["min"], 80.0)
+        self.assertEqual(len(data["assignments"]), 1)
+
+        students = {s["name"]: s for s in data["students"]}
+        self.assertEqual(students[self.student.username]["final"], 80.0)
+        self.assertEqual(students[self.student2.username]["final"], 0.0)
+
+    def test_unpublished_assignments_are_excluded(self):
+        self._grade(self.student, Decimal("60.00"))
+        added = Assignment.objects.create(
+            course=self.course,
+            title="Only draft",
+            max_score="100.00",
+            is_published=False,
+        )
+        Grade.objects.create(
+            assignment=added,
+            student=self.student,
+            score=Decimal("90.00"),
+            graded_by=self.teacher,
+        )
+
+        self.client.force_authenticate(user=self.teacher)
+        response = self.client.get(
+            f"/api/courses/{self.course.id}/progress/"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            [a["title"] for a in response.data["assignments"]],
+            ["Homework 1"],
+        )
+
+    def test_empty_course_returns_zeroed_payload(self):
+        empty = Course.objects.create(title="Empty", teacher=self.teacher)
+
+        self.client.force_authenticate(user=self.teacher)
+        response = self.client.get(f"/api/courses/{empty.id}/progress/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["student_count"], 0)
+        self.assertEqual(response.data["assignments"], [])
+        self.assertEqual(response.data["students"], [])
+        self.assertIsNone(response.data["overall_avg_final"])
+
+    def test_student_cannot_access_progress(self):
+        self.client.force_authenticate(user=self.student)
+
+        response = self.client.get(
+            f"/api/courses/{self.course.id}/progress/"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_foreign_teacher_cannot_access_other_course_progress(self):
+        other_teacher = User.objects.create_user(
+            username="other_teacher",
+            email="other@example.com",
+            password="pass",
+        )
+        other_teacher.groups.add(
+            Group.objects.get(name="Teacher")
+        )
+        self.client.force_authenticate(user=other_teacher)
+
+        response = self.client.get(
+            f"/api/courses/{self.course.id}/progress/"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_progress_requires_authentication(self):
+        response = self.client.get(
+            f"/api/courses/{self.course.id}/progress/"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)

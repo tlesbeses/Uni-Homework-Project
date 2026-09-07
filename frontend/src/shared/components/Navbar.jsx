@@ -101,7 +101,7 @@ export function Navbar() {
     <header
       ref={headerRef}
       onBlur={handleHeaderBlur}
-      className="bg-indigo-600 text-white shadow-md"
+      className="bg-indigo-600 text-white shadow-md print:hidden"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         <div className="flex items-center space-x-8">

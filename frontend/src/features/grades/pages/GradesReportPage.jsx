@@ -373,6 +373,13 @@ export const GradesReportPage = () => {
                         <div className="flex items-center gap-2">
                             <Button
                                 type="button"
+                                onClick={() => window.print()}
+                                variant="outline"
+                            >
+                                Imprimir / PDF
+                            </Button>
+                            <Button
+                                type="button"
                                 onClick={handleExportCsv}
                                 disabled={exportingCsv}
                                 variant="soft"
