@@ -320,7 +320,7 @@ class EnrollmentTests(BaseCourseTestCase):
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertEqual(response.data["detail"], "Invalid join code.")
 
-    def test_teacher_cannot_join_own_course(self):
+    def test_teacher_cannot_join_any_course(self):
         self.client.force_authenticate(self.teacher)
         response = self.client.post(
             "/api/courses/join/",
@@ -329,10 +329,35 @@ class EnrollmentTests(BaseCourseTestCase):
                 "section": self.section.id,
             },
         )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(
-            response.data["detail"],
-            "You cannot join your own course.",
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(
+            Enrollment.objects.filter(
+                section__course=self.course,
+                student=self.teacher,
+            ).exists()
+        )
+
+    def test_teacher_cannot_join_foreign_course_by_code(self):
+        other_teacher = User.objects.create_user(
+            username="foreign_teacher",
+            email="foreign_teacher@example.com",
+            password="pass",
+        )
+        other_teacher.groups.add(self.teacher_group)
+        self.client.force_authenticate(other_teacher)
+        response = self.client.post(
+            "/api/courses/join/",
+            {
+                "join_code": self.course.join_code,
+                "section": self.section.id,
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(
+            Enrollment.objects.filter(
+                section__course=self.course,
+                student=other_teacher,
+            ).exists()
         )
 
     def test_teacher_can_approve_enrollment(self):
@@ -480,10 +505,26 @@ class EnrollmentTests(BaseCourseTestCase):
             f"/api/courses/{self.course.id}/enroll/",
             {"section": self.section.id},
         )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(
-            response.data["detail"],
-            "You cannot enroll in your own course.",
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_teacher_cannot_enroll_in_foreign_public_course(self):
+        other_teacher = User.objects.create_user(
+            username="foreign_teacher",
+            email="foreign_teacher@example.com",
+            password="pass",
+        )
+        other_teacher.groups.add(self.teacher_group)
+        self.client.force_authenticate(other_teacher)
+        response = self.client.post(
+            f"/api/courses/{self.course.id}/enroll/",
+            {"section": self.section.id},
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(
+            Enrollment.objects.filter(
+                section__course=self.course,
+                student=other_teacher,
+            ).exists()
         )
 
     def test_approve_already_approved_returns_400_with_detail(self):

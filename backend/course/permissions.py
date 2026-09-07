@@ -25,7 +25,9 @@ class IsTeacher(BasePermission):
 
 class IsStudent(BasePermission):
     def has_permission(self, request, view):
-        return _has_group(request.user, "Student")
+        return _has_group(request.user, "Student") and not _has_group(
+            request.user, "Teacher"
+        )
 
 
 class IsCourseTeacherOfSection(BasePermission):

@@ -1,7 +1,11 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
+import { toast } from "react-toastify";
 import { useAuth } from "@/features/auth/providers/AuthProvider";
 import { useDashboard } from "@/features/courses/hooks/useDashboard";
 import { RecentNotificationsCard } from "@/features/notifications/components/RecentNotificationsCard";
+import { ConfirmModal } from "@/shared/components/ConfirmModal";
+import { formatUser } from "@/features/teams/utils/formatUser";
 import {
     actionLabel,
     actionStyle,
@@ -118,11 +122,30 @@ function DashboardSkeleton() {
 }
 
 function AdminDashboard({ stats }) {
+    const { user: currentAdmin, startImpersonation } = useAuth();
+    const [pendingImpersonation, setPendingImpersonation] = useState(null);
+    const [impersonating, setImpersonating] = useState(false);
     const s = stats.stats ?? {};
     const recentUsers = stats.recent_users ?? [];
     const recentImpersonations = stats.recent_impersonations ?? [];
     const recentActivity = stats.recent_activity ?? [];
     const recentCourses = stats.recent_courses ?? [];
+
+    const handleImpersonate = async () => {
+        const target = pendingImpersonation;
+        if (!target?.id) {
+            return;
+        }
+        setPendingImpersonation(null);
+        setImpersonating(true);
+        const ok = await startImpersonation(target);
+        setImpersonating(false);
+        if (ok) {
+            toast.success(
+                `Probando el sistema como ${formatUser(target)}.`
+            );
+        }
+    };
 
     return (
         <>
@@ -252,22 +275,51 @@ function AdminDashboard({ stats }) {
                         )}
                         {recentImpersonations.slice(0, 5).map((log) => {
                             const t = log.target ?? {};
+                            const targetUser = log.target;
                             const adminName = log.admin
                                 ? log.admin.first_name && log.admin.last_name
                                     ? `${log.admin.first_name} ${log.admin.last_name}`
                                     : log.admin.username
                                 : "administrador";
+                            const displayName =
+                                t.first_name && t.last_name
+                                    ? `${t.first_name} ${t.last_name}`
+                                    : t.username || "Usuario";
+                            const canImpersonate =
+                                Boolean(targetUser?.id) &&
+                                targetUser.id !== currentAdmin?.id;
                             return (
-                                <UserRow
+                                <button
                                     key={log.id}
-                                    name={
-                                        t.first_name && t.last_name
-                                            ? `${t.first_name} ${t.last_name}`
-                                            : t.username || "Usuario"
+                                    type="button"
+                                    onClick={() =>
+                                        setPendingImpersonation(targetUser)
                                     }
-                                    subtitle={`por ${adminName}`}
-                                    time={formatRelativeTime(log.timestamp)}
-                                />
+                                    disabled={!canImpersonate || impersonating}
+                                    className="flex w-full items-center gap-4 px-5 py-3.5 text-left hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed"
+                                >
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600 text-sm font-semibold">
+                                        {(displayName?.charAt(0) || "?").toUpperCase()}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-sm font-medium text-gray-800 truncate">
+                                            {displayName}
+                                        </p>
+                                        <p className="text-xs text-gray-400 truncate">
+                                            por {adminName}
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs text-gray-400 whitespace-nowrap">
+                                            {formatRelativeTime(log.timestamp)}
+                                        </span>
+                                        {canImpersonate && (
+                                            <span className="text-xs font-medium text-indigo-600">
+                                                Probar como
+                                            </span>
+                                        )}
+                                    </div>
+                                </button>
                             );
                         })}
                     </div>
@@ -388,6 +440,23 @@ function AdminDashboard({ stats }) {
                     Admin de Django (base de datos)
                 </a>
             </div>
+
+            <ConfirmModal
+                open={Boolean(pendingImpersonation)}
+                title="Probar como usuario"
+                description={
+                    pendingImpersonation
+                        ? `Se abrirá la vista previa como ${formatUser(
+                              pendingImpersonation
+                          )}. Todo lo que hagas quedará registrado como esta persona.`
+                        : ""
+                }
+                confirmLabel="Probar como"
+                confirmVariant="primary"
+                onCancel={() => setPendingImpersonation(null)}
+                onConfirm={handleImpersonate}
+                busy={impersonating}
+            />
         </>
     );
 }
