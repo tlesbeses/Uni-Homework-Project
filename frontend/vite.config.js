@@ -16,6 +16,7 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         navigateFallback: 'index.html',
+        navigateFallbackDenylist: [/^\/django-admin/],
         cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
