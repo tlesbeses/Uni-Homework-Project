@@ -1,3 +1,6 @@
+from pathlib import Path
+import tempfile
+
 from django.test import SimpleTestCase, override_settings
 
 CSP_POLICY = "default-src 'self';"
@@ -19,6 +22,15 @@ class CspMiddlewareTests(SimpleTestCase):
         response = self.client.get("/django-admin/")
         self.assertEqual(response.status_code, 302)
         self.assertNotIn("Content-Security-Policy", response.headers)
+
+    def test_spa_index_is_served_with_no_cache(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "index.html").write_text("<!doctype html><html></html>", encoding="utf-8")
+            with self.settings(FRONTEND_DIR=Path(tmp)):
+                response = self.client.get("/")
+                response.close()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["Cache-Control"], "no-cache")
 
     def test_django_admin_without_slash_redirects_to_canonical(self):
         response = self.client.get("/django-admin")

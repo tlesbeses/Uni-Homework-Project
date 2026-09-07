@@ -35,3 +35,12 @@ def pwa_register_sw(request):
         "text/javascript",
         "no-store, max-age=0",
     )
+
+
+def spa_index(request):
+    return _pwa_file(
+        request,
+        "index.html",
+        "text/html; charset=utf-8",
+        "no-cache",
+    )

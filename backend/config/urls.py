@@ -1,11 +1,9 @@
 from django.contrib import admin
 from django.urls import include, path, re_path
-from django.views.generic import TemplateView
 from django.views.static import serve
 from django.conf import settings
-from django.conf.urls.static import static
 
-from config.views import pwa_manifest, pwa_register_sw, pwa_service_worker
+from config.views import pwa_manifest, pwa_register_sw, pwa_service_worker, spa_index
 from authentication.views import ErrorLogDetailView, ErrorLogEndpoint
 
 FRONTEND_DIR = settings.FRONTEND_DIR
@@ -34,8 +32,6 @@ urlpatterns = [
 
     re_path(
         r"^(?!api/|django-admin/?|static/|auth/).*$",
-        TemplateView.as_view(
-            template_name="index.html"
-        ),
+        spa_index,
     ),
 ]
