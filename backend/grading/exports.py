@@ -5,11 +5,13 @@ Builds an ``.xlsx`` workbook or a UTF-8 ``.csv`` in memory with this layout:
     Curso:  <course title>
     Grupo:  <section name>
     ----------------------------------------------
-    Estudiante | Assignment 1 | Assignment 2 | Total
-    ...        | ...          | ...          | ...
+    Estudiante | Assignment 1 | Assignment 2 | Total | Nota final
+    ...        | ...          | ...          | ...   | ...
 
 Only published assignments and approved enrollments are included; missing
-grades render as empty cells and ``Total`` sums the existing ones.
+grades render as empty cells and ``Total`` sums the existing ones. ``Nota
+final`` is the computed final grade (weighted average, or the configured
+ponderación scheme when the course has it enabled).
 """
 
 import csv
@@ -21,6 +23,7 @@ from openpyxl.utils import get_column_letter
 
 from assignments.models import Assignment
 from course.models import Enrollment, Status
+from grading.final import final_grade_for_student
 from grading.models import Grade
 
 HEADER_ROW = 4
@@ -103,11 +106,13 @@ def build_section_grades_workbook(*, section) -> bytes:
         "Estudiante",
         *[_sanitize(a.title) for a in assignments],
         "Total",
+        "Nota final",
     ]
     for column_index, header in enumerate(headers, start=1):
         sheet.cell(row=HEADER_ROW, column=column_index, value=header).font = bold
 
     total_column = len(assignments) + 2
+    final_column = total_column + 1
     for offset, enrollment in enumerate(enrollments, start=1):
         row = HEADER_ROW + offset
         sheet.cell(row=row, column=1, value=_student_label(enrollment))
@@ -119,9 +124,15 @@ def build_section_grades_workbook(*, section) -> bytes:
             sheet.cell(row=row, column=assignment_offset, value=round(score, 2))
             total += score
         sheet.cell(row=row, column=total_column, value=round(total, 2))
+        final_score = final_grade_for_student(
+            course=section.course,
+            student=enrollment.student,
+        )
+        if final_score is not None:
+            sheet.cell(row=row, column=final_column, value=round(float(final_score), 2))
 
     sheet.column_dimensions["A"].width = 28
-    for column_index in range(2, total_column + 1):
+    for column_index in range(2, final_column + 1):
         sheet.column_dimensions[get_column_letter(column_index)].width = 16
 
     buffer = io.BytesIO()
@@ -145,7 +156,7 @@ def build_section_grades_csv(*, section) -> bytes:
     writer.writerow(["Grupo:", _sanitize(section.name)])
     writer.writerow([])
     writer.writerow(
-        ["Estudiante", *[_sanitize(a.title) for a in assignments], "Total"]
+        ["Estudiante", *[_sanitize(a.title) for a in assignments], "Total", "Nota final"]
     )
 
     for enrollment in enrollments:
@@ -157,6 +168,11 @@ def build_section_grades_csv(*, section) -> bytes:
             if score is not None:
                 total += score
         row.append(round(total, 2))
+        final_score = final_grade_for_student(
+            course=section.course,
+            student=enrollment.student,
+        )
+        row.append(round(float(final_score), 2) if final_score is not None else "")
         writer.writerow(row)
 
     return ("\ufeff" + buffer.getvalue()).encode("utf-8")
@@ -199,6 +215,10 @@ def _snapshot_student_label(enrollment) -> str:
 def build_section_snapshot_workbook(payload) -> bytes:
     """Return the frozen grades of a snapshot as an ``.xlsx`` byte string."""
     assignments, enrollments, scores_by_pair = _snapshot_grades_data(payload)
+    final_by_student = {
+        entry["student_id"]: entry["score"]
+        for entry in payload.get("final_grades", [])
+    }
 
     workbook = Workbook()
     sheet = workbook.active
@@ -216,11 +236,13 @@ def build_section_snapshot_workbook(payload) -> bytes:
         "Estudiante",
         *[_sanitize(a["title"]) for a in assignments],
         "Total",
+        "Nota final",
     ]
     for column_index, header in enumerate(headers, start=1):
         sheet.cell(row=HEADER_ROW, column=column_index, value=header).font = bold
 
     total_column = len(assignments) + 2
+    final_column = total_column + 1
     for offset, enrollment in enumerate(enrollments, start=1):
         row = HEADER_ROW + offset
         sheet.cell(row=row, column=1, value=_snapshot_student_label(enrollment))
@@ -234,9 +256,12 @@ def build_section_snapshot_workbook(payload) -> bytes:
             sheet.cell(row=row, column=assignment_offset, value=round(score, 2))
             total += score
         sheet.cell(row=row, column=total_column, value=round(total, 2))
+        final_score = final_by_student.get(enrollment["student_id"])
+        if final_score is not None:
+            sheet.cell(row=row, column=final_column, value=round(float(final_score), 2))
 
     sheet.column_dimensions["A"].width = 28
-    for column_index in range(2, total_column + 1):
+    for column_index in range(2, final_column + 1):
         sheet.column_dimensions[get_column_letter(column_index)].width = 16
 
     buffer = io.BytesIO()
@@ -247,6 +272,10 @@ def build_section_snapshot_workbook(payload) -> bytes:
 def build_section_snapshot_csv(payload) -> bytes:
     """Return the frozen grades of a snapshot as UTF-8 CSV (with BOM)."""
     assignments, enrollments, scores_by_pair = _snapshot_grades_data(payload)
+    final_by_student = {
+        entry["student_id"]: entry["score"]
+        for entry in payload.get("final_grades", [])
+    }
 
     buffer = io.StringIO()
     writer = csv.writer(buffer)
@@ -254,7 +283,7 @@ def build_section_snapshot_csv(payload) -> bytes:
     writer.writerow(["Grupo:", _sanitize(payload["section"]["name"])])
     writer.writerow([])
     writer.writerow(
-        ["Estudiante", *[_sanitize(a["title"]) for a in assignments], "Total"]
+        ["Estudiante", *[_sanitize(a["title"]) for a in assignments], "Total", "Nota final"]
     )
 
     for enrollment in enrollments:
@@ -268,6 +297,8 @@ def build_section_snapshot_csv(payload) -> bytes:
             if score is not None:
                 total += score
         row.append(round(total, 2))
+        final_score = final_by_student.get(enrollment["student_id"])
+        row.append(round(float(final_score), 2) if final_score is not None else "")
         writer.writerow(row)
 
     return ("\ufeff" + buffer.getvalue()).encode("utf-8")

@@ -1,6 +1,6 @@
-"""Weighted final-grade computation.
+"""Final-grade computation.
 
-The final grade of a student in a course is a weighted average:
+Default (weighted average):
 
         final = Σ(score × weight) / Σ(max × weight) × 100
 
@@ -8,11 +8,22 @@ Every published assignment counts, whether or not it has been graded yet.
 Ungraded assignments count as zero unless ``UNGRADED_COUNTS_AS_ZERO`` is
 flipped to ``False`` (then they are ignored entirely). Courses without any
 published assignment have no final grade (None).
+
+Ponderación scheme (activated per course through ``CourseSettings.
+ponderacion_enabled``):
+
+        final = Σ_p [ acum_pct_p × avg_acum(p) + exam_pct_p × avg_exam(p) ]
+
+``avg_acum`` reuses the relative weight formula restricted to the
+acumulados of that partial; ``avg_exam`` is the plain average of the exam
+percentages (score/max × 100) because exams are not weighted. The four
+configured percentages of a course add up to 100.
 """
 
 from decimal import Decimal
 
 from assignments.models import Assignment
+from course.models import CourseSettings
 from grading.models import Grade
 
 
@@ -20,30 +31,34 @@ UNGRADED_COUNTS_AS_ZERO = True
 
 _ROUNDING = Decimal("0.01")
 
+_ACUMULADO = Assignment.ACUMULADO if hasattr(Assignment, "ACUMULADO") else "ACUMULADO"
+_EXAMEN = "EXAMEN"
+_PRIMERO = "PRIMERO"
+_SEGUNDO = "SEGUNDO"
 
-def final_grade_for_student(*, course, student):
-    """Return the weighted final grade (0..100) of ``student`` in ``course``.
 
-    Returns ``None`` when the course has no published assignments.
-    """
-    assignments = (
+def _published_assignments(*, course):
+    return (
         Assignment.objects.filter(
             course=course,
             is_published=True,
         )
-        .only("id", "max_score", "weight")
+        .only("id", "max_score", "weight", "category", "parcial")
         .order_by("due_date", "id")
     )
-    if not assignments.exists():
-        return None
 
-    scores = dict(
+
+def _scores_by_assignment(*, course, student):
+    return dict(
         Grade.objects.filter(
             assignment__course=course,
             student=student,
         ).values_list("assignment_id", "score")
     )
 
+
+def _weighted_average_percentage(assignments, scores):
+    """Σ(score×weight)/Σ(max×weight)×100 over ``assignments``."""
     score_weight_sum = Decimal("0")
     max_weight_sum = Decimal("0")
     for assignment in assignments:
@@ -56,6 +71,165 @@ def final_grade_for_student(*, course, student):
 
     if max_weight_sum <= 0:
         return None
+    return (score_weight_sum / max_weight_sum) * Decimal("100")
 
-    final = (score_weight_sum / max_weight_sum) * Decimal("100")
-    return final.quantize(_ROUNDING)
+
+def _average_exam_percentage(assignments, scores):
+    """Average of (score/max × 100) over the exams of a bucket.
+
+    Exams are not weighted: each one contributes its raw percentage and
+    the bucket average is what the partial percentage multiplies.
+    """
+    percentages = []
+    for assignment in assignments:
+        score = scores.get(assignment.id)
+        if score is None and not UNGRADED_COUNTS_AS_ZERO:
+            continue
+        if assignment.max_score <= 0:
+            continue
+        percentages.append((score or Decimal("0")) / assignment.max_score * Decimal("100"))
+
+    if not percentages:
+        return None
+    return sum(percentages) / len(percentages)
+
+
+def _ponderacion_percentages(settings):
+    """Map each (category, parcial) bucket to its configured percentage."""
+    return {
+        (_ACUMULADO, _PRIMERO): settings.p1_acumulado_pct or Decimal("0"),
+        (_EXAMEN, _PRIMERO): settings.p1_examen_pct or Decimal("0"),
+        (_ACUMULADO, _SEGUNDO): settings.p2_acumulado_pct or Decimal("0"),
+        (_EXAMEN, _SEGUNDO): settings.p2_examen_pct or Decimal("0"),
+    }
+
+
+def _effective_settings(course):
+    """Return the course settings with a fresh database query.
+
+    The reverse OneToOne accessor on the ``course`` instance caches the
+    related row, which can go stale when the settings are edited after the
+    course was loaded. Re-querying here keeps every computation current.
+    """
+    return CourseSettings.objects.filter(course=course).first()
+
+
+def ponderated_breakdown_for_student(*, course, student):
+    """Return the components of the ponderated final grade.
+
+    Each item describes one (category, parcial) bucket that has at least one
+    published assignment:
+
+        {
+            "type": "ACUMULADO" | "EXAMEN",
+            "parcial": "PRIMERO" | "SEGUNDO",
+            "pct": "15.00",
+            "average": "77.50",
+            "assignments": 3,
+        }
+
+    ``pct`` is the configured percentage and ``average`` the percentage
+    score of the bucket (weighted for acumulados, plain average for exams).
+    Returns an empty list when the course has no published assignments.
+    """
+    settings = _effective_settings(course)
+    if settings is None:
+        return []
+    percentages = _ponderacion_percentages(settings)
+    buckets = {key: [] for key in percentages}
+    for assignment in _published_assignments(course=course):
+        key = (assignment.category, assignment.parcial)
+        if key in buckets:
+            buckets[key].append(assignment)
+
+    if not any(buckets.values()):
+        return []
+
+    scores = _scores_by_assignment(course=course, student=student)
+    components = []
+    for (category, parcial), pct in percentages.items():
+        bucket = buckets[(category, parcial)]
+        if not bucket:
+            continue
+        if category == _ACUMULADO:
+            average = _weighted_average_percentage(bucket, scores)
+        else:
+            average = _average_exam_percentage(bucket, scores)
+        components.append(
+            {
+                "type": category,
+                "parcial": parcial,
+                "pct": str(pct.quantize(Decimal("0.01"))),
+                "average": (
+                    str(average.quantize(Decimal("0.01"))) if average is not None else None
+                ),
+                "assignments": len(bucket),
+            }
+        )
+    return components
+
+
+def ponderated_final_grade_for_student(*, course, student):
+    """Return the ponderated final grade (0..100) of ``student``.
+
+    Contributions only come from buckets with published assignments;
+    ``None`` when there is nothing to grade yet.
+    """
+    percentages = _ponderacion_percentages(_effective_settings(course))
+    buckets = {key: [] for key in percentages}
+    for assignment in _published_assignments(course=course):
+        key = (assignment.category, assignment.parcial)
+        if key in buckets:
+            buckets[key].append(assignment)
+
+    if not any(buckets.values()):
+        return None
+
+    scores = _scores_by_assignment(course=course, student=student)
+    total = Decimal("0")
+    contributed = False
+    for (category, parcial), pct in percentages.items():
+        bucket = buckets[(category, parcial)]
+        if not bucket:
+            continue
+        if category == _ACUMULADO:
+            average = _weighted_average_percentage(bucket, scores)
+        else:
+            average = _average_exam_percentage(bucket, scores)
+        if average is None:
+            continue
+        contributed = True
+        total += average * (pct / Decimal("100"))
+
+    if not contributed:
+        return None
+    return total.quantize(_ROUNDING)
+
+
+def _weighted_final_grade(*, course, student):
+    """Return the plain weighted final grade (0..100) of ``student``.
+
+    Returns ``None`` when the course has no published assignments.
+    """
+    assignments = _published_assignments(course=course)
+    if not assignments.exists():
+        return None
+
+    scores = _scores_by_assignment(course=course, student=student)
+    average = _weighted_average_percentage(assignments, scores)
+    if average is None:
+        return None
+    return average.quantize(_ROUNDING)
+
+
+def final_grade_for_student(*, course, student):
+    """Return the final grade (0..100) of ``student`` in ``course``.
+
+    Uses the ponderated scheme when the course has it enabled, otherwise the
+    plain weighted average. Returns ``None`` when there is nothing graded
+    (no published assignments).
+    """
+    settings = _effective_settings(course)
+    if settings is not None and settings.ponderacion_enabled:
+        return ponderated_final_grade_for_student(course=course, student=student)
+    return _weighted_final_grade(course=course, student=student)

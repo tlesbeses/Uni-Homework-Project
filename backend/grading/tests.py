@@ -20,8 +20,11 @@ from rest_framework.test import APIClient, APITestCase
 
 from assignments.models import Assignment
 from authentication.models import EventLog
-from course.models import Course, Enrollment, Section, Status
-from grading.final import final_grade_for_student
+from course.models import Course, CourseSettings, Enrollment, Section, Status
+from grading.final import (
+    final_grade_for_student,
+    ponderated_breakdown_for_student,
+)
 from grading.models import FinalScoreSnapshot, Grade
 from teams.models import Team, TeamMember
 
@@ -654,7 +657,7 @@ class SectionGradesExportTests(GradingAPITestCase):
         self.assertEqual(sheet["B2"].value, "Default")
         self.assertEqual(
             [cell.value for cell in sheet[4]],
-            ["Estudiante", "Homework 1", "Total"],
+            ["Estudiante", "Homework 1", "Total", "Nota final"],
         )
         rows = {row[0].value: row for row in sheet.iter_rows(min_row=5)}
         student_row = rows[self.student.username]
@@ -710,7 +713,7 @@ class SectionGradesExportTests(GradingAPITestCase):
         rows = list(csv.reader(StringIO(text)))
         self.assertEqual(rows[0], ["Curso:", "Math 101"])
         self.assertEqual(rows[1], ["Grupo:", "Default"])
-        self.assertEqual(rows[3], ["Estudiante", "Homework 1", "Total"])
+        self.assertEqual(rows[3], ["Estudiante", "Homework 1", "Total", "Nota final"])
         by_student = {row[0]: row for row in rows[4:]}
         self.assertEqual(by_student[self.student.username][1], "95.0")
         self.assertEqual(by_student[self.student.username][2], "95.0")
@@ -823,6 +826,124 @@ class WeightedFinalGradeTests(GradingAPITestCase):
             final_grade_for_student(course=self.other_course, student=self.student),
             Decimal("0.00"),
         )
+
+
+class PonderatedGradeTests(GradingAPITestCase):
+    """The ponderación scheme splits the final grade per (category, parcial)."""
+
+    def _configure(self, p1_acum="30.00", p1_exam="20.00", p2_acum="30.00", p2_exam="20.00"):
+        settings, _ = CourseSettings.objects.get_or_create(course=self.course)
+        settings.ponderacion_enabled = True
+        settings.p1_acumulado_pct = Decimal(p1_acum)
+        settings.p1_examen_pct = Decimal(p1_exam)
+        settings.p2_acumulado_pct = Decimal(p2_acum)
+        settings.p2_examen_pct = Decimal(p2_exam)
+        settings.save()
+        return settings
+
+    def _assignment(self, *, category, parcial, score, weight="1.00", max_score="100.00"):
+        assignment = Assignment.objects.create(
+            course=self.course,
+            title=f"{category} {parcial}",
+            max_score=max_score,
+            weight=weight,
+            is_published=True,
+            category=category,
+            parcial=parcial,
+        )
+        self.grade_student(assignment, self.student, score, self.teacher)
+        return assignment
+
+    def test_disabled_uses_plain_weighted_average(self):
+        self.grade_student(self.assignment, self.student, "80.00", self.teacher)
+        final = final_grade_for_student(course=self.course, student=self.student)
+        self.assertEqual(final, Decimal("80.00"))
+
+    def test_weighted_avg_across_parcial_buckets(self):
+        self.assignment.delete()
+        self._configure(p1_acum="30.00", p1_exam="20.00", p2_acum="30.00", p2_exam="20.00")
+        self._assignment(category="ACUMULADO", parcial="PRIMERO", score="80.00")
+        self._assignment(category="ACUMULADO", parcial="SEGUNDO", score="90.00")
+        self._assignment(category="EXAMEN", parcial="PRIMERO", score="80.00")
+        self._assignment(category="EXAMEN", parcial="SEGUNDO", score="60.00")
+        final = final_grade_for_student(course=self.course, student=self.student)
+        self.assertEqual(final, Decimal("79.00"))
+
+    def test_exams_are_averaged_not_weighted(self):
+        self.assignment.delete()
+        self._configure(p1_acum="10.00", p1_exam="40.00", p2_acum="30.00", p2_exam="20.00")
+        self._assignment(category="EXAMEN", parcial="PRIMERO", score="80.00", weight="5.00")
+        self._assignment(category="EXAMEN", parcial="PRIMERO", score="90.00", weight="5.00")
+        self._assignment(category="ACUMULADO", parcial="PRIMERO", score="100.00")
+        self._assignment(category="ACUMULADO", parcial="SEGUNDO", score="100.00")
+        self._assignment(category="EXAMEN", parcial="SEGUNDO", score="50.00")
+        final = final_grade_for_student(course=self.course, student=self.student)
+        self.assertEqual(final, Decimal("84.00"))
+
+    def test_ungraded_exam_counts_as_zero_in_bucket(self):
+        self.assignment.delete()
+        self._configure(p1_acum="30.00", p1_exam="40.00", p2_acum="30.00", p2_exam="0.00")
+        self._assignment(category="EXAMEN", parcial="PRIMERO", score="80.00")
+        Assignment.objects.create(
+            course=self.course,
+            title="Exam 2 ungraded",
+            max_score="100.00",
+            is_published=True,
+            category="EXAMEN",
+            parcial="PRIMERO",
+        )
+        self._assignment(category="ACUMULADO", parcial="PRIMERO", score="100.00")
+        self._assignment(category="ACUMULADO", parcial="SEGUNDO", score="100.00")
+        final = final_grade_for_student(course=self.course, student=self.student)
+        self.assertEqual(final, Decimal("76.00"))
+
+    def test_bucket_without_published_assignments_is_skipped(self):
+        self.assignment.delete()
+        self._configure()
+        self._assignment(category="EXAMEN", parcial="PRIMERO", score="80.00")
+        final = final_grade_for_student(course=self.course, student=self.student)
+        self.assertEqual(final, Decimal("16.00"))
+
+    def test_no_published_assignments_yields_none(self):
+        self.assignment.delete()
+        self._configure()
+        self.assertIsNone(
+            final_grade_for_student(course=self.course, student=self.student)
+        )
+
+    def test_user_example_split(self):
+        self.assignment.delete()
+        self._configure(p1_acum="15.00", p1_exam="35.00", p2_acum="35.00", p2_exam="15.00")
+        self._assignment(category="ACUMULADO", parcial="PRIMERO", score="80.00")
+        self._assignment(category="ACUMULADO", parcial="SEGUNDO", score="90.00")
+        self._assignment(category="EXAMEN", parcial="PRIMERO", score="85.00")
+        final = final_grade_for_student(course=self.course, student=self.student)
+        self.assertEqual(final, Decimal("73.25"))
+
+    def test_breakdown_returns_per_bucket_components(self):
+        self.assignment.delete()
+        self._configure(p1_acum="15.00", p1_exam="35.00", p2_acum="35.00", p2_exam="15.00")
+        self._assignment(category="ACUMULADO", parcial="PRIMERO", score="80.00")
+        self._assignment(category="ACUMULADO", parcial="SEGUNDO", score="90.00")
+        self._assignment(category="EXAMEN", parcial="PRIMERO", score="85.00")
+        components = ponderated_breakdown_for_student(
+            course=self.course, student=self.student
+        )
+        by_bucket = {(c["type"], c["parcial"]): c for c in components}
+        self.assertEqual(len(components), 3)
+        self.assertEqual(by_bucket[("ACUMULADO", "PRIMERO")]["pct"], "15.00")
+        self.assertEqual(by_bucket[("ACUMULADO", "PRIMERO")]["average"], "80.00")
+        self.assertEqual(by_bucket[("ACUMULADO", "PRIMERO")]["assignments"], 1)
+        self.assertEqual(by_bucket[("EXAMEN", "PRIMERO")]["average"], "85.00")
+        self.assertEqual(by_bucket[("ACUMULADO", "SEGUNDO")]["average"], "90.00")
+
+    def test_breakdown_is_empty_when_no_assignments(self):
+        self.assignment.delete()
+        self._configure()
+        components = ponderated_breakdown_for_student(
+            course=self.course, student=self.student
+        )
+        self.assertEqual(components, [])
 
 
 class SuperuserIsolationTests(GradingAPITestCase):
