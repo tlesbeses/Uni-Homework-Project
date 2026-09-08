@@ -67,9 +67,33 @@ export const useCourseSettings = ({ course, updateCourse } = {}) => {
         [patchCourseField]
     );
 
+    const updatePonderacion = useCallback(
+        async (payload) => {
+            if (!course) {
+                return;
+            }
+            setSavingField("ponderacion");
+            try {
+                const updated = await updateCourseSettings(course.id, payload);
+                updateCourse((prev) =>
+                    prev
+                        ? { ...prev, settings: { ...prev.settings, ...updated } }
+                        : prev
+                );
+                toast.success("Ponderación de la nota final actualizada");
+            } catch (err) {
+                toast.error(getErrorMessage(err));
+            } finally {
+                setSavingField(null);
+            }
+        },
+        [course, updateCourse]
+    );
+
     return {
         savingField,
         toggleAutoAccept,
         toggleVisibility,
+        updatePonderacion,
     };
 };

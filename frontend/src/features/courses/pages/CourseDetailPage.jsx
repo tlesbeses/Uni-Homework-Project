@@ -22,6 +22,7 @@ export const CourseDetailPage = () => {
     savingField,
     toggleAutoAccept,
     toggleVisibility,
+    updatePonderacion,
   } = useCourseSettings({ course, updateCourse });
 
   if (loading) {
@@ -63,6 +64,7 @@ export const CourseDetailPage = () => {
               savingField={savingField}
               onToggleAutoAccept={toggleAutoAccept}
               onToggleVisibility={toggleVisibility}
+              onUpdatePonderacion={updatePonderacion}
             />
             <AssignmentSection
               courseId={id}
