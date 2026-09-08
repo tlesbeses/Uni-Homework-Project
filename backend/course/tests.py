@@ -656,6 +656,55 @@ class CourseSettingsTests(BaseCourseTestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_settings_include_ponderacion_defaults(self):
+        self.client.force_authenticate(self.teacher)
+        response = self.client.get(
+            f"/api/courses/{self.course.id}/course_settings/"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["ponderacion_enabled"])
+        self.assertEqual(response.data["p1_acumulado_pct"], "25.00")
+        self.assertEqual(response.data["p2_examen_pct"], "25.00")
+
+    def test_teacher_can_enable_ponderacion(self):
+        self.client.force_authenticate(self.teacher)
+        response = self.client.patch(
+            f"/api/courses/{self.course.id}/course_settings/",
+            {
+                "ponderacion_enabled": True,
+                "p1_acumulado_pct": "15.00",
+                "p1_examen_pct": "35.00",
+                "p2_acumulado_pct": "35.00",
+                "p2_examen_pct": "15.00",
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["ponderacion_enabled"])
+        self.assertEqual(response.data["p1_examen_pct"], "35.00")
+
+    def test_ponderacion_percentages_must_sum_to_100(self):
+        self.client.force_authenticate(self.teacher)
+        response = self.client.patch(
+            f"/api/courses/{self.course.id}/course_settings/",
+            {
+                "p1_acumulado_pct": "30.00",
+                "p1_examen_pct": "20.00",
+                "p2_acumulado_pct": "20.00",
+                "p2_examen_pct": "20.00",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_negative_percentage_rejected(self):
+        self.client.force_authenticate(self.teacher)
+        response = self.client.patch(
+            f"/api/courses/{self.course.id}/course_settings/",
+            {"p1_acumulado_pct": "-5.00"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
 
 class SuperuserIsolationTests(BaseCourseTestCase):
     """The root user (is_superuser) has no special powers in the regular views.

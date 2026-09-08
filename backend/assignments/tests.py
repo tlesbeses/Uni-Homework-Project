@@ -406,6 +406,59 @@ class AssignmentWeightTests(AssignmentAPITestCase):
         self.assertEqual(self.assignment.weight, Decimal("3.00"))
 
 
+class AssignmentPonderacionTests(AssignmentAPITestCase):
+    """category/parcial feed the ponderación scheme with safe defaults."""
+
+    def test_defaults_to_acumulado_first_parcial(self):
+        self.authenticate(self.teacher)
+        response = self.client.post(
+            reverse("assignment-list"),
+            self.assignment_payload(),
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        assignment = Assignment.objects.get(pk=response.data["id"])
+        self.assertEqual(assignment.category, "ACUMULADO")
+        self.assertEqual(assignment.parcial, "PRIMERO")
+
+    def test_create_exam_in_second_parcial(self):
+        self.authenticate(self.teacher)
+        response = self.client.post(
+            reverse("assignment-list"),
+            self.assignment_payload(
+                max_score="100.00",
+                category="EXAMEN",
+                parcial="SEGUNDO",
+            ),
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        assignment = Assignment.objects.get(pk=response.data["id"])
+        self.assertEqual(assignment.category, "EXAMEN")
+        self.assertEqual(assignment.parcial, "SEGUNDO")
+
+    def test_invalid_category_rejected(self):
+        self.authenticate(self.teacher)
+        response = self.client.post(
+            reverse("assignment-list"),
+            self.assignment_payload(category="RARO"),
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_patch_updates_category_and_parcial(self):
+        self.authenticate(self.teacher)
+        response = self.client.patch(
+            reverse("assignment-detail", args=[self.assignment.id]),
+            {"category": "EXAMEN", "parcial": "SEGUNDO"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assignment.refresh_from_db()
+        self.assertEqual(self.assignment.category, "EXAMEN")
+        self.assertEqual(self.assignment.parcial, "SEGUNDO")
+
+
 class SuperuserIsolationTests(AssignmentAPITestCase):
     """The superuser has no special powers in the regular assignment views."""
 
