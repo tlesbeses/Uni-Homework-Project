@@ -55,6 +55,7 @@ from grading.exports import (
 from grading.final import final_grade_for_student
 from grading.models import Grade
 from .filters import EnrollmentFilter, SectionFilter
+from .progress import course_progress
 from .permissions import (
     IsCourseTeacherOfSection,
     IsStudent,
@@ -93,6 +94,8 @@ class CourseViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ("create", "update", "partial_update", "destroy"):
             return [IsAuthenticated(), IsTeacher()]
+        if self.action in ("enroll", "join"):
+            return [IsAuthenticated(), IsStudent()]
         return [IsAuthenticated()]
 
     @staticmethod
@@ -156,6 +159,16 @@ class CourseViewSet(viewsets.ModelViewSet):
             entity_id=course_id,
             metadata={"title": title},
         )
+
+    @action(detail=True, methods=["get"])
+    def progress(self, request, pk=None):
+        """Per-assignment and per-student aggregates of a course (teacher)."""
+        if not self.is_teacher(request.user):
+            raise PermissionDenied(
+                "Only the teacher of the course can view its progress."
+            )
+        course = self.get_object()
+        return Response(course_progress(course))
 
     @action(detail=True, methods=["get"])
     def sections(self, request, pk=None):

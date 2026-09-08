@@ -14,8 +14,30 @@ from assignments.models import Assignment
 from authentication.models import EventLog
 from authentication.services import log_event
 from course.models import Enrollment, Status
-from grading.models import Grade, GradeHistory
+from grading.final import final_grade_for_student
+from grading.models import FinalScoreSnapshot, Grade, GradeHistory
 from notifications.services import notify_grade_published, notify_grades_published
+
+
+def record_final_score_snapshots(*, course, student_ids):
+    """Capture the current final grade of each student as an evolution point.
+
+    Called after every grading mutation. Students without a defined final
+    grade (course with no published assignment) are skipped.
+    """
+    snapshots = [
+        FinalScoreSnapshot(
+            course=course,
+            student_id=student_id,
+            score=score,
+        )
+        for student_id in student_ids
+        if (score := final_grade_for_student(course=course, student=student_id))
+        is not None
+    ]
+    if snapshots:
+        FinalScoreSnapshot.objects.bulk_create(snapshots)
+    return len(snapshots)
 
 
 def _validate_grade_params(assignment, score, graded_by):
@@ -173,6 +195,11 @@ def grade_team(
     if histories_to_create:
         GradeHistory.objects.bulk_create(histories_to_create)
 
+    record_final_score_snapshots(
+        course=assignment.course,
+        student_ids=sorted(approved_member_ids),
+    )
+
     log_event(
         actor=graded_by,
         action=EventLog.ACTION_UPDATE,
@@ -247,6 +274,11 @@ def grade_student(*, assignment, student, score, graded_by):
         old_score=old_score,
         new_score=grade.score,
         graded_by=graded_by,
+    )
+
+    record_final_score_snapshots(
+        course=assignment.course,
+        student_ids=[student.id],
     )
 
     log_event(

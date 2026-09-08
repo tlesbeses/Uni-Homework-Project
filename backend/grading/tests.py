@@ -22,7 +22,7 @@ from assignments.models import Assignment
 from authentication.models import EventLog
 from course.models import Course, Enrollment, Section, Status
 from grading.final import final_grade_for_student
-from grading.models import Grade
+from grading.models import FinalScoreSnapshot, Grade
 from teams.models import Team, TeamMember
 
 User = get_user_model()
@@ -981,3 +981,110 @@ class ConcurrentGradingTests(TransactionTestCase):
             assignment=self.assignment, student=self.student
         ).count()
         self.assertEqual(count, 1)
+
+
+class FinalScoreSnapshotTests(GradingAPITestCase):
+    """Evolution points are captured on grading and served to the right user.
+
+    A point is stored after every grading mutation, but only when the course
+    has a defined final grade (at least one published assignment).
+    """
+
+    def test_grade_student_records_a_final_score_snapshot(self):
+        self.grade_student(self.assignment, self.student, "80.00", self.teacher)
+
+        snapshot = FinalScoreSnapshot.objects.filter(
+            course=self.course,
+            student=self.student,
+        ).first()
+        self.assertIsNotNone(snapshot)
+        self.assertEqual(snapshot.score, Decimal("80.00"))
+
+    def test_grade_team_records_a_snapshot_per_approved_member(self):
+        self.grade_team(self.assignment, self.team, "95.00", self.teacher)
+
+        self.assertEqual(
+            FinalScoreSnapshot.objects.filter(course=self.course).count(),
+            2,
+        )
+        self.assertTrue(
+            FinalScoreSnapshot.objects.filter(
+                course=self.course,
+                student=self.student,
+                score=Decimal("95.00"),
+            ).exists()
+        )
+
+    def test_unpublished_assignments_do_not_produce_snapshots(self):
+        draft_course = Course.objects.create(
+            title="Drafting", teacher=self.teacher
+        )
+        self.enroll(self.student, draft_course)
+        draft = Assignment.objects.create(
+            course=draft_course,
+            title="Draft",
+            max_score="100.00",
+            is_published=False,
+        )
+        self.grade_student(draft, self.student, "50.00", self.teacher)
+
+        self.assertFalse(
+            FinalScoreSnapshot.objects.filter(course=draft_course).exists()
+        )
+
+    def test_re_grading_appends_a_new_point_without_removing_old_ones(self):
+        self.grade_student(self.assignment, self.student, "60.00", self.teacher)
+        self.grade_student(self.assignment, self.student, "90.00", self.teacher)
+
+        points = list(
+            FinalScoreSnapshot.objects.filter(
+                course=self.course,
+                student=self.student,
+            ).order_by("created_at")
+        )
+        self.assertEqual(len(points), 2)
+        self.assertEqual([p.score for p in points], [Decimal("60.00"), Decimal("90.00")])
+
+    def test_student_sees_own_evolution_series(self):
+        self.grade_student(self.assignment, self.student, "70.00", self.teacher)
+        self.authenticate(self.student)
+
+        response = self.client.get(
+            reverse("grade-evolution"), {"course": self.course.id}
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["course"]["id"], self.course.id)
+        self.assertEqual(response.data["student"]["id"], self.student.id)
+        self.assertEqual(len(response.data["points"]), 1)
+        self.assertEqual(response.data["points"][0]["score"], "70.00")
+
+    def test_teacher_sees_evolution_of_own_courses_only(self):
+        self.enroll(self.student2, self.other_course)
+        self.grade_student(self.assignment, self.student, "70.00", self.teacher)
+        self.grade_student(self.foreign_assignment, self.student2, "80.00", self.other_teacher)
+        self.authenticate(self.teacher)
+
+        response = self.client.get(reverse("grade-evolution"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["course"]["id"], self.course.id)
+        self.assertEqual(len(response.data["points"]), 1)
+        self.assertEqual(response.data["points"][0]["score"], "70.00")
+
+    def test_other_student_does_not_see_another_student_evolution(self):
+        self.grade_student(self.assignment, self.student, "70.00", self.teacher)
+        self.authenticate(self.student2)
+
+        response = self.client.get(
+            reverse("grade-evolution"), {"course": self.course.id}
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["points"], [])
+        self.assertIsNone(response.data["course"])
+
+    def test_evolution_requires_authentication(self):
+        response = self.client.get(reverse("grade-evolution"))
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)

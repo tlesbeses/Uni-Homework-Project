@@ -10,7 +10,7 @@ from rest_framework import serializers
 
 from assignments.models import Assignment
 from course.models import Course, Enrollment, Status
-from grading.models import Grade, GradeHistory
+from grading.models import FinalScoreSnapshot, Grade, GradeHistory
 from teams.models import Team
 
 User = get_user_model()
@@ -88,6 +88,19 @@ class GradeHistorySerializer(serializers.ModelSerializer):
             "old_score",
             "new_score",
             "graded_by",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+
+class FinalScoreSnapshotSerializer(serializers.ModelSerializer):
+    """A single point in a student's final-grade evolution series."""
+
+    class Meta:
+        model = FinalScoreSnapshot
+        fields = [
+            "id",
+            "score",
             "created_at",
         ]
         read_only_fields = fields

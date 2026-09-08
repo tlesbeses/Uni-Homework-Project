@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { useGrades } from "@/features/grades/hooks/useGrades";
 import { useDashboard } from "@/features/courses/hooks/useDashboard";
+import { EvolutionChart } from "@/features/grades/components/EvolutionChart";
+import { useGradeEvolution } from "@/features/grades/hooks/useGradeEvolution";
 
 const formatPoints = (value) => String(Number(value.toFixed(2)));
 
@@ -25,11 +27,35 @@ const GradeRow = ({ grade }) => (
     </li>
 );
 
+const EvolutionSeries = ({ courseId }) => {
+    const { points, loading, error } = useGradeEvolution(courseId);
+
+    return (
+        <div className="pt-3">
+            <p className="text-xs text-gray-500 mb-1">
+                Evolución de tu nota final (0-100%):
+            </p>
+            {loading && (
+                <p className="text-xs text-gray-500 py-4 text-center">
+                    Cargando evolución...
+                </p>
+            )}
+            {!loading && error && (
+                <p className="text-xs text-red-500 py-4 text-center">
+                    No se pudo cargar la evolución.
+                </p>
+            )}
+            {!loading && !error && <EvolutionChart points={points} />}
+        </div>
+    );
+};
+
 export const StudentCourseGrades = () => {
     const { grades, loading, error } = useGrades();
     const { stats: dashboard } = useDashboard();
     const finalScores = dashboard?.final_scores ?? {};
     const [expandedKey, setExpandedKey] = useState(null);
+    const [evolutionId, setEvolutionId] = useState(null);
 
     const groups = useMemo(() => {
         const byCourse = new Map();
@@ -58,6 +84,11 @@ export const StudentCourseGrades = () => {
     const toggle = (key) =>
         setExpandedKey((current) => (current === key ? null : key));
 
+    const toggleEvolution = (courseId) =>
+        setEvolutionId((current) =>
+            current === courseId ? null : courseId
+        );
+
     if (loading) {
         return (
             <p className="text-sm text-gray-500">Cargando evaluaciones...</p>
@@ -80,6 +111,15 @@ export const StudentCourseGrades = () => {
 
     return (
         <div className="space-y-4">
+            <div className="flex items-center justify-end">
+                <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                >
+                    Imprimir / PDF
+                </button>
+            </div>
             {groups.map((group) => {
                 const key = `c:${group.course.id}`;
                 const isOpen = expandedKey === key;
@@ -143,11 +183,34 @@ export const StudentCourseGrades = () => {
                         </button>
 
                         {isOpen && (
-                            <ul className="divide-y divide-gray-100 border-t border-gray-100 px-5 pb-1">
-                                {group.grades.map((grade) => (
-                                    <GradeRow key={grade.id} grade={grade} />
-                                ))}
-                            </ul>
+                            <>
+                                <ul className="divide-y divide-gray-100 border-t border-gray-100 px-5 pb-1">
+                                    {group.grades.map((grade) => (
+                                        <GradeRow
+                                            key={grade.id}
+                                            grade={grade}
+                                        />
+                                    ))}
+                                </ul>
+                                <div className="border-t border-gray-100 px-5 py-3">
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            toggleEvolution(group.course.id)
+                                        }
+                                        className="text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:underline"
+                                    >
+                                        {evolutionId === group.course.id
+                                            ? "Ocultar evolución de mi nota final ▲"
+                                            : "Ver evolución de mi nota final ▼"}
+                                    </button>
+                                    {evolutionId === group.course.id && (
+                                        <EvolutionSeries
+                                            courseId={group.course.id}
+                                        />
+                                    )}
+                                </div>
+                            </>
                         )}
                     </div>
                 );

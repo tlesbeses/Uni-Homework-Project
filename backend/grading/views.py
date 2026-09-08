@@ -12,13 +12,16 @@ from assignments.models import Assignment
 from authentication.throttle import GradeThrottle
 from course.models import Status
 from course.permissions import is_teacher
-from grading.models import Grade
+from grading.models import FinalScoreSnapshot, Grade
 from grading.permissions import IsCourseTeacherOfAssignment
 from grading.serializers import (
+    CourseBriefSerializer,
+    FinalScoreSnapshotSerializer,
     GradeHistorySerializer,
     GradeSerializer,
     GradeStudentSerializer,
     GradeTeamSerializer,
+    UserBriefSerializer,
 )
 from grading.services import grade_student, grade_team
 
@@ -147,4 +150,62 @@ class GradeViewSet(viewsets.ReadOnlyModelViewSet):
         history = grade.history.select_related("graded_by").order_by("created_at")
         return Response(
             GradeHistorySerializer(history, many=True).data
+        )
+
+    def _evolution_queryset(self):
+        """Evolution points the requesting user is allowed to see."""
+        user = self.request.user
+        queryset = FinalScoreSnapshot.objects.select_related("course", "student")
+        if is_teacher(user):
+            return queryset.filter(course__teacher=user)
+        return (
+            queryset.filter(
+                student=user,
+                course__sections__enrollments__student=user,
+                course__sections__enrollments__status=Status.APPROVED,
+                course__is_active=True,
+            )
+            .distinct()
+        )
+
+    @action(detail=False, methods=["get"])
+    def evolution(self, request):
+        """Time series of a student's final grade for one of their courses.
+
+        Teachers may query ``?course=<id>`` for any of their own courses;
+        students always get their own series (optionally filtered the same
+        way). The last 30 points are returned in ascending order.
+        """
+        snapshots = self._evolution_queryset()
+        course_id = request.query_params.get("course")
+        if course_id:
+            snapshots = snapshots.filter(course_id=course_id)
+
+        rows = list(
+            snapshots.order_by("-created_at")[:30]
+        )
+        rows.reverse()
+
+        course = rows[0].course if rows else None
+        student = rows[0].student if rows else None
+        return Response(
+            {
+                "course": (
+                    CourseBriefSerializer(
+                        course, context={"request": request}
+                    ).data
+                    if course is not None
+                    else None
+                ),
+                "student": (
+                    UserBriefSerializer(
+                        student, context={"request": request}
+                    ).data
+                    if student is not None
+                    else None
+                ),
+                "points": FinalScoreSnapshotSerializer(
+                    rows, many=True, context={"request": request}
+                ).data,
+            }
         )

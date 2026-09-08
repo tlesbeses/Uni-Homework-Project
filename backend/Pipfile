@@ -12,6 +12,8 @@ djangorestframework-simplejwt = "*"
 python-dotenv = "*"
 
 [dev-packages]
+locust = "*"
+waitress = "*"
 
 [requires]
 python_version = "3.14"

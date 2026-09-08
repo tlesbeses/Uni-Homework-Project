@@ -8,6 +8,12 @@ export const queryKeys = {
 
         detail: (courseId) => [...queryKeys.courses.all, "detail", courseId],
 
+        progress: (courseId) => [
+            ...queryKeys.courses.all,
+            "progress",
+            courseId,
+        ],
+
         sections: (courseId) => [...queryKeys.courses.all, "sections", courseId],
 
         sectionsAll: () => [...queryKeys.courses.all, "sections", "all"],
@@ -46,6 +52,12 @@ export const queryKeys = {
         list: (params) => [...queryKeys.grades.all, "list", params ?? {}],
 
         report: (sectionId) => [...queryKeys.grades.all, "report", sectionId],
+
+        evolution: (courseId) => [
+            ...queryKeys.grades.all,
+            "evolution",
+            courseId,
+        ],
     },
     dashboard: {
         all: ["dashboard"],

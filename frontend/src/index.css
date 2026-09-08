@@ -18,3 +18,22 @@ html, body {
     }
   }
 }
+
+@media print {
+  html,
+  body {
+    background-color: #ffffff;
+  }
+
+  /* Los botones de acción (Imprimir, toggles) y la navegación no van en el PDF. */
+  .print\:hidden,
+  button[type="button"] {
+    display: none !important;
+  }
+
+  /* El body del SPA queda blanco y sin sombras en el papel. */
+  .bg-white {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+}

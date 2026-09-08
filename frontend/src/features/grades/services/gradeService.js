@@ -52,3 +52,11 @@ export const getGradeHistory = async (gradeId, signal) => {
     );
     return response.data;
 };
+
+export const getGradeEvolution = async (courseId, signal) => {
+    const response = await queryApi.get(
+        "/api/grades/evolution/",
+        { params: { course: courseId }, signal }
+    );
+    return response.data;
+};

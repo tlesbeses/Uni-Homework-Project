@@ -16,6 +16,14 @@ export const getCourse = async (courseId, opts) => {
     return response.data;
 };
 
+export const getCourseProgress = async (courseId, signal) => {
+    const response = await queryApi.get(
+        `/api/courses/${courseId}/progress/`,
+        { signal }
+    );
+    return response.data;
+};
+
 export const createCourse = async (courseData) => {
     const response = await api.post("/api/courses/", courseData);
     return response.data;
