@@ -20,6 +20,8 @@ export const useEditAssignmentForm = ({ assignment, onSuccess } = {}) => {
             description: assignment?.description ?? "",
             max_score: assignment?.max_score ?? "",
             weight: assignment?.weight ?? "",
+            category: assignment?.category ?? "ACUMULADO",
+            parcial: assignment?.parcial ?? "PRIMERO",
             due_date: toDateTimeLocal(assignment?.due_date),
             is_published: assignment?.is_published ?? false,
         },
@@ -32,6 +34,8 @@ export const useEditAssignmentForm = ({ assignment, onSuccess } = {}) => {
                 description: assignment.description,
                 max_score: assignment.max_score,
                 weight: assignment.weight,
+                category: assignment.category ?? "ACUMULADO",
+                parcial: assignment.parcial ?? "PRIMERO",
                 due_date: toDateTimeLocal(assignment.due_date),
                 is_published: assignment.is_published,
             });
@@ -45,6 +49,8 @@ export const useEditAssignmentForm = ({ assignment, onSuccess } = {}) => {
                 description: data.description ?? "",
                 max_score: data.max_score,
                 weight: data.weight === "" ? undefined : data.weight,
+                category: data.category,
+                parcial: data.parcial,
                 due_date: data.due_date
                     ? new Date(data.due_date).toISOString()
                     : null,

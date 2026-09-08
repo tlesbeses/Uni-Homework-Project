@@ -54,6 +54,23 @@ export const AssignmentList = ({
                                     {assignment.title}
                                 </p>
                                 <PublishBadge published={assignment.is_published} />
+                                {assignment.category === "EXAMEN" && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-100 text-amber-800">
+                                        Examen
+                                    </span>
+                                )}
+                                {assignment.category === "ACUMULADO" && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-indigo-50 text-indigo-700">
+                                        Acumulado
+                                    </span>
+                                )}
+                                {assignment.parcial && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-600">
+                                        {assignment.parcial === "SEGUNDO"
+                                            ? "Parcial 2"
+                                            : "Parcial 1"}
+                                    </span>
+                                )}
                             </div>
                             {assignment.description && (
                                 <p className="text-sm text-gray-500 mt-1">

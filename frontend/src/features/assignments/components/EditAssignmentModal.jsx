@@ -1,5 +1,6 @@
 import { useEditAssignmentForm } from "@/features/assignments/hooks/useEditAssignmentForm";
 import { InputField } from "@/shared/components/ui/InputField";
+import { SelectField } from "@/shared/components/ui/SelectField";
 import { TextareaField } from "@/shared/components/ui/TextareaField";
 import { Modal } from "@/shared/components/ui/Modal";
 import { Button } from "@/shared/components/ui/Button";
@@ -54,6 +55,26 @@ export const EditAssignmentModal = ({ assignment, open, onClose, onSaved }) => {
                         error={errors.weight?.message}
                         placeholder="1"
                     />
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <SelectField
+                            label="Categoría"
+                            name="category"
+                            register={register}
+                            helpText="Acumulado se pondera; el examen vale su nota directa."
+                        >
+                            <option value="ACUMULADO">Acumulado</option>
+                            <option value="EXAMEN">Examen</option>
+                        </SelectField>
+                        <SelectField
+                            label="Parcial"
+                            name="parcial"
+                            register={register}
+                        >
+                            <option value="PRIMERO">Parcial 1</option>
+                            <option value="SEGUNDO">Parcial 2</option>
+                        </SelectField>
+                    </div>
 
                     <div>
                         <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">

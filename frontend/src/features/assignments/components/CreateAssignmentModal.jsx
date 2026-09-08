@@ -80,6 +80,26 @@ export const CreateAssignmentModal = ({
                         placeholder="1"
                     />
 
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <SelectField
+                            label="Categoría"
+                            name="category"
+                            register={register}
+                            helpText="Acumulado se pondera; el examen vale su nota directa."
+                        >
+                            <option value="ACUMULADO">Acumulado</option>
+                            <option value="EXAMEN">Examen</option>
+                        </SelectField>
+                        <SelectField
+                            label="Parcial"
+                            name="parcial"
+                            register={register}
+                        >
+                            <option value="PRIMERO">Parcial 1</option>
+                            <option value="SEGUNDO">Parcial 2</option>
+                        </SelectField>
+                    </div>
+
                     <div>
                         <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
                             Fecha límite (opcional)
