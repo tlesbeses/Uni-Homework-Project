@@ -14,9 +14,9 @@ ponderacion_enabled``):
 
         final = Σ_p [ acum_pct_p × avg_acum(p) + exam_pct_p × avg_exam(p) ]
 
-``avg_acum`` reuses the relative weight formula restricted to the
-acumulados of that partial; ``avg_exam`` is the plain average of the exam
-percentages (score/max × 100) because exams are not weighted. The four
+``avg_acum`` and ``avg_exam`` reuse the same relative-weight formula
+(Σ score×weight / Σ max×weight) restricted to the assignments of that
+(bucket, category), so each assignment counts with its ``weight``. The four
 configured percentages of a course add up to 100.
 """
 
@@ -74,26 +74,6 @@ def _weighted_average_percentage(assignments, scores):
     return (score_weight_sum / max_weight_sum) * Decimal("100")
 
 
-def _average_exam_percentage(assignments, scores):
-    """Average of (score/max × 100) over the exams of a bucket.
-
-    Exams are not weighted: each one contributes its raw percentage and
-    the bucket average is what the partial percentage multiplies.
-    """
-    percentages = []
-    for assignment in assignments:
-        score = scores.get(assignment.id)
-        if score is None and not UNGRADED_COUNTS_AS_ZERO:
-            continue
-        if assignment.max_score <= 0:
-            continue
-        percentages.append((score or Decimal("0")) / assignment.max_score * Decimal("100"))
-
-    if not percentages:
-        return None
-    return sum(percentages) / len(percentages)
-
-
 def _ponderacion_percentages(settings):
     """Map each (category, parcial) bucket to its configured percentage."""
     return {
@@ -129,7 +109,8 @@ def ponderated_breakdown_for_student(*, course, student):
         }
 
     ``pct`` is the configured percentage and ``average`` the percentage
-    score of the bucket (weighted for acumulados, plain average for exams).
+    score of the bucket (both categories weighted by each assignment's
+    ``weight``, like the plain final grade).
     Returns an empty list when the course has no published assignments.
     """
     settings = _effective_settings(course)
@@ -151,10 +132,7 @@ def ponderated_breakdown_for_student(*, course, student):
         bucket = buckets[(category, parcial)]
         if not bucket:
             continue
-        if category == _ACUMULADO:
-            average = _weighted_average_percentage(bucket, scores)
-        else:
-            average = _average_exam_percentage(bucket, scores)
+        average = _weighted_average_percentage(bucket, scores)
         components.append(
             {
                 "type": category,
@@ -192,10 +170,7 @@ def ponderated_final_grade_for_student(*, course, student):
         bucket = buckets[(category, parcial)]
         if not bucket:
             continue
-        if category == _ACUMULADO:
-            average = _weighted_average_percentage(bucket, scores)
-        else:
-            average = _average_exam_percentage(bucket, scores)
+        average = _weighted_average_percentage(bucket, scores)
         if average is None:
             continue
         contributed = True
