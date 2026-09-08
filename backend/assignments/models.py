@@ -13,6 +13,16 @@ from common.models import TimeStampedModel
 from course.models import Course
 
 
+class AssignmentCategory(models.TextChoices):
+    ACUMULADO = "ACUMULADO", "Acumulado"
+    EXAMEN = "EXAMEN", "Examen"
+
+
+class AssignmentParcial(models.TextChoices):
+    PRIMERO = "PRIMERO", "Parcial 1"
+    SEGUNDO = "SEGUNDO", "Parcial 2"
+
+
 class Assignment(TimeStampedModel):
     course = models.ForeignKey(
         Course,
@@ -58,12 +68,30 @@ class Assignment(TimeStampedModel):
         ),
     )
 
+    category = models.CharField(
+        max_length=10,
+        choices=AssignmentCategory.choices,
+        default=AssignmentCategory.ACUMULADO,
+        help_text=(
+            "Whether the assignment counts as accumulated work or as an exam. "
+            "Exams are not weighted: their percentage is taken as-is."
+        ),
+    )
+
+    parcial = models.CharField(
+        max_length=10,
+        choices=AssignmentParcial.choices,
+        default=AssignmentParcial.PRIMERO,
+        help_text="Which partial (term) the assignment belongs to.",
+    )
+
     class Meta:
         ordering = ["-created_at"]
 
         indexes = [
             models.Index(fields=["course", "is_published"]),
             models.Index(fields=["course", "due_date"]),
+            models.Index(fields=["course", "category", "parcial"]),
         ]
 
         constraints = [
@@ -74,6 +102,14 @@ class Assignment(TimeStampedModel):
             models.CheckConstraint(
                 condition=Q(weight__gt=0),
                 name="assignments_assignment_weight_gt_0",
+            ),
+            models.CheckConstraint(
+                condition=Q(category__in=AssignmentCategory.values),
+                name="assignments_assignment_valid_category",
+            ),
+            models.CheckConstraint(
+                condition=Q(parcial__in=AssignmentParcial.values),
+                name="assignments_assignment_valid_parcial",
             ),
         ]
 

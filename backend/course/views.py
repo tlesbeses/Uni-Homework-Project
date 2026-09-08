@@ -1,4 +1,5 @@
 from django.db.models import Count, Exists, OuterRef, Q
+from decimal import Decimal
 from django.http import HttpResponse
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -52,7 +53,10 @@ from grading.exports import (
     build_section_snapshot_csv,
     build_section_snapshot_workbook,
 )
-from grading.final import final_grade_for_student
+from grading.final import (
+    final_grade_for_student,
+    ponderated_breakdown_for_student,
+)
 from grading.models import Grade
 from .filters import EnrollmentFilter, SectionFilter
 from .progress import course_progress
@@ -62,6 +66,14 @@ from .permissions import (
     IsTeacher,
     is_teacher,
 )
+
+
+def _json_safe(value):
+    """Serialize Decimals so the JSONField event metadata can store them."""
+    if isinstance(value, Decimal):
+        return str(value)
+    return value
+
 
 class CourseViewSet(viewsets.ModelViewSet):
     serializer_class = CourseSerializer
@@ -308,7 +320,18 @@ class CourseViewSet(viewsets.ModelViewSet):
         course_settings, _ = CourseSettings.objects.get_or_create(course=course)
 
         if request.method == "PATCH":
-            auto_accept_before = course_settings.auto_accept_students
+            tracked_settings = (
+                "auto_accept_students",
+                "ponderacion_enabled",
+                "p1_acumulado_pct",
+                "p1_examen_pct",
+                "p2_acumulado_pct",
+                "p2_examen_pct",
+            )
+            before = {
+                field: _json_safe(getattr(course_settings, field))
+                for field in tracked_settings
+            }
             serializer = CourseSettingsSerializer(
                 course_settings,
                 data=request.data,
@@ -316,6 +339,11 @@ class CourseViewSet(viewsets.ModelViewSet):
             )
             serializer.is_valid(raise_exception=True)
             saved = serializer.save()
+            changes = {}
+            for field in tracked_settings:
+                value = _json_safe(getattr(saved, field))
+                if before[field] != value:
+                    changes[field] = {"from": before[field], "to": value}
             log_event(
                 actor=request.user,
                 action=EventLog.ACTION_UPDATE,
@@ -323,10 +351,7 @@ class CourseViewSet(viewsets.ModelViewSet):
                 entity_id=course_settings.course_id,
                 metadata={
                     "course_id": course.id,
-                    "auto_accept_students": {
-                        "from": auto_accept_before,
-                        "to": saved.auto_accept_students,
-                    },
+                    "changes": changes,
                 },
             )
         else:
@@ -438,7 +463,9 @@ class DashboardView(APIView):
         course_ids = {e.section.course_id for e in enrollments}
         courses = {
             course.id: course
-            for course in Course.objects.filter(id__in=course_ids)
+            for course in Course.objects.filter(
+                id__in=course_ids
+            ).select_related("settings")
         }
         final_scores = {
             str(course_id): (
@@ -450,6 +477,14 @@ class DashboardView(APIView):
                 student=user,
             )]
         }
+        final_breakdowns = {}
+        for course_id, course in courses.items():
+            settings = getattr(course, "settings", None)
+            if settings is not None and settings.ponderacion_enabled:
+                final_breakdowns[str(course_id)] = ponderated_breakdown_for_student(
+                    course=course,
+                    student=user,
+                )
 
         return Response({
             "type": "student",
@@ -457,6 +492,7 @@ class DashboardView(APIView):
             "grades": DashboardGradeSerializer(grades, many=True).data,
             "assignments": DashboardAssignmentSerializer(assignments, many=True).data,
             "final_scores": final_scores,
+            "final_breakdowns": final_breakdowns,
         })
 
 
@@ -589,11 +625,18 @@ class SectionViewSet(viewsets.ModelViewSet):
                 if score is not None:
                     grades_map[str(assignment.id)] = score
                     total += score
+            final_score = final_grade_for_student(
+                course=section.course,
+                student=student,
+            )
             students.append({
                 "id": student.id,
                 "name": name,
                 "grades": grades_map,
                 "total": round(total, 2),
+                "final": (
+                    round(float(final_score), 2) if final_score is not None else None
+                ),
             })
 
         return Response({
@@ -656,6 +699,10 @@ class SectionSnapshotViewSet(viewsets.ReadOnlyModelViewSet):
         assignments, enrollments, scores_by_pair = _snapshot_grades_data(
             snapshot.payload
         )
+        final_by_student = {
+            entry["student_id"]: entry["score"]
+            for entry in snapshot.payload.get("final_grades", [])
+        }
 
         students = []
         for enrollment in enrollments:
@@ -668,6 +715,7 @@ class SectionSnapshotViewSet(viewsets.ReadOnlyModelViewSet):
                 if score is not None:
                     grades_map[str(assignment["id"])] = round(score, 2)
                     total += score
+            final_score = final_by_student.get(enrollment["student_id"])
             students.append(
                 {
                     "id": enrollment["student_id"],
@@ -677,6 +725,9 @@ class SectionSnapshotViewSet(viewsets.ReadOnlyModelViewSet):
                     ),
                     "grades": grades_map,
                     "total": round(total, 2),
+                    "final": (
+                        round(float(final_score), 2) if final_score is not None else None
+                    ),
                 }
             )
 

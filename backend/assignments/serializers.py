@@ -37,6 +37,8 @@ class AssignmentSerializer(serializers.ModelSerializer):
             "description",
             "max_score",
             "weight",
+            "category",
+            "parcial",
             "due_date",
             "is_published",
             "created_at",
