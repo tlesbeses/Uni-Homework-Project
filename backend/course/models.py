@@ -351,6 +351,8 @@ class CourseSettings(TimeStampedModel):
         ]
         if any(pct is not None and pct < 0 for pct in percentages):
             raise ValidationError("Percentages cannot be negative.")
+        if any(pct is not None and pct > 100 for pct in percentages):
+            raise ValidationError("Percentages cannot exceed 100.")
         if sum(pct or Decimal("0") for pct in percentages) != Decimal("100.00"):
             raise ValidationError(
                 {
@@ -359,6 +361,23 @@ class CourseSettings(TimeStampedModel):
                     )
                 }
             )
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(p1_acumulado_pct__gte=0)
+                    & models.Q(p1_acumulado_pct__lte=100)
+                    & models.Q(p1_examen_pct__gte=0)
+                    & models.Q(p1_examen_pct__lte=100)
+                    & models.Q(p2_acumulado_pct__gte=0)
+                    & models.Q(p2_acumulado_pct__lte=100)
+                    & models.Q(p2_examen_pct__gte=0)
+                    & models.Q(p2_examen_pct__lte=100)
+                ),
+                name="course_coursesettings_pcts_within_0_100",
+            ),
+        ]
 
     def __str__(self):
         return f"Settings for {self.course}"

@@ -55,6 +55,8 @@ class CourseSettingsSerializer(serializers.ModelSerializer):
         ]
         if any(pct is not None and pct < 0 for pct in percentages):
             raise serializers.ValidationError("Percentages cannot be negative.")
+        if any(pct is not None and pct > Decimal("100.00") for pct in percentages):
+            raise serializers.ValidationError("Percentages cannot exceed 100.")
         total = sum(pct or Decimal("0") for pct in percentages)
         if total != Decimal("100.00"):
             raise serializers.ValidationError(

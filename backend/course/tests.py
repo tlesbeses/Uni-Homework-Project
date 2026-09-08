@@ -705,6 +705,15 @@ class CourseSettingsTests(BaseCourseTestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_percentage_above_100_rejected(self):
+        self.client.force_authenticate(self.teacher)
+        response = self.client.patch(
+            f"/api/courses/{self.course.id}/course_settings/",
+            {"p1_acumulado_pct": "105.00"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
 
 class SuperuserIsolationTests(BaseCourseTestCase):
     """The root user (is_superuser) has no special powers in the regular views.
