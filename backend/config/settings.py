@@ -232,7 +232,14 @@ if DEBUG:
 
 # The in-memory throttle cache persists across test cases (user pks repeat
 # on every fresh test database), which makes large suites flaky with 429s.
-if "test" in sys.argv:
+# El flag DISABLE_THROTTLE=1 permite medir la capacidad real del API sin que
+# los rate limits la dominen (p. ej. test de carga con Locust). En producción
+# va apagado por defecto.
+if "test" in sys.argv or os.getenv("DISABLE_THROTTLE", "0").lower() in (
+    "1",
+    "true",
+    "yes",
+):
     REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"] = []
     DISABLE_THROTTLE = True
 

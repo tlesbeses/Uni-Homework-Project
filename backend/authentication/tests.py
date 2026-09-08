@@ -493,6 +493,34 @@ class RefreshCsrfSyncTests(APITestCase):
             RefreshToken(old_token).verify()
 
 
+class LoginThrottleToggleTests(APITestCase):
+    def test_login_throttle_disabled_when_disable_throttle_flag_on(self):
+        """Con DISABLE_THROTTLE (test/load) el login no devuelve 429."""
+        for _ in range(12):
+            response = self.client.post(
+                "/auth/login/",
+                {"username": "nobody", "password": "bad"},
+            )
+        self.assertNotEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+    @override_settings(DISABLE_THROTTLE=False)
+    def test_login_throttle_applies_when_not_disabled(self):
+        """Sin el flag, el LoginThrottle (5/min) corta con 429."""
+        last_status = None
+        for _ in range(12):
+            response = self.client.post(
+                "/auth/login/",
+                {"username": "nobody", "password": "bad"},
+            )
+            last_status = response.status_code
+            if last_status == status.HTTP_429_TOO_MANY_REQUESTS:
+                break
+        self.assertEqual(
+            last_status,
+            status.HTTP_429_TOO_MANY_REQUESTS,
+        )
+
+
 class ClientErrorReportTests(APITestCase):
     def setUp(self):
         teacher_group = Group.objects.get_or_create(name="Teacher")[0]
