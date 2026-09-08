@@ -443,6 +443,9 @@ export const GradesReportPage = () => {
                                         <th className="px-4 py-3 text-center font-semibold text-gray-700">
                                             Total
                                         </th>
+                                        <th className="px-4 py-3 text-center font-semibold text-gray-700 whitespace-nowrap">
+                                            Nota final
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -466,6 +469,12 @@ export const GradesReportPage = () => {
                                             ))}
                                             <td className="px-4 py-3 text-center font-bold text-gray-800">
                                                 {student.total}
+                                            </td>
+                                            <td className="px-4 py-3 text-center font-semibold text-indigo-700 whitespace-nowrap">
+                                                {student.final !== undefined &&
+                                                student.final !== null
+                                                    ? `${student.final}%`
+                                                    : "—"}
                                             </td>
                                         </tr>
                                     ))}
