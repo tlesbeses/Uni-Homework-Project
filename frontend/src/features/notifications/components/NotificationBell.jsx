@@ -127,7 +127,7 @@ export function NotificationBell() {
             </button>
 
             {open && (
-                <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] origin-top-right rounded-xl bg-white shadow-xl ring-1 ring-black/10 overflow-hidden z-50 animate-pop">
+                <div className="fixed inset-x-3 bottom-3 rounded-2xl bg-white shadow-xl ring-1 ring-black/10 overflow-hidden z-50 animate-pop origin-bottom sm:origin-top-right sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80 sm:max-w-[calc(100vw-2rem)] sm:rounded-xl">
                     <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-gray-100">
                         <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
                             Notificaciones
@@ -146,7 +146,7 @@ export function NotificationBell() {
                         )}
                     </div>
 
-                    <div className="max-h-80 overflow-y-auto p-1.5">
+                    <div className="max-h-[min(70vh-5rem,20rem)] overflow-y-auto p-1.5 sm:max-h-80">
                         {loading && items.length === 0 ? (
                             <p className="px-3 py-6 text-center text-sm text-gray-400">
                                 Cargando...
