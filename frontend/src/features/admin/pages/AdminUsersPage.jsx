@@ -285,14 +285,14 @@ export const AdminUsersPage = () => {
                                                 Sin acciones
                                             </p>
                                         ) : (
-                                            <div className="flex flex-wrap items-center justify-end gap-2">
+                                            <div className="flex items-center justify-end gap-2">
                                                 <button
                                                     type="button"
                                                     onClick={() =>
                                                         handleToggleActive(u)
                                                     }
                                                     disabled={busy}
-                                                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition whitespace-nowrap disabled:opacity-50 ${
+                                                    className={`inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 ${
                                                         u.is_active
                                                             ? "text-red-600 border-red-200 hover:bg-red-50"
                                                             : "text-emerald-600 border-emerald-200 hover:bg-emerald-50"
