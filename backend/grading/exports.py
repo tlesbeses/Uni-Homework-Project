@@ -23,7 +23,7 @@ from openpyxl.utils import get_column_letter
 
 from assignments.models import Assignment
 from course.models import Enrollment, Status
-from grading.final import final_grade_for_student
+from grading.final import final_grade_for_student, ponderated_parcial_scores_for_student
 from grading.models import Grade
 
 HEADER_ROW = 4
@@ -111,8 +111,31 @@ def build_section_grades_workbook(*, section) -> bytes:
     for column_index, header in enumerate(headers, start=1):
         sheet.cell(row=HEADER_ROW, column=column_index, value=header).font = bold
 
+    settings = getattr(section.course, "settings", None)
+    ponderacion_enabled = (
+        settings is not None and settings.ponderacion_enabled
+    )
+
     total_column = len(assignments) + 2
-    final_column = total_column + 1
+    if ponderacion_enabled:
+        parcial1_column = total_column + 1
+        parcial2_column = total_column + 2
+        final_column = parcial2_column + 1
+    else:
+        final_column = total_column + 1
+
+    headers = [
+        "Estudiante",
+        *[_sanitize(a.title) for a in assignments],
+        "Total",
+    ]
+    if ponderacion_enabled:
+        headers.extend(["Parcial 1", "Parcial 2"])
+    headers.append("Nota final")
+
+    for column_index, header in enumerate(headers, start=1):
+        sheet.cell(row=HEADER_ROW, column=column_index, value=header).font = bold
+
     for offset, enrollment in enumerate(enrollments, start=1):
         row = HEADER_ROW + offset
         sheet.cell(row=row, column=1, value=_student_label(enrollment))
@@ -124,10 +147,29 @@ def build_section_grades_workbook(*, section) -> bytes:
             sheet.cell(row=row, column=assignment_offset, value=round(score, 2))
             total += score
         sheet.cell(row=row, column=total_column, value=round(total, 2))
+
         final_score = final_grade_for_student(
             course=section.course,
             student=enrollment.student,
         )
+
+        if ponderacion_enabled:
+            parcial_scores = ponderated_parcial_scores_for_student(
+                course=section.course,
+                student=enrollment.student,
+            )
+            for parcial_column, parcial_key in [
+                (parcial1_column, "PRIMERO"),
+                (parcial2_column, "SEGUNDO"),
+            ]:
+                value = parcial_scores.get(parcial_key)
+                if value is not None:
+                    sheet.cell(
+                        row=row,
+                        column=parcial_column,
+                        value=round(float(value), 2),
+                    )
+
         if final_score is not None:
             sheet.cell(row=row, column=final_column, value=round(float(final_score), 2))
 
@@ -155,9 +197,17 @@ def build_section_grades_csv(*, section) -> bytes:
     writer.writerow(["Curso:", _sanitize(section.course.title)])
     writer.writerow(["Grupo:", _sanitize(section.name)])
     writer.writerow([])
-    writer.writerow(
-        ["Estudiante", *[_sanitize(a.title) for a in assignments], "Total", "Nota final"]
+    settings = getattr(section.course, "settings", None)
+    ponderacion_enabled = (
+        settings is not None and settings.ponderacion_enabled
     )
+
+    header_row = ["Estudiante", *[_sanitize(a.title) for a in assignments], "Total"]
+    if ponderacion_enabled:
+        header_row.extend(["Parcial 1", "Parcial 2"])
+    header_row.append("Nota final")
+
+    writer.writerow(header_row)
 
     for enrollment in enrollments:
         row = [_student_label(enrollment)]
@@ -168,10 +218,21 @@ def build_section_grades_csv(*, section) -> bytes:
             if score is not None:
                 total += score
         row.append(round(total, 2))
+
         final_score = final_grade_for_student(
             course=section.course,
             student=enrollment.student,
         )
+
+        if ponderacion_enabled:
+            parcial_scores = ponderated_parcial_scores_for_student(
+                course=section.course,
+                student=enrollment.student,
+            )
+            for parcial_key in ["PRIMERO", "SEGUNDO"]:
+                value = parcial_scores.get(parcial_key)
+                row.append(round(float(value), 2) if value is not None else "")
+
         row.append(round(float(final_score), 2) if final_score is not None else "")
         writer.writerow(row)
 

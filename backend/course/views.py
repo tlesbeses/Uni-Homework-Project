@@ -56,6 +56,7 @@ from grading.exports import (
 from grading.final import (
     final_grade_for_student,
     ponderated_breakdown_for_student,
+    ponderated_parcial_scores_for_student,
 )
 from grading.models import Grade
 from .filters import EnrollmentFilter, SectionFilter
@@ -478,6 +479,7 @@ class DashboardView(APIView):
             )]
         }
         final_breakdowns = {}
+        parcial_scores = {}
         for course_id, course in courses.items():
             settings = getattr(course, "settings", None)
             if settings is not None and settings.ponderacion_enabled:
@@ -485,6 +487,15 @@ class DashboardView(APIView):
                     course=course,
                     student=user,
                 )
+                parcial_scores[str(course_id)] = {
+                    key: (
+                        str(value) if value is not None else None
+                    )
+                    for key, value in ponderated_parcial_scores_for_student(
+                        course=course,
+                        student=user,
+                    ).items()
+                }
 
         return Response({
             "type": "student",
@@ -493,6 +504,7 @@ class DashboardView(APIView):
             "assignments": DashboardAssignmentSerializer(assignments, many=True).data,
             "final_scores": final_scores,
             "final_breakdowns": final_breakdowns,
+            "parcial_scores": parcial_scores,
         })
 
 
@@ -614,6 +626,11 @@ class SectionViewSet(viewsets.ModelViewSet):
                     float(grade.score), 2
                 )
 
+        settings = getattr(section.course, "settings", None)
+        ponderacion_enabled = (
+            settings is not None and settings.ponderacion_enabled
+        )
+
         students = []
         for enrollment in enrollments:
             student = enrollment.student
@@ -637,6 +654,14 @@ class SectionViewSet(viewsets.ModelViewSet):
                 "final": (
                     round(float(final_score), 2) if final_score is not None else None
                 ),
+                "parcial_scores": (
+                    ponderated_parcial_scores_for_student(
+                        course=section.course,
+                        student=student,
+                    )
+                    if ponderacion_enabled
+                    else None
+                ),
             })
 
         return Response({
@@ -650,6 +675,7 @@ class SectionViewSet(viewsets.ModelViewSet):
                 }
                 for a in assignments
             ],
+            "ponderacion_enabled": ponderacion_enabled,
             "students": students,
         })
 

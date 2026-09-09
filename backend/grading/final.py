@@ -18,6 +18,12 @@ ponderacion_enabled``):
 (Σ score×weight / Σ max×weight) restricted to the assignments of that
 (bucket, category), so each assignment counts with its ``weight``. The four
 configured percentages of a course add up to 100.
+
+Each partial can also be reported on its own, always out of 100: its
+categories with published assignments share the 100 proportionally to their
+configured percentages (see ``ponderated_parcial_scores_for_student``), so a
+course only populated in partial 1 still shows that partial as a 0..100
+grade while the combined final grade is capped by the available buckets.
 """
 
 from decimal import Decimal
@@ -179,6 +185,53 @@ def ponderated_final_grade_for_student(*, course, student):
     if not contributed:
         return None
     return total.quantize(_ROUNDING)
+
+
+def ponderated_parcial_scores_for_student(*, course, student):
+    """Return the ponderated grade of each partial, always out of 100.
+
+    Each partial rescales its own categories (acumulados/exámenes) that
+    have published assignments, so the partial reads as a plain 0..100:
+
+        parcial(P) = Σ (pct_cat × avg_cat) / Σ pct_cat
+
+    A category without published assignments is excluded from both the
+    numerator and the denominator (the partial shares its 100 only between
+    the categories that exist). A published-but-ungraded assignment still
+    counts as zero (see ``UNGRADED_COUNTS_AS_ZERO``). Returns None for both
+    partials when the course has no settings or ponderación is disabled,
+    and for partials without any published assignment.
+    """
+    settings = _effective_settings(course)
+    if settings is None or not settings.ponderacion_enabled:
+        return {_PRIMERO: None, _SEGUNDO: None}
+    percentages = _ponderacion_percentages(settings)
+    buckets = {key: [] for key in percentages}
+    for assignment in _published_assignments(course=course):
+        key = (assignment.category, assignment.parcial)
+        if key in buckets:
+            buckets[key].append(assignment)
+
+    scores = _scores_by_assignment(course=course, student=student)
+    result = {}
+    for parcial in (_PRIMERO, _SEGUNDO):
+        weighted_sum = Decimal("0")
+        weight_sum = Decimal("0")
+        for category in (_ACUMULADO, _EXAMEN):
+            bucket = buckets[(category, parcial)]
+            if not bucket:
+                continue
+            pct = percentages[(category, parcial)]
+            average = _weighted_average_percentage(bucket, scores)
+            if average is None:
+                continue
+            weight_sum += pct
+            weighted_sum += average * pct
+        if weight_sum <= 0:
+            result[parcial] = None
+        else:
+            result[parcial] = (weighted_sum / weight_sum).quantize(_ROUNDING)
+    return result
 
 
 def _weighted_final_grade(*, course, student):

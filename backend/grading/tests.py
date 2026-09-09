@@ -24,6 +24,7 @@ from course.models import Course, CourseSettings, Enrollment, Section, Status
 from grading.final import (
     final_grade_for_student,
     ponderated_breakdown_for_student,
+    ponderated_parcial_scores_for_student,
 )
 from grading.models import FinalScoreSnapshot, Grade
 from teams.models import Team, TeamMember
@@ -761,6 +762,80 @@ class SectionGradesExportTests(GradingAPITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_workbook_has_parcial_columns_when_ponderacion_enabled(self):
+        self.assignment.delete()
+        settings, _ = CourseSettings.objects.get_or_create(course=self.course)
+        settings.ponderacion_enabled = True
+        settings.p1_acumulado_pct = Decimal("35.00")
+        settings.p1_examen_pct = Decimal("35.00")
+        settings.p2_acumulado_pct = Decimal("15.00")
+        settings.p2_examen_pct = Decimal("15.00")
+        settings.save()
+
+        Assignment.objects.create(
+            course=self.course,
+            title="P1 Acum",
+            max_score="100.00",
+            is_published=True,
+            category="ACUMULADO",
+            parcial="PRIMERO",
+        )
+        Assignment.objects.create(
+            course=self.course,
+            title="P1 Exam",
+            max_score="100.00",
+            is_published=True,
+            category="EXAMEN",
+            parcial="PRIMERO",
+        )
+
+        self.authenticate(self.teacher)
+        response = self.client.get(self.export_url())
+
+        workbook = load_workbook(BytesIO(response.content))
+        sheet = workbook.active
+        self.assertEqual(
+            [cell.value for cell in sheet[4]],
+            [
+                "Estudiante",
+                "P1 Acum",
+                "P1 Exam",
+                "Total",
+                "Parcial 1",
+                "Parcial 2",
+                "Nota final",
+            ],
+        )
+
+    def test_csv_has_parcial_columns_when_ponderacion_enabled(self):
+        self.assignment.delete()
+        settings, _ = CourseSettings.objects.get_or_create(course=self.course)
+        settings.ponderacion_enabled = True
+        settings.p1_acumulado_pct = Decimal("35.00")
+        settings.p1_examen_pct = Decimal("35.00")
+        settings.p2_acumulado_pct = Decimal("15.00")
+        settings.p2_examen_pct = Decimal("15.00")
+        settings.save()
+
+        Assignment.objects.create(
+            course=self.course,
+            title="P1 Acum",
+            max_score="100.00",
+            is_published=True,
+            category="ACUMULADO",
+            parcial="PRIMERO",
+        )
+
+        self.authenticate(self.teacher)
+        response = self.client.get(self.export_csv_url())
+
+        text = response.content.decode("utf-8-sig")
+        rows = list(csv.reader(StringIO(text)))
+        self.assertEqual(
+            rows[3],
+            ["Estudiante", "P1 Acum", "Total", "Parcial 1", "Parcial 2", "Nota final"],
+        )
+
 class WeightedFinalGradeTests(GradingAPITestCase):
     """final_grade_for_student computes the weighted average of a course."""
 
@@ -958,6 +1033,130 @@ class PonderatedGradeTests(GradingAPITestCase):
             course=self.course, student=self.student
         )
         self.assertEqual(components, [])
+
+
+class PonderatedParcialScoresTests(GradingAPITestCase):
+    """ponderated_parcial_scores_for_student reports each partial out of 100."""
+
+    def _configure(self, p1_acum="35.00", p1_exam="35.00", p2_acum="15.00", p2_exam="15.00"):
+        settings, _ = CourseSettings.objects.get_or_create(course=self.course)
+        settings.ponderacion_enabled = True
+        settings.p1_acumulado_pct = Decimal(p1_acum)
+        settings.p1_examen_pct = Decimal(p1_exam)
+        settings.p2_acumulado_pct = Decimal(p2_acum)
+        settings.p2_examen_pct = Decimal(p2_exam)
+        settings.save()
+        return settings
+
+    def _assignment(self, *, category, parcial, score=None, weight="1.00", max_score="100.00"):
+        assignment = Assignment.objects.create(
+            course=self.course,
+            title=f"{category} {parcial}",
+            max_score=max_score,
+            weight=weight,
+            is_published=True,
+            category=category,
+            parcial=parcial,
+        )
+        if score is not None:
+            self.grade_student(assignment, self.student, score, self.teacher)
+        return assignment
+
+    def test_perfect_partial_one_rounds_to_100(self):
+        self.assignment.delete()
+        self._configure()
+        self._assignment(category="ACUMULADO", parcial="PRIMERO", score="10.00", max_score="10.00")
+        self._assignment(category="EXAMEN", parcial="PRIMERO", score="10.00", max_score="10.00")
+        scores = ponderated_parcial_scores_for_student(
+            course=self.course, student=self.student
+        )
+        # (35·100 + 35·100) / (35+35) = 100
+        self.assertEqual(scores["PRIMERO"], Decimal("100.00"))
+        self.assertIsNone(scores["SEGUNDO"])
+
+    def test_partial_one_mixes_acum_and_exam(self):
+        self.assignment.delete()
+        self._configure()
+        self._assignment(category="ACUMULADO", parcial="PRIMERO", score="50.00")
+        self._assignment(category="EXAMEN", parcial="PRIMERO", score="100.00")
+        scores = ponderated_parcial_scores_for_student(
+            course=self.course, student=self.student
+        )
+        # (35·50 + 35·100) / 70 = 75
+        self.assertEqual(scores["PRIMERO"], Decimal("75.00"))
+
+    def test_published_ungraded_counts_as_zero(self):
+        self.assignment.delete()
+        self._configure()
+        self._assignment(category="ACUMULADO", parcial="PRIMERO", score="90.00")
+        self._assignment(category="EXAMEN", parcial="PRIMERO")  # published, ungraded
+        scores = ponderated_parcial_scores_for_student(
+            course=self.course, student=self.student
+        )
+        # (35·90 + 35·0) / 70 = 45
+        self.assertEqual(scores["PRIMERO"], Decimal("45.00"))
+
+    def test_category_without_published_assignments_is_excluded(self):
+        self.assignment.delete()
+        self._configure()
+        self._assignment(category="ACUMULADO", parcial="PRIMERO", score="100.00")
+        scores = ponderated_parcial_scores_for_student(
+            course=self.course, student=self.student
+        )
+        # Only ACUMULADO exists, so the partial shares 100 between itself: 100
+        self.assertEqual(scores["PRIMERO"], Decimal("100.00"))
+
+    def test_incomplete_categories_rescale_to_100(self):
+        self.assignment.delete()
+        self._configure()
+        self._assignment(category="EXAMEN", parcial="PRIMERO", score="75.00")
+        scores = ponderated_parcial_scores_for_student(
+            course=self.course, student=self.student
+        )
+        # Only EXÁMEN exists: it owns the whole partial, so 75 stays 75.
+        self.assertEqual(scores["PRIMERO"], Decimal("75.00"))
+
+    def test_rounding_third_goes_to_two_decimals(self):
+        self.assignment.delete()
+        self._configure()
+        self._assignment(category="ACUMULADO", parcial="PRIMERO", score="100.00")
+        self._assignment(category="EXAMEN", parcial="PRIMERO", score="0.00")
+        scores = ponderated_parcial_scores_for_student(
+            course=self.course, student=self.student
+        )
+        # (35·100 + 35·0) / 70 = 50
+        self.assertEqual(scores["PRIMERO"], Decimal("50.00"))
+
+    def test_partial_two_uses_own_buckets(self):
+        self.assignment.delete()
+        self._configure()
+        self._assignment(category="ACUMULADO", parcial="PRIMERO", score="50.00")
+        self._assignment(category="EXAMEN", parcial="SEGUNDO", score="80.00")
+        scores = ponderated_parcial_scores_for_student(
+            course=self.course, student=self.student
+        )
+        self.assertEqual(scores["PRIMERO"], Decimal("50.00"))
+        # Only EXAMEN in P2: it owns the whole partial -> 80
+        self.assertEqual(scores["SEGUNDO"], Decimal("80.00"))
+
+    def test_no_published_assignments_yields_none(self):
+        self.assignment.delete()
+        self._configure()
+        scores = ponderated_parcial_scores_for_student(
+            course=self.course, student=self.student
+        )
+        self.assertIsNone(scores["PRIMERO"])
+        self.assertIsNone(scores["SEGUNDO"])
+
+    def test_disabled_ponderacion_yields_none(self):
+        self.assignment.delete()
+        CourseSettings.objects.get_or_create(course=self.course)[0]  # enabled=False
+        self._assignment(category="ACUMULADO", parcial="PRIMERO", score="80.00")
+        scores = ponderated_parcial_scores_for_student(
+            course=self.course, student=self.student
+        )
+        self.assertIsNone(scores["PRIMERO"])
+        self.assertIsNone(scores["SEGUNDO"])
 
 
 class SuperuserIsolationTests(GradingAPITestCase):

@@ -1258,7 +1258,7 @@ class DashboardFinalScoreTests(BaseCourseTestCase):
             {str(self.course.id): "80.00"},
         )
 
-def test_dashboard_assignment_payload_includes_weight(self):
+    def test_dashboard_assignment_payload_includes_weight(self):
         self.client.force_authenticate(self.student)
         response = self.client.get("/api/dashboard/")
         assignment = next(
@@ -1267,6 +1267,37 @@ def test_dashboard_assignment_payload_includes_weight(self):
         )
         self.assertIn("weight", assignment)
         self.assertEqual(assignment["weight"], "1.00")
+
+    def test_dashboard_exposes_parcial_scores_when_ponderacion_enabled(self):
+        settings, _ = CourseSettings.objects.get_or_create(course=self.course)
+        settings.ponderacion_enabled = True
+        settings.p1_acumulado_pct = Decimal("35.00")
+        settings.p1_examen_pct = Decimal("35.00")
+        settings.p2_acumulado_pct = Decimal("15.00")
+        settings.p2_examen_pct = Decimal("15.00")
+        settings.save()
+
+        self.assignment.category = "ACUMULADO"
+        self.assignment.parcial = "PRIMERO"
+        self.assignment.save()
+
+        self.client.force_authenticate(self.student)
+        response = self.client.get("/api/dashboard/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response.data["parcial_scores"],
+            {
+                str(self.course.id): {
+                    "PRIMERO": "80.00",
+                    "SEGUNDO": None,
+                }
+            },
+        )
+
+    def test_dashboard_omits_parcial_scores_without_ponderacion(self):
+        self.client.force_authenticate(self.student)
+        response = self.client.get("/api/dashboard/")
+        self.assertEqual(response.data["parcial_scores"], {})
 
 
 class EnrollmentServiceTests(BaseCourseTestCase):
