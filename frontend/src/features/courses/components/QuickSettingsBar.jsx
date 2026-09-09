@@ -73,6 +73,27 @@ export const QuickSettingsBar = ({
   const [open, setOpen] = useState(false);
   const [pcts, setPcts] = useState({ ...EMPTY_PCTS });
   const lastValidRef = useRef({ ...EMPTY_PCTS });
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
+    const handlePointerDown = (event) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target)
+      ) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("touchstart", handlePointerDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("touchstart", handlePointerDown);
+    };
+  }, [open]);
 
   useEffect(() => {
     setPonderacionEnabled(Boolean(course.settings?.ponderacion_enabled));
@@ -162,6 +183,7 @@ export const QuickSettingsBar = ({
 
   return (
     <div
+      ref={containerRef}
       onBlur={handleCardBlur}
       className="bg-white rounded-xl shadow-sm border border-gray-100 divide-y divide-gray-100"
     >

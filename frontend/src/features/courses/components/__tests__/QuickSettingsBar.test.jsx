@@ -102,8 +102,7 @@ describe("QuickSettingsBar — ponderación", () => {
             screen.queryAllByDisplayValue("25.00")
         ).toHaveLength(4);
 
-        const [first] = screen.getAllByDisplayValue("25.00");
-        fireEvent.blur(first, { relatedTarget: document.body });
+        fireEvent.mouseDown(document.body);
         expect(
             screen.queryAllByDisplayValue("25.00")
         ).toHaveLength(0);
