@@ -46,6 +46,9 @@ function Probe() {
             <button data-testid="logout" onClick={auth.logout}>
                 logout
             </button>
+            <button data-testid="stop" onClick={auth.stopImpersonation}>
+                stop
+            </button>
         </div>
     );
 }
@@ -175,5 +178,38 @@ describe("AuthProvider", () => {
             expect(screen.getByTestId("user")).toHaveTextContent("root")
         );
         expect(tokenStorage.getAccessToken()).toBe("token-admin");
+        expect(window.location.assign).toHaveBeenCalledWith("/dashboard");
+    });
+
+    it("termina la impersonación manualmente y redirige al dashboard admin", async () => {
+        authService.ensureCsrfToken.mockResolvedValue();
+        refreshSession.mockResolvedValue("access-token");
+        authService.getUserProfile.mockResolvedValue({
+            username: "pepe",
+            roles: ["Student"],
+            is_superuser: false,
+        });
+        tokenStorage.setAccessToken("token-probandose");
+
+        impersonation.start({
+            adminAccessToken: "token-admin",
+            adminProfile: { username: "root", roles: [], is_superuser: true },
+            impersonatedUserId: 7,
+            impersonatedUser: { id: 7 },
+        });
+
+        renderAuth();
+        await waitFor(() =>
+            expect(screen.getByTestId("user")).toHaveTextContent("pepe")
+        );
+
+        const user = userEvent.setup();
+        await user.click(screen.getByTestId("stop"));
+
+        await waitFor(() =>
+            expect(screen.getByTestId("user")).toHaveTextContent("root")
+        );
+        expect(tokenStorage.getAccessToken()).toBe("token-admin");
+        expect(window.location.assign).toHaveBeenCalledWith("/dashboard");
     });
 });

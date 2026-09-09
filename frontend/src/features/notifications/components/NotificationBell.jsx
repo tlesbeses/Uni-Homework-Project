@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUnreadCount } from "@/features/notifications/hooks/useUnreadCount";
 import {
@@ -51,13 +51,26 @@ const BELL_ICON = (
   </svg>
 );
 
-export function NotificationBell() {
+export function NotificationBell({ open: openProp, onOpenChange }) {
     const navigate = useNavigate();
     const { data: unreadCount = 0 } = useUnreadCount();
-    const [open, setOpen] = useState(false);
+    const [internalOpen, setInternalOpen] = useState(false);
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(false);
     const bellRef = useRef(null);
+
+    const open = openProp !== undefined ? openProp : internalOpen;
+
+    const setOpen = useCallback(
+        (next) => {
+            if (onOpenChange) {
+                onOpenChange(Boolean(next));
+            } else {
+                setInternalOpen(next);
+            }
+        },
+        [onOpenChange]
+    );
 
     const markRead = useMarkNotificationRead();
     const markAll = useMarkAllNotificationsRead();
@@ -93,7 +106,7 @@ export function NotificationBell() {
         };
         document.addEventListener("mousedown", handleClick);
         return () => document.removeEventListener("mousedown", handleClick);
-    }, [open]);
+    }, [open, setOpen]);
 
     const handleOpenNotification = (notification) => {
         if (!notification.is_read) {
@@ -108,7 +121,7 @@ export function NotificationBell() {
         <div className="relative" ref={bellRef}>
             <button
                 onClick={() => {
-                    setOpen((value) => !value);
+                    setOpen(!open);
                 }}
                 className={`relative text-indigo-200 hover:text-white hover:bg-white/10 p-2 rounded-lg transition ${
                     open ? "bg-white/10 text-white" : ""
@@ -127,7 +140,7 @@ export function NotificationBell() {
             </button>
 
             {open && (
-                <div className="fixed inset-x-3 bottom-3 rounded-2xl bg-white shadow-xl ring-1 ring-black/10 overflow-hidden z-50 animate-pop origin-bottom sm:origin-top-right sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80 sm:max-w-[calc(100vw-2rem)] sm:rounded-xl">
+                <div className="fixed inset-x-3 top-20 z-50 rounded-2xl bg-white shadow-xl ring-1 ring-black/10 overflow-hidden animate-pop origin-top sm:origin-top-right sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80 sm:max-w-[calc(100vw-2rem)] sm:rounded-xl">
                     <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-gray-100">
                         <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
                             Notificaciones

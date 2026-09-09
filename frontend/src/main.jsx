@@ -10,11 +10,20 @@ import { ToastContainer } from 'react-toastify';
 import "react-toastify/dist/ReactToastify.css";
 import { ThrottleManager } from "@/shared/components/ThrottleManager";
 import { ErrorBoundary } from "@/shared/components/ErrorBoundary";
-import { installGlobalErrorListeners } from "@/shared/utils/reportError";
+import {
+    installGlobalErrorListeners,
+    reportErrorFromEvent,
+} from "@/shared/utils/reportError";
 
 installGlobalErrorListeners();
 
-createRoot(document.getElementById('root')).render(
+createRoot(document.getElementById('root'), {
+    // Errores que ningún boundary pudo capturar (p. ej. el propio errorElement
+    // de una ruta): que no queden sin registrar.
+    onUncaughtError: (error) => {
+        reportErrorFromEvent(error);
+    },
+}).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>

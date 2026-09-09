@@ -61,6 +61,7 @@ export function Navbar() {
   const { logout, isTeacher, isAdmin, isAdminPanelEnabled } = useAuth();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isBellOpen, setIsBellOpen] = useState(false);
   const headerRef = useRef(null);
 
   const visibleNavItems = useMemo(
@@ -85,6 +86,7 @@ export function Navbar() {
     const closeMenus = () => {
       setIsSettingsOpen(false);
       setIsMobileMenuOpen(false);
+      setIsBellOpen(false);
     };
     window.addEventListener("scroll", closeMenus, { passive: true });
     return () => window.removeEventListener("scroll", closeMenus);
@@ -94,6 +96,7 @@ export function Navbar() {
     if (!headerRef.current?.contains(event.relatedTarget)) {
       setIsSettingsOpen(false);
       setIsMobileMenuOpen(false);
+      setIsBellOpen(false);
     }
   };
 
@@ -130,10 +133,20 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center space-x-4">
-          <NotificationBell />
+          <NotificationBell
+            open={isBellOpen}
+            onOpenChange={(value) => {
+              setIsBellOpen(value);
+              if (value) {
+                setIsSettingsOpen(false);
+                setIsMobileMenuOpen(false);
+              }
+            }}
+          />
           <div className="relative">
             <button
               onClick={() => {
+                setIsBellOpen(false);
                 setIsSettingsOpen(!isSettingsOpen);
                 setIsMobileMenuOpen(false);
               }}
@@ -267,6 +280,7 @@ export function Navbar() {
 
           <button
             onClick={() => {
+              setIsBellOpen(false);
               setIsMobileMenuOpen(!isMobileMenuOpen);
               setIsSettingsOpen(false);
             }}

@@ -6,6 +6,7 @@ Builds an ``.xlsx`` workbook or a UTF-8 ``.csv`` in memory with this layout:
     Grupo:  <section name>
     ----------------------------------------------
     Estudiante | Assignment 1 | Assignment 2 | Total | Nota final
+               | Acum. P1     | Exam. P2
     ...        | ...          | ...          | ...   | ...
 
 Only published assignments and approved enrollments are included; missing
@@ -45,6 +46,14 @@ def _student_label(enrollment) -> str:
     return _sanitize(
         f"{student.first_name or student.username} {student.last_name or ''}".strip()
     )
+
+
+def _assignment_partial_label(category, parcial) -> str:
+    """Badge shown in the report under each assignment title (e.g. 'Acum. P1')."""
+    label = "Exam." if category == "EXAMEN" else "Acum."
+    if parcial:
+        label = f"{label} {'P2' if parcial == 'SEGUNDO' else 'P1'}"
+    return label
 
 
 def _section_grades_data(*, section):
@@ -102,15 +111,6 @@ def build_section_grades_workbook(*, section) -> bytes:
     sheet["A1"].font = bold
     sheet["A2"].font = bold
 
-    headers = [
-        "Estudiante",
-        *[_sanitize(a.title) for a in assignments],
-        "Total",
-        "Nota final",
-    ]
-    for column_index, header in enumerate(headers, start=1):
-        sheet.cell(row=HEADER_ROW, column=column_index, value=header).font = bold
-
     settings = getattr(section.course, "settings", None)
     ponderacion_enabled = (
         settings is not None and settings.ponderacion_enabled
@@ -136,8 +136,15 @@ def build_section_grades_workbook(*, section) -> bytes:
     for column_index, header in enumerate(headers, start=1):
         sheet.cell(row=HEADER_ROW, column=column_index, value=header).font = bold
 
+    for assignment_offset, assignment in enumerate(assignments, start=2):
+        sheet.cell(
+            row=HEADER_ROW + 1,
+            column=assignment_offset,
+            value=_assignment_partial_label(assignment.category, assignment.parcial),
+        )
+
     for offset, enrollment in enumerate(enrollments, start=1):
-        row = HEADER_ROW + offset
+        row = HEADER_ROW + 1 + offset
         sheet.cell(row=row, column=1, value=_student_label(enrollment))
         total = 0.0
         for assignment_offset, assignment in enumerate(assignments, start=2):
@@ -202,12 +209,29 @@ def build_section_grades_csv(*, section) -> bytes:
         settings is not None and settings.ponderacion_enabled
     )
 
-    header_row = ["Estudiante", *[_sanitize(a.title) for a in assignments], "Total"]
+    header_row = [
+        "Estudiante",
+        *[_sanitize(a.title) for a in assignments],
+        "Total",
+    ]
     if ponderacion_enabled:
         header_row.extend(["Parcial 1", "Parcial 2"])
     header_row.append("Nota final")
 
     writer.writerow(header_row)
+
+    badge_row = [
+        "",
+        *[
+            _assignment_partial_label(a.category, a.parcial)
+            for a in assignments
+        ],
+        "",
+    ]
+    if ponderacion_enabled:
+        badge_row.extend(["", ""])
+    badge_row.append("")
+    writer.writerow(badge_row)
 
     for enrollment in enrollments:
         row = [_student_label(enrollment)]
@@ -302,10 +326,19 @@ def build_section_snapshot_workbook(payload) -> bytes:
     for column_index, header in enumerate(headers, start=1):
         sheet.cell(row=HEADER_ROW, column=column_index, value=header).font = bold
 
+    for assignment_offset, assignment in enumerate(assignments, start=2):
+        sheet.cell(
+            row=HEADER_ROW + 1,
+            column=assignment_offset,
+            value=_assignment_partial_label(
+                assignment.get("category"), assignment.get("parcial")
+            ),
+        )
+
     total_column = len(assignments) + 2
     final_column = total_column + 1
     for offset, enrollment in enumerate(enrollments, start=1):
-        row = HEADER_ROW + offset
+        row = HEADER_ROW + 1 + offset
         sheet.cell(row=row, column=1, value=_snapshot_student_label(enrollment))
         total = 0.0
         for assignment_offset, assignment in enumerate(assignments, start=2):
@@ -344,7 +377,25 @@ def build_section_snapshot_csv(payload) -> bytes:
     writer.writerow(["Grupo:", _sanitize(payload["section"]["name"])])
     writer.writerow([])
     writer.writerow(
-        ["Estudiante", *[_sanitize(a["title"]) for a in assignments], "Total", "Nota final"]
+        [
+            "Estudiante",
+            *[_sanitize(a["title"]) for a in assignments],
+            "Total",
+            "Nota final",
+        ]
+    )
+    writer.writerow(
+        [
+            "",
+            *[
+                _assignment_partial_label(
+                    a.get("category"), a.get("parcial")
+                )
+                for a in assignments
+            ],
+            "",
+            "",
+        ]
     )
 
     for enrollment in enrollments:

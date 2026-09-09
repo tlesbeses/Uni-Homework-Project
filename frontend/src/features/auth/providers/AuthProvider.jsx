@@ -127,11 +127,15 @@ export function AuthProvider({ children }) {
         invalidateCache();
         setUser(adminProfile);
         setImpersonatedUser(null);
+        // Si se termina la vista estando en una ruta con guard (p. ej.
+        // blockSuperuser), el perfil admin restaurado redirigiría a /403.
+        // Llevar al dashboard del admin de forma explícita y, al recargar,
+        // limpiar cualquier caché/estado residual de la sesión de prueba.
+        window.location.assign("/dashboard");
     }, []);
 
     const stopImpersonation = useCallback(() => {
         restoreAdminSession();
-        toast.info("Impersonación terminada. Volviste a tu cuenta.");
     }, [restoreAdminSession]);
 
     // Si el access token impersonado caduca, el interceptor refresca con la
@@ -140,9 +144,6 @@ export function AuthProvider({ children }) {
     useEffect(() => {
         impersonation.setLostHandler(() => {
             restoreAdminSession();
-            toast.warn(
-                "La sesión de prueba expiró. Volviste a tu cuenta de administrador."
-            );
         });
         return () => impersonation.setLostHandler(null);
     }, [restoreAdminSession]);

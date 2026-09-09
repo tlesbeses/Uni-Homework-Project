@@ -660,7 +660,11 @@ class SectionGradesExportTests(GradingAPITestCase):
             [cell.value for cell in sheet[4]],
             ["Estudiante", "Homework 1", "Total", "Nota final"],
         )
-        rows = {row[0].value: row for row in sheet.iter_rows(min_row=5)}
+        self.assertEqual(
+            [cell.value for cell in sheet[5]],
+            [None, "Acum. P1", None, None],
+        )
+        rows = {row[0].value: row for row in sheet.iter_rows(min_row=6)}
         student_row = rows[self.student.username]
         student2_row = rows[self.student2.username]
         self.assertEqual(student_row[1].value, 95.0)
@@ -677,7 +681,7 @@ class SectionGradesExportTests(GradingAPITestCase):
 
         workbook = load_workbook(BytesIO(response.content))
         sheet = workbook.active
-        rows = {row[0].value: row for row in sheet.iter_rows(min_row=5)}
+        rows = {row[0].value: row for row in sheet.iter_rows(min_row=6)}
         ungraded_row = rows[self.ungraded_student.username]
         self.assertIsNone(ungraded_row[1].value)
         self.assertEqual(ungraded_row[2].value, 0)
@@ -715,7 +719,8 @@ class SectionGradesExportTests(GradingAPITestCase):
         self.assertEqual(rows[0], ["Curso:", "Math 101"])
         self.assertEqual(rows[1], ["Grupo:", "Default"])
         self.assertEqual(rows[3], ["Estudiante", "Homework 1", "Total", "Nota final"])
-        by_student = {row[0]: row for row in rows[4:]}
+        self.assertEqual(rows[4], ["", "Acum. P1", "", ""])
+        by_student = {row[0]: row for row in rows[5:]}
         self.assertEqual(by_student[self.student.username][1], "95.0")
         self.assertEqual(by_student[self.student.username][2], "95.0")
         self.assertEqual(by_student[self.ungraded_student.username][1], "20.0")
@@ -730,7 +735,7 @@ class SectionGradesExportTests(GradingAPITestCase):
 
         text = response.content.decode("utf-8-sig")
         rows = list(csv.reader(StringIO(text)))
-        by_student = {row[0]: row for row in rows[4:]}
+        by_student = {row[0]: row for row in rows[5:]}
         ungraded_row = by_student[self.ungraded_student.username]
         self.assertEqual(ungraded_row[1], "")
         self.assertEqual(ungraded_row[2], "0.0")
@@ -806,6 +811,10 @@ class SectionGradesExportTests(GradingAPITestCase):
                 "Nota final",
             ],
         )
+        self.assertEqual(
+            [cell.value for cell in sheet[5]],
+            [None, "Acum. P1", "Exam. P1", None, None, None, None],
+        )
 
     def test_csv_has_parcial_columns_when_ponderacion_enabled(self):
         self.assignment.delete()
@@ -833,8 +842,16 @@ class SectionGradesExportTests(GradingAPITestCase):
         rows = list(csv.reader(StringIO(text)))
         self.assertEqual(
             rows[3],
-            ["Estudiante", "P1 Acum", "Total", "Parcial 1", "Parcial 2", "Nota final"],
+            [
+                "Estudiante",
+                "P1 Acum",
+                "Total",
+                "Parcial 1",
+                "Parcial 2",
+                "Nota final",
+            ],
         )
+        self.assertEqual(rows[4], ["", "Acum. P1", "", "", "", ""])
 
 class WeightedFinalGradeTests(GradingAPITestCase):
     """final_grade_for_student computes the average over available points."""
