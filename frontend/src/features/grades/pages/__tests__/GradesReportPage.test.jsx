@@ -197,4 +197,45 @@ describe("GradesReportPage", () => {
             "Notas exportadas a CSV."
         );
     });
+
+    it("muestra columnas y notas por parcial cuando hay ponderación", async () => {
+        gradeServiceMock.getSectionGradesReport.mockResolvedValue({
+            ...report,
+            ponderacion_enabled: true,
+            students: [
+                {
+                    id: 7,
+                    name: "Ana López",
+                    grades: { "10": 75 },
+                    total: 75,
+                    final: 52.5,
+                    parcial_scores: {
+                        PRIMERO: "75.00",
+                        SEGUNDO: null,
+                    },
+                },
+            ],
+        });
+
+        renderPage();
+        await waitForReport();
+
+        expect(screen.getByText("Parcial 1")).toBeInTheDocument();
+        expect(screen.getByText("Parcial 2")).toBeInTheDocument();
+        expect(screen.getByText("75.00%")).toBeInTheDocument();
+        expect(screen.getByText("Nota final")).toBeInTheDocument();
+    });
+
+    it("oculta las columnas por parcial sin ponderación", async () => {
+        gradeServiceMock.getSectionGradesReport.mockResolvedValue({
+            ...report,
+            ponderacion_enabled: false,
+        });
+
+        renderPage();
+        await waitForReport();
+
+        expect(screen.queryByText("Parcial 1")).not.toBeInTheDocument();
+        expect(screen.queryByText("Parcial 2")).not.toBeInTheDocument();
+    });
 });

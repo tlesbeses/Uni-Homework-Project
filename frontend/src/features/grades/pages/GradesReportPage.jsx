@@ -21,6 +21,9 @@ import { SearchInput } from "@/shared/components/SearchInput";
 import { Button } from "@/shared/components/ui/Button";
 import { SelectField } from "@/shared/components/ui/SelectField";
 
+const formatParcialCell = (value) =>
+    value !== undefined && value !== null ? `${value}%` : "—";
+
 function EditableGradeCell({
     score,
     maxScore,
@@ -443,6 +446,16 @@ export const GradesReportPage = () => {
                                         <th className="px-4 py-3 text-center font-semibold text-gray-700">
                                             Total
                                         </th>
+                                        {report.ponderacion_enabled && (
+                                            <>
+                                                <th className="px-4 py-3 text-center font-semibold text-gray-700 whitespace-nowrap">
+                                                    Parcial 1
+                                                </th>
+                                                <th className="px-4 py-3 text-center font-semibold text-gray-700 whitespace-nowrap">
+                                                    Parcial 2
+                                                </th>
+                                            </>
+                                        )}
                                         <th className="px-4 py-3 text-center font-semibold text-gray-700 whitespace-nowrap">
                                             Nota final
                                         </th>
@@ -470,6 +483,24 @@ export const GradesReportPage = () => {
                                             <td className="px-4 py-3 text-center font-bold text-gray-800">
                                                 {student.total}
                                             </td>
+                                            {report.ponderacion_enabled && (
+                                                <>
+                                                    <td className="px-4 py-3 text-center font-semibold text-gray-800 whitespace-nowrap">
+                                                        {formatParcialCell(
+                                                            student
+                                                                .parcial_scores
+                                                                ?.PRIMERO
+                                                        )}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-center font-semibold text-gray-800 whitespace-nowrap">
+                                                        {formatParcialCell(
+                                                            student
+                                                                .parcial_scores
+                                                                ?.SEGUNDO
+                                                        )}
+                                                    </td>
+                                                </>
+                                            )}
                                             <td className="px-4 py-3 text-center font-semibold text-indigo-700 whitespace-nowrap">
                                                 {student.final !== undefined &&
                                                 student.final !== null

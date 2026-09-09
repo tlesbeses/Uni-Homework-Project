@@ -30,6 +30,17 @@ const formatBreakdown = (components) =>
         )
         .join(" + ");
 
+const PARCIAL_LABELS = { PRIMERO: "Parcial 1", SEGUNDO: "Parcial 2" };
+
+const formatParcialScores = (scores) =>
+    Object.entries(scores ?? {})
+        .map(([key, value]) => [
+            PARCIAL_LABELS[key] ?? key,
+            value === null ? "—" : `${value}%`,
+        ])
+        .map(([label, value]) => `${label}: ${value}`)
+        .join(" · ");
+
 const GradeRow = ({ grade }) => (
     <li className="py-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -74,6 +85,7 @@ export const StudentCourseGrades = () => {
     const { stats: dashboard } = useDashboard();
     const finalScores = dashboard?.final_scores ?? {};
     const finalBreakdowns = dashboard?.final_breakdowns ?? {};
+    const parcialScores = dashboard?.parcial_scores ?? {};
     const [expandedKey, setExpandedKey] = useState(null);
     const [evolutionId, setEvolutionId] = useState(null);
 
@@ -195,6 +207,17 @@ export const StudentCourseGrades = () => {
                                             %
                                         </span>
                                     )}
+                                {parcialScores[
+                                    `${group.course.id}`
+                                ] && (
+                                    <span className="block text-[11px] font-semibold text-indigo-600 mt-0.5">
+                                        {formatParcialScores(
+                                            parcialScores[
+                                                `${group.course.id}`
+                                            ]
+                                        )}
+                                    </span>
+                                )}
                                 {finalBreakdowns[`${group.course.id}`]
                                     ?.length > 0 && (
                                         <span className="block text-[10px] text-gray-400 mt-0.5 leading-snug">
