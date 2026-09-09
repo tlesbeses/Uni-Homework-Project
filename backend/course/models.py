@@ -305,8 +305,8 @@ class CourseSettings(TimeStampedModel):
         default=False,
         help_text=(
             "Use the per-partial grading scheme (acumulados and exams with "
-            "the configured percentages) instead of the plain weighted "
-            "average of every published assignment."
+            "the configured percentages) instead of the plain average "
+            "of every published assignment."
         ),
     )
 

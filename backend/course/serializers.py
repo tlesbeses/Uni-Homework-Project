@@ -347,7 +347,6 @@ class DashboardAssignmentSerializer(serializers.ModelSerializer):
             "id",
             "title",
             "max_score",
-            "weight",
             "category",
             "parcial",
             "course_id",

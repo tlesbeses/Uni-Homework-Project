@@ -1,8 +1,8 @@
 """Final-grade computation.
 
-Default (weighted average):
+Default (average over available points):
 
-        final = Σ(score × weight) / Σ(max × weight) × 100
+        final = Σ(score) / Σ(max) × 100
 
 Every published assignment counts, whether or not it has been graded yet.
 Ungraded assignments count as zero unless ``UNGRADED_COUNTS_AS_ZERO`` is
@@ -14,9 +14,8 @@ ponderacion_enabled``):
 
         final = Σ_p [ acum_pct_p × avg_acum(p) + exam_pct_p × avg_exam(p) ]
 
-``avg_acum`` and ``avg_exam`` reuse the same relative-weight formula
-(Σ score×weight / Σ max×weight) restricted to the assignments of that
-(bucket, category), so each assignment counts with its ``weight``. The four
+``avg_acum`` and ``avg_exam`` reuse the same formula (Σ score / Σ max)
+restricted to the assignments of that (bucket, category). The four
 configured percentages of a course add up to 100.
 
 Each partial can also be reported on its own, always out of 100: its
@@ -49,7 +48,7 @@ def _published_assignments(*, course):
             course=course,
             is_published=True,
         )
-        .only("id", "max_score", "weight", "category", "parcial")
+        .only("id", "max_score", "category", "parcial")
         .order_by("due_date", "id")
     )
 
@@ -63,21 +62,20 @@ def _scores_by_assignment(*, course, student):
     )
 
 
-def _weighted_average_percentage(assignments, scores):
-    """Σ(score×weight)/Σ(max×weight)×100 over ``assignments``."""
-    score_weight_sum = Decimal("0")
-    max_weight_sum = Decimal("0")
+def _average_percentage(assignments, scores):
+    """Σ(score)/Σ(max)×100 over ``assignments``."""
+    score_sum = Decimal("0")
+    max_sum = Decimal("0")
     for assignment in assignments:
-        weight = assignment.weight or Decimal("1.00")
         score = scores.get(assignment.id)
         if score is None and not UNGRADED_COUNTS_AS_ZERO:
             continue
-        max_weight_sum += assignment.max_score * weight
-        score_weight_sum += (score or Decimal("0")) * weight
+        max_sum += assignment.max_score
+        score_sum += score or Decimal("0")
 
-    if max_weight_sum <= 0:
+    if max_sum <= 0:
         return None
-    return (score_weight_sum / max_weight_sum) * Decimal("100")
+    return (score_sum / max_sum) * Decimal("100")
 
 
 def _ponderacion_percentages(settings):
@@ -115,8 +113,7 @@ def ponderated_breakdown_for_student(*, course, student):
         }
 
     ``pct`` is the configured percentage and ``average`` the percentage
-    score of the bucket (both categories weighted by each assignment's
-    ``weight``, like the plain final grade).
+    score of the bucket (like the plain final grade).
     Returns an empty list when the course has no published assignments.
     """
     settings = _effective_settings(course)
@@ -138,7 +135,7 @@ def ponderated_breakdown_for_student(*, course, student):
         bucket = buckets[(category, parcial)]
         if not bucket:
             continue
-        average = _weighted_average_percentage(bucket, scores)
+        average = _average_percentage(bucket, scores)
         components.append(
             {
                 "type": category,
@@ -176,7 +173,7 @@ def ponderated_final_grade_for_student(*, course, student):
         bucket = buckets[(category, parcial)]
         if not bucket:
             continue
-        average = _weighted_average_percentage(bucket, scores)
+        average = _average_percentage(bucket, scores)
         if average is None:
             continue
         contributed = True
@@ -215,27 +212,29 @@ def ponderated_parcial_scores_for_student(*, course, student):
     scores = _scores_by_assignment(course=course, student=student)
     result = {}
     for parcial in (_PRIMERO, _SEGUNDO):
-        weighted_sum = Decimal("0")
-        weight_sum = Decimal("0")
+        pct_numerator = Decimal("0")
+        pct_denominator = Decimal("0")
         for category in (_ACUMULADO, _EXAMEN):
             bucket = buckets[(category, parcial)]
             if not bucket:
                 continue
             pct = percentages[(category, parcial)]
-            average = _weighted_average_percentage(bucket, scores)
+            average = _average_percentage(bucket, scores)
             if average is None:
                 continue
-            weight_sum += pct
-            weighted_sum += average * pct
-        if weight_sum <= 0:
+            pct_denominator += pct
+            pct_numerator += average * pct
+        if pct_denominator <= 0:
             result[parcial] = None
         else:
-            result[parcial] = (weighted_sum / weight_sum).quantize(_ROUNDING)
+            result[parcial] = (pct_numerator / pct_denominator).quantize(
+                _ROUNDING
+            )
     return result
 
 
-def _weighted_final_grade(*, course, student):
-    """Return the plain weighted final grade (0..100) of ``student``.
+def _plain_final_grade(*, course, student):
+    """Return the plain final average (0..100) of ``student``.
 
     Returns ``None`` when the course has no published assignments.
     """
@@ -244,7 +243,7 @@ def _weighted_final_grade(*, course, student):
         return None
 
     scores = _scores_by_assignment(course=course, student=student)
-    average = _weighted_average_percentage(assignments, scores)
+    average = _average_percentage(assignments, scores)
     if average is None:
         return None
     return average.quantize(_ROUNDING)
@@ -254,10 +253,10 @@ def final_grade_for_student(*, course, student):
     """Return the final grade (0..100) of ``student`` in ``course``.
 
     Uses the ponderated scheme when the course has it enabled, otherwise the
-    plain weighted average. Returns ``None`` when there is nothing graded
-    (no published assignments).
+    plain average over available points. Returns ``None`` when there is
+    nothing graded (no published assignments).
     """
     settings = _effective_settings(course)
     if settings is not None and settings.ponderacion_enabled:
         return ponderated_final_grade_for_student(course=course, student=student)
-    return _weighted_final_grade(course=course, student=student)
+    return _plain_final_grade(course=course, student=student)

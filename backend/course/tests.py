@@ -904,17 +904,6 @@ class ArchiveCourseTests(BaseCourseTestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 
-def test_dashboard_assignment_payload_includes_weight(self):
-        self.client.force_authenticate(self.student)
-        response = self.client.get("/api/dashboard/")
-        assignment = next(
-            a for a in response.data["assignments"]
-            if a["id"] == self.assignment.id
-        )
-        self.assertIn("weight", assignment)
-        self.assertEqual(assignment["weight"], "1.00")
-
-
 class CourseForeignOwnershipTests(BaseCourseTestCase):
     """A teacher cannot manage a course they do not own."""
 
@@ -1236,7 +1225,7 @@ class SectionSnapshotTests(BaseCourseTestCase):
 
 
 class DashboardFinalScoreTests(BaseCourseTestCase):
-    """The student dashboard exposes the weighted final score per course."""
+    """The student dashboard exposes the final score per course."""
 
     def setUp(self):
         super().setUp()
@@ -1258,7 +1247,7 @@ class DashboardFinalScoreTests(BaseCourseTestCase):
             graded_by=self.teacher,
         )
 
-    def test_dashboard_includes_weighted_final_score_per_course(self):
+    def test_dashboard_includes_final_score_per_course(self):
         self.client.force_authenticate(self.student)
         response = self.client.get("/api/dashboard/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -1267,15 +1256,14 @@ class DashboardFinalScoreTests(BaseCourseTestCase):
             {str(self.course.id): "80.00"},
         )
 
-    def test_dashboard_assignment_payload_includes_weight(self):
+    def test_dashboard_assignment_payload_excludes_weight(self):
         self.client.force_authenticate(self.student)
         response = self.client.get("/api/dashboard/")
         assignment = next(
             a for a in response.data["assignments"]
             if a["id"] == self.assignment.id
         )
-        self.assertIn("weight", assignment)
-        self.assertEqual(assignment["weight"], "1.00")
+        self.assertNotIn("weight", assignment)
 
     def test_dashboard_exposes_parcial_scores_when_ponderacion_enabled(self):
         settings, _ = CourseSettings.objects.get_or_create(course=self.course)

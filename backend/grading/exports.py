@@ -10,8 +10,8 @@ Builds an ``.xlsx`` workbook or a UTF-8 ``.csv`` in memory with this layout:
 
 Only published assignments and approved enrollments are included; missing
 grades render as empty cells and ``Total`` sums the existing ones. ``Nota
-final`` is the computed final grade (weighted average, or the configured
-ponderación scheme when the course has it enabled).
+final`` is the computed final grade (average over available points, or the
+configured ponderación scheme when the course has it enabled).
 """
 
 import csv

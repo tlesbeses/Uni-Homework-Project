@@ -837,7 +837,7 @@ class SectionGradesExportTests(GradingAPITestCase):
         )
 
 class WeightedFinalGradeTests(GradingAPITestCase):
-    """final_grade_for_student computes the weighted average of a course."""
+    """final_grade_for_student computes the average over available points."""
 
     def test_single_assignment_maps_to_percentage(self):
         self.grade_student(self.assignment, self.student, "80.00", self.teacher)
@@ -846,16 +846,29 @@ class WeightedFinalGradeTests(GradingAPITestCase):
         )
         self.assertEqual(final, Decimal("80.00"))
 
-    def test_weighted_average_across_assignments(self):
+    def test_average_across_assignments(self):
         second = Assignment.objects.create(
             course=self.course,
             title="Exam",
             max_score="100.00",
-            weight="2.00",
             is_published=True,
         )
         self.grade_student(self.assignment, self.student, "100.00", self.teacher)
         self.grade_student(second, self.student, "50.00", self.teacher)
+        final = final_grade_for_student(
+            course=self.course, student=self.student
+        )
+        self.assertEqual(final, Decimal("75.00"))
+
+    def test_larger_max_counts_more(self):
+        second = Assignment.objects.create(
+            course=self.course,
+            title="Big work",
+            max_score="200.00",
+            is_published=True,
+        )
+        self.grade_student(self.assignment, self.student, "100.00", self.teacher)
+        self.grade_student(second, self.student, "100.00", self.teacher)
         final = final_grade_for_student(
             course=self.course, student=self.student
         )
@@ -916,12 +929,11 @@ class PonderatedGradeTests(GradingAPITestCase):
         settings.save()
         return settings
 
-    def _assignment(self, *, category, parcial, score, weight="1.00", max_score="100.00"):
+    def _assignment(self, *, category, parcial, score, max_score="100.00"):
         assignment = Assignment.objects.create(
             course=self.course,
             title=f"{category} {parcial}",
             max_score=max_score,
-            weight=weight,
             is_published=True,
             category=category,
             parcial=parcial,
@@ -929,12 +941,12 @@ class PonderatedGradeTests(GradingAPITestCase):
         self.grade_student(assignment, self.student, score, self.teacher)
         return assignment
 
-    def test_disabled_uses_plain_weighted_average(self):
+    def test_disabled_uses_plain_average(self):
         self.grade_student(self.assignment, self.student, "80.00", self.teacher)
         final = final_grade_for_student(course=self.course, student=self.student)
         self.assertEqual(final, Decimal("80.00"))
 
-    def test_weighted_avg_across_parcial_buckets(self):
+    def test_avg_across_parcial_buckets(self):
         self.assignment.delete()
         self._configure(p1_acum="30.00", p1_exam="20.00", p2_acum="30.00", p2_exam="20.00")
         self._assignment(category="ACUMULADO", parcial="PRIMERO", score="80.00")
@@ -944,30 +956,30 @@ class PonderatedGradeTests(GradingAPITestCase):
         final = final_grade_for_student(course=self.course, student=self.student)
         self.assertEqual(final, Decimal("79.00"))
 
-    def test_multiple_exams_are_weighted_like_acumulados(self):
+    def test_multiple_exams_average_in_bucket(self):
         self.assignment.delete()
         self._configure(p1_acum="10.00", p1_exam="40.00", p2_acum="30.00", p2_exam="20.00")
-        self._assignment(category="EXAMEN", parcial="PRIMERO", score="80.00", weight="1.00")
-        self._assignment(category="EXAMEN", parcial="PRIMERO", score="90.00", weight="3.00")
+        self._assignment(category="EXAMEN", parcial="PRIMERO", score="80.00")
+        self._assignment(category="EXAMEN", parcial="PRIMERO", score="90.00")
         self._assignment(category="ACUMULADO", parcial="PRIMERO", score="100.00")
         self._assignment(category="ACUMULADO", parcial="SEGUNDO", score="100.00")
         self._assignment(category="EXAMEN", parcial="SEGUNDO", score="50.00")
-        # Exam bucket: Σ(score×w)/Σ(max×w) = (80·1 + 90·3)/(100·1 + 100·3) = 87.5%.
-        # final = 87.5·0.40 + 100·0.10 + 100·0.30 + 50·0.20
+        # Exam bucket: Σscore/Σmax = (80 + 90)/(100 + 100) = 85%.
+        # final = 85·0.40 + 100·0.10 + 100·0.30 + 50·0.20
         final = final_grade_for_student(course=self.course, student=self.student)
-        self.assertEqual(final, Decimal("85.00"))
+        self.assertEqual(final, Decimal("84.00"))
 
-    def test_exam_bucket_uses_weighted_average_with_different_max(self):
+    def test_exam_bucket_averages_by_max_score(self):
         self.assignment.delete()
         self._configure(p1_acum="30.00", p1_exam="40.00", p2_acum="30.00", p2_exam="0.00")
-        self._assignment(category="EXAMEN", parcial="PRIMERO", score="80.00", weight="1.00", max_score="100.00")
-        self._assignment(category="EXAMEN", parcial="PRIMERO", score="90.00", weight="3.00", max_score="200.00")
+        self._assignment(category="EXAMEN", parcial="PRIMERO", score="80.00", max_score="100.00")
+        self._assignment(category="EXAMEN", parcial="PRIMERO", score="90.00", max_score="200.00")
         self._assignment(category="ACUMULADO", parcial="PRIMERO", score="100.00")
         self._assignment(category="ACUMULADO", parcial="SEGUNDO", score="100.00")
-        # Σ(score×w)/Σ(max×w) = (80·1 + 90·3)/(100·1 + 200·3) = 50%.
-        # final = 50·0.40 + 100·0.30 + 100·0.30
+        # Σscore/Σmax = (80 + 90)/(100 + 200) = 56.67%.
+        # final = 56.67·0.40 + 100·0.30 + 100·0.30
         final = final_grade_for_student(course=self.course, student=self.student)
-        self.assertEqual(final, Decimal("80.00"))
+        self.assertEqual(final, Decimal("82.67"))
 
     def test_ungraded_exam_counts_as_zero_in_bucket(self):
         self.assignment.delete()
@@ -1048,12 +1060,11 @@ class PonderatedParcialScoresTests(GradingAPITestCase):
         settings.save()
         return settings
 
-    def _assignment(self, *, category, parcial, score=None, weight="1.00", max_score="100.00"):
+    def _assignment(self, *, category, parcial, score=None, max_score="100.00"):
         assignment = Assignment.objects.create(
             course=self.course,
             title=f"{category} {parcial}",
             max_score=max_score,
-            weight=weight,
             is_published=True,
             category=category,
             parcial=parcial,

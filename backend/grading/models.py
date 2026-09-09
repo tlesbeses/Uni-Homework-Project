@@ -153,7 +153,7 @@ class FinalScoreSnapshot(TimeStampedModel):
 
     One row is written every time the grading service changes a grade, so
     the student's final-grade evolution over time can be plotted. The
-    snapshot stores the *result* of the weighted formula (0..100), never
+    snapshot stores the *result* of the final-grade formula (0..100), never
     the inputs, and is only written when the course has at least one
     published assignment (otherwise the final grade is undefined).
     """

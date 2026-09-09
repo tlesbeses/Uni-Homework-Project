@@ -74,7 +74,7 @@ class AssignmentViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         instance = self.get_object()
-        tracked_fields = ("max_score", "weight", "is_published", "category", "parcial")
+        tracked_fields = ("max_score", "is_published", "category", "parcial")
         before = {field: _json_safe(getattr(instance, field)) for field in tracked_fields}
         assignment = serializer.save()
         changes = {}

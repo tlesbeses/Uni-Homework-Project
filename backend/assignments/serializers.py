@@ -36,7 +36,6 @@ class AssignmentSerializer(serializers.ModelSerializer):
             "title",
             "description",
             "max_score",
-            "weight",
             "category",
             "parcial",
             "due_date",
@@ -66,13 +65,6 @@ class AssignmentSerializer(serializers.ModelSerializer):
         if value <= 0:
             raise serializers.ValidationError(
                 "max_score must be greater than 0."
-            )
-        return value
-
-    def validate_weight(self, value):
-        if value <= 0:
-            raise serializers.ValidationError(
-                "weight must be greater than 0."
             )
         return value
 
