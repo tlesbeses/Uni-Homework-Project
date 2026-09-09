@@ -17,7 +17,6 @@ export const useCreateAssignmentForm = ({ courseId, onSuccess } = {}) => {
             title: "",
             description: "",
             max_score: "",
-            weight: "",
             category: "ACUMULADO",
             parcial: "PRIMERO",
             due_date: "",
@@ -32,7 +31,6 @@ export const useCreateAssignmentForm = ({ courseId, onSuccess } = {}) => {
                 title: data.title,
                 description: data.description ?? "",
                 max_score: data.max_score,
-                weight: data.weight === "" ? undefined : data.weight,
                 category: data.category,
                 parcial: data.parcial,
                 due_date: data.due_date

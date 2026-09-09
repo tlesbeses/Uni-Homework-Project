@@ -46,16 +46,6 @@ export const EditAssignmentModal = ({ assignment, open, onClose, onSaved }) => {
                         placeholder="100"
                     />
 
-                    <InputField
-                        label="Peso en la nota final (opcional, por defecto 1)"
-                        name="weight"
-                        type="number"
-                        step="0.01"
-                        register={register}
-                        error={errors.weight?.message}
-                        placeholder="1"
-                    />
-
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <SelectField
                             label="Categoría"

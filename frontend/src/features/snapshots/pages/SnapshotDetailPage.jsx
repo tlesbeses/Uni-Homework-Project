@@ -279,7 +279,6 @@ export const SnapshotDetailPage = () => {
                         <tr className="text-left text-xs font-semibold uppercase tracking-wider text-gray-400">
                             <th className="px-5 py-3">Título</th>
                             <th className="px-5 py-3">Puntaje máx.</th>
-                            <th className="px-5 py-3">Peso</th>
                             <th className="px-5 py-3">Fecha límite</th>
                             <th className="px-5 py-3">Estado</th>
                         </tr>
@@ -288,7 +287,7 @@ export const SnapshotDetailPage = () => {
                         {assignments.length === 0 && (
                             <tr>
                                 <td
-                                    colSpan={5}
+                                    colSpan={4}
                                     className="px-5 py-8 text-center text-gray-400"
                                 >
                                     Sin tareas al momento del borrado.
@@ -302,9 +301,6 @@ export const SnapshotDetailPage = () => {
                                 </td>
                                 <td className="px-5 py-3 text-gray-600">
                                     {assignment.max_score}
-                                </td>
-                                <td className="px-5 py-3 text-gray-600">
-                                    {assignment.weight}
                                 </td>
                                 <td className="px-5 py-3 text-gray-600 whitespace-nowrap">
                                     {formatDateOnly(assignment.due_date)}
