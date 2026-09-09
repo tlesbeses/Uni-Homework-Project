@@ -49,7 +49,9 @@ vi.mock("@/features/courses/hooks/useCourses", () => ({
 const report = {
     course: "Math 101",
     section: "1TS1",
-    assignments: [{ id: 10, title: "Parcial", max_score: 100 }],
+    assignments: [
+        { id: 10, title: "Parcial", max_score: 100, category: "ACUMULADO", parcial: "PRIMERO" },
+    ],
     students: [{ id: 7, name: "Ana López", grades: { "10": 75 }, total: 75 }],
 };
 
@@ -133,8 +135,40 @@ describe("GradesReportPage", () => {
     });
 
     it("guarda una nota válida y actualiza el total", async () => {
+        gradeServiceMock.getSectionGradesReport
+            .mockResolvedValueOnce({
+                ...report,
+                ponderacion_enabled: true,
+                students: [
+                    {
+                        id: 7,
+                        name: "Ana López",
+                        grades: { "10": 75 },
+                        total: 75,
+                        final: 50,
+                        parcial_scores: { PRIMERO: "75.00", SEGUNDO: null },
+                    },
+                ],
+            })
+            .mockResolvedValueOnce({
+                ...report,
+                ponderacion_enabled: true,
+                students: [
+                    {
+                        id: 7,
+                        name: "Ana López",
+                        grades: { "10": 85 },
+                        total: 85,
+                        final: 56,
+                        parcial_scores: { PRIMERO: "85.00", SEGUNDO: null },
+                    },
+                ],
+            });
+
         renderPage();
-        await waitForReport();
+        await waitFor(() =>
+            expect(screen.getByText("75.00%")).toBeInTheDocument()
+        );
 
         fireEvent.click(screen.getByText("75 /100"));
         const input = screen.getByDisplayValue("75");
@@ -151,7 +185,9 @@ describe("GradesReportPage", () => {
         await waitFor(() =>
             expect(toastMock.success).toHaveBeenCalledWith("Nota guardada.")
         );
-        expect(screen.getByText("85 /100")).toBeInTheDocument();
+        await waitFor(() =>
+            expect(screen.getByText("85 /100")).toBeInTheDocument()
+        );
     });
 
     it("exporta el reporte a Excel con el nombre esperado", async () => {
@@ -201,6 +237,9 @@ describe("GradesReportPage", () => {
     it("muestra columnas y notas por parcial cuando hay ponderación", async () => {
         gradeServiceMock.getSectionGradesReport.mockResolvedValue({
             ...report,
+            assignments: [
+                { id: 10, title: "Parcial", max_score: 100, category: "ACUMULADO", parcial: "PRIMERO" },
+            ],
             ponderacion_enabled: true,
             students: [
                 {
@@ -229,6 +268,9 @@ describe("GradesReportPage", () => {
     it("oculta las columnas por parcial sin ponderación", async () => {
         gradeServiceMock.getSectionGradesReport.mockResolvedValue({
             ...report,
+            assignments: [
+                { id: 10, title: "Parcial", max_score: 100, category: "ACUMULADO", parcial: "PRIMERO" },
+            ],
             ponderacion_enabled: false,
         });
 
@@ -237,5 +279,71 @@ describe("GradesReportPage", () => {
 
         expect(screen.queryByText("Parcial 1")).not.toBeInTheDocument();
         expect(screen.queryByText("Parcial 2")).not.toBeInTheDocument();
+    });
+
+    it("no muestra el botón Imprimir / PDF", async () => {
+        renderPage();
+        await waitForReport();
+
+        expect(screen.queryByText("Imprimir / PDF")).not.toBeInTheDocument();
+        expect(screen.getByText("Descargar CSV")).toBeInTheDocument();
+        expect(screen.getByText("Descargar Excel")).toBeInTheDocument();
+    });
+
+    it("muestra la etiqueta de parcial en el encabezado de cada asignación", async () => {
+        renderPage();
+        await waitForReport();
+
+        expect(screen.getByText("Acum. P1")).toBeInTheDocument();
+    });
+
+    it("actualiza parcial y final al editar una nota tras refetchear el reporte", async () => {
+        gradeServiceMock.getSectionGradesReport
+            .mockResolvedValueOnce({
+                ...report,
+                ponderacion_enabled: true,
+                students: [
+                    {
+                        id: 7,
+                        name: "Ana López",
+                        grades: { "10": 75 },
+                        total: 75,
+                        final: 50,
+                        parcial_scores: { PRIMERO: "75.00", SEGUNDO: null },
+                    },
+                ],
+            })
+            .mockResolvedValueOnce({
+                ...report,
+                ponderacion_enabled: true,
+                students: [
+                    {
+                        id: 7,
+                        name: "Ana López",
+                        grades: { "10": 85 },
+                        total: 85,
+                        final: 56,
+                        parcial_scores: { PRIMERO: "85.00", SEGUNDO: null },
+                    },
+                ],
+            });
+
+        renderPage();
+        await waitFor(() =>
+            expect(screen.getByText("50%")).toBeInTheDocument()
+        );
+
+        fireEvent.click(screen.getByText("75 /100"));
+        const input = screen.getByDisplayValue("75");
+        fireEvent.change(input, { target: { value: "85" } });
+        fireEvent.keyDown(input, { key: "Enter" });
+
+        await waitFor(() =>
+            expect(screen.getByText("85.00%")).toBeInTheDocument()
+        );
+        await waitFor(() =>
+            expect(screen.getByText("56%")).toBeInTheDocument()
+        );
+        expect(gradeServiceMock.getSectionGradesReport).toHaveBeenCalledTimes(2);
     });
 });
