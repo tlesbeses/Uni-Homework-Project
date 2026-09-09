@@ -672,6 +672,8 @@ class SectionViewSet(viewsets.ModelViewSet):
                     "id": a.id,
                     "title": a.title,
                     "max_score": float(a.max_score),
+                    "category": a.category,
+                    "parcial": a.parcial,
                 }
                 for a in assignments
             ],
@@ -765,6 +767,8 @@ class SectionSnapshotViewSet(viewsets.ReadOnlyModelViewSet):
                     "id": assignment["id"],
                     "title": assignment["title"],
                     "max_score": float(assignment["max_score"]),
+                    "category": assignment.get("category"),
+                    "parcial": assignment.get("parcial"),
                 }
                 for assignment in assignments
             ],

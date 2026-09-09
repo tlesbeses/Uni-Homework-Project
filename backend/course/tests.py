@@ -1214,7 +1214,16 @@ class SectionSnapshotTests(BaseCourseTestCase):
         self.assertEqual(report.data["course"], "Math 101")
         self.assertEqual(report.data["section"], "1TS1")
         self.assertEqual(report.data["assignments"][0]["title"], "Homework 1")
+        self.assertEqual(report.data["assignments"][0]["category"], "ACUMULADO")
+        self.assertEqual(report.data["assignments"][0]["parcial"], "PRIMERO")
         self.assertEqual(report.data["students"][0]["total"], 80.0)
+
+    def test_grades_report_assignments_include_category_and_parcial(self):
+        self.client.force_authenticate(self.teacher)
+        report = self.client.get(f"/api/sections/{self.section.id}/grades-report/")
+        self.assertEqual(report.status_code, status.HTTP_200_OK)
+        self.assertEqual(report.data["assignments"][0]["category"], "ACUMULADO")
+        self.assertEqual(report.data["assignments"][0]["parcial"], "PRIMERO")
 
     def test_student_cannot_see_other_snapshots_list(self):
         self.client.force_authenticate(self.teacher)
