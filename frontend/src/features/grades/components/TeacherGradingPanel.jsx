@@ -976,8 +976,7 @@ export const TeacherGradingPanel = () => {
                                 {selectedAssignment.title}
                             </h3>
                             <p className="text-xs text-gray-500 mt-1">
-                                Puntaje máximo: {maxScore} · Peso en la nota
-                                final: {selectedAssignment.weight ?? "1.00"}
+                                Puntaje máximo: {maxScore}
                             </p>
                             <p className="text-sm text-gray-600 mt-2 whitespace-pre-line">
                                 {selectedAssignment.description ||

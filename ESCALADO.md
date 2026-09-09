@@ -123,3 +123,85 @@ un broker (Redis u otro) y un worker corriendo en un proceso distinto.
 
 > Nota: medir antes/después con la sonda de Locust (`backend/loadtest/`) en el
 > propio entorno de Render; los números locales son solo orientativos.
+
+---
+
+## Resumen ejecutivo
+
+- El cuello de la app no es que "se rompa" con carga, sino que **se pone lenta**
+  (0% errores incluso a 100 usuarios). El **login (hash PBKDF2) es el hotspot**:
+  es trabajo de CPU pura y queda serializado por el GIL de cada proceso.
+- **Threads** sirven para absorber esperas de I/O (multiplican la espera);
+  **workers/procesos** aportan paralelismo real (multiplican la potencia). El
+  paralelismo de CPU en Python exige procesos: cada worker tiene su propio GIL
+  y puede usar un núcleo distinto de la máquina.
+- Más `--workers` dentro de UNA instancia y subir de plan (más RAM/vCPU) son
+  **escalado vertical**. Varias instancias detrás del load balancer es
+  **horizontal** (en Render solo en planes pagos).
+- Tu PC tiene 8 núcleos físicos pero la sonda local usó **1 proceso = 1 GIL =
+  1 núcleo**: por eso "se trababa" con potencia sobrando. Los 7 núcleos
+  restantes estuvieron ociosos.
+- **Concurrentes activos ≠ usuarios registrados.** El test "100 usuarios"
+  significa 100 personas martillando sin pausa (worst case). En la realidad,
+  los usuarios leen, piensan y entran en ráfagas.
+
+## Estimación de usuarios por plan (extrapolada de la sonda local)
+
+| Plan | CPU | Techo cómodo (p95 < 300 ms) | Techo degradado (lento pero vivo) |
+|---|---|---|---|
+| Free | 0.1 | ~2-5 | ~8-15 |
+| Starter ($7) | 0.5 | ~8-15 | ~30-50 |
+| Standard ($25) | 1 | ~20-40 | ~80-120 |
+| Pro ($85) | 2 | ~50-100 | ~200+ |
+
+Regla práctica de conversión para una app de curso: **~10× concurrentes ≈
+usuarios registrados activos** (no todos están online a la vez).
+
+## El caso real que lo valida
+
+Con **110-130 usuarios registrados entrando en tandas de ~30**, la app
+funcionó super bien (y no eran 30 personas disparando requests todo el
+tiempo; eran ráfagas de 1-2 requests por persona al entrar + lecturas). Ese
+patrón real equivale a picos de ~5-15 req/s, muy lejos de saturar un worker.
+Con tandas de entrada + lecturas, **Starter (0.5 vCPU + 2 workers) se maneja
+cómodo hasta ~200-300 usuarios registrados**; el roce llegaría con cientos
+haciendo algo a la vez o con carga de escritura intensa.
+
+## Workers recomendados por plan de Render (2026)
+
+Regla: `workers ≈ núcleos del plan`, con RAM suficiente (~150-250 MB por
+worker con Django+DRF).
+
+| Plan | CPU | RAM | Precio | Workers recomendados |
+|---|---|---|---|---|
+| Free | 0.1 | 512 MB | $0 | 1 |
+| Starter | 0.5 | 512 MB | $7/mo | 2 (threads 4) |
+| Standard | 1 | 2 GB | $25/mo | 2-3 (threads 4) |
+| Pro | 2 | 4 GB | $85/mo | 2-4 (threads 4-8) |
+| Pro Plus | 4 | 8 GB | $175/mo | 4-8 |
+
+- Free: CPU ínfimo + duerme a los 15 min + no permite múltiples instancias.
+- Starter/Free: con 0.5 CPU o menos, más workers no multiplican el login
+  (falta CPU que repartir).
+- El salto real para el perfil de esta app (login por hash) está en
+  **Standard→Pro**, donde 1-2 núcleos dedicados aceleran el login de verdad.
+
+## Alternativas de despliegue (2026)
+
+| Plataforma | Costo típico | Cuándo elegirla |
+|---|---|---|
+| **Render** (actual) | $0 demo / $7+ | Simplicidad + ya está armado; ideal para el proyecto |
+| **Railway** | ~$5-15/mo (uso) | Mejor precio para apps chicas; auto-detecta Django |
+| **Fly.io** | ~$3-12/mo | Múltiples regiones; requiere más control (Docker) |
+| **DigitalOcean droplet** | ~$4-6/mo | Lo más barato "real", pero gestionás actualizaciones/backups |
+| Heroku | (sin free tier) | Más caro, legado |
+| Vercel | — | No recomendable para Django síncrono con sesiones |
+
+## Protocolo de medición (sin tocar producción)
+
+Para confirmar en tu entorno real sin riesgos: usar una **réplica/entorno de
+Render de prueba** (nunca el servicio de producción) apuntando la misma sonda
+de Locust (`backend/loadtest/`) y comparar req/s y p95. También se puede
+escalar temporalmente el entorno de prueba al plan candidato antes de decidir
+el pago. Los números de este documento son orientativos de la máquina local y
+subestiman lo que da Render (multicore + gunicorn + Postgres gestionado).

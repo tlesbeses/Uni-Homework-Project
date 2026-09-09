@@ -656,6 +656,64 @@ class CourseSettingsTests(BaseCourseTestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_settings_include_ponderacion_defaults(self):
+        self.client.force_authenticate(self.teacher)
+        response = self.client.get(
+            f"/api/courses/{self.course.id}/course_settings/"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["ponderacion_enabled"])
+        self.assertEqual(response.data["p1_acumulado_pct"], "25.00")
+        self.assertEqual(response.data["p2_examen_pct"], "25.00")
+
+    def test_teacher_can_enable_ponderacion(self):
+        self.client.force_authenticate(self.teacher)
+        response = self.client.patch(
+            f"/api/courses/{self.course.id}/course_settings/",
+            {
+                "ponderacion_enabled": True,
+                "p1_acumulado_pct": "15.00",
+                "p1_examen_pct": "35.00",
+                "p2_acumulado_pct": "35.00",
+                "p2_examen_pct": "15.00",
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["ponderacion_enabled"])
+        self.assertEqual(response.data["p1_examen_pct"], "35.00")
+
+    def test_ponderacion_percentages_must_sum_to_100(self):
+        self.client.force_authenticate(self.teacher)
+        response = self.client.patch(
+            f"/api/courses/{self.course.id}/course_settings/",
+            {
+                "p1_acumulado_pct": "30.00",
+                "p1_examen_pct": "20.00",
+                "p2_acumulado_pct": "20.00",
+                "p2_examen_pct": "20.00",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_negative_percentage_rejected(self):
+        self.client.force_authenticate(self.teacher)
+        response = self.client.patch(
+            f"/api/courses/{self.course.id}/course_settings/",
+            {"p1_acumulado_pct": "-5.00"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_percentage_above_100_rejected(self):
+        self.client.force_authenticate(self.teacher)
+        response = self.client.patch(
+            f"/api/courses/{self.course.id}/course_settings/",
+            {"p1_acumulado_pct": "105.00"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
 
 class SuperuserIsolationTests(BaseCourseTestCase):
     """The root user (is_superuser) has no special powers in the regular views.
@@ -844,17 +902,6 @@ class ArchiveCourseTests(BaseCourseTestCase):
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-
-
-def test_dashboard_assignment_payload_includes_weight(self):
-        self.client.force_authenticate(self.student)
-        response = self.client.get("/api/dashboard/")
-        assignment = next(
-            a for a in response.data["assignments"]
-            if a["id"] == self.assignment.id
-        )
-        self.assertIn("weight", assignment)
-        self.assertEqual(assignment["weight"], "1.00")
 
 
 class CourseForeignOwnershipTests(BaseCourseTestCase):
@@ -1156,7 +1203,16 @@ class SectionSnapshotTests(BaseCourseTestCase):
         self.assertEqual(report.data["course"], "Math 101")
         self.assertEqual(report.data["section"], "1TS1")
         self.assertEqual(report.data["assignments"][0]["title"], "Homework 1")
+        self.assertEqual(report.data["assignments"][0]["category"], "ACUMULADO")
+        self.assertEqual(report.data["assignments"][0]["parcial"], "PRIMERO")
         self.assertEqual(report.data["students"][0]["total"], 80.0)
+
+    def test_grades_report_assignments_include_category_and_parcial(self):
+        self.client.force_authenticate(self.teacher)
+        report = self.client.get(f"/api/sections/{self.section.id}/grades-report/")
+        self.assertEqual(report.status_code, status.HTTP_200_OK)
+        self.assertEqual(report.data["assignments"][0]["category"], "ACUMULADO")
+        self.assertEqual(report.data["assignments"][0]["parcial"], "PRIMERO")
 
     def test_student_cannot_see_other_snapshots_list(self):
         self.client.force_authenticate(self.teacher)
@@ -1169,7 +1225,7 @@ class SectionSnapshotTests(BaseCourseTestCase):
 
 
 class DashboardFinalScoreTests(BaseCourseTestCase):
-    """The student dashboard exposes the weighted final score per course."""
+    """The student dashboard exposes the final score per course."""
 
     def setUp(self):
         super().setUp()
@@ -1191,7 +1247,7 @@ class DashboardFinalScoreTests(BaseCourseTestCase):
             graded_by=self.teacher,
         )
 
-    def test_dashboard_includes_weighted_final_score_per_course(self):
+    def test_dashboard_includes_final_score_per_course(self):
         self.client.force_authenticate(self.student)
         response = self.client.get("/api/dashboard/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -1200,15 +1256,45 @@ class DashboardFinalScoreTests(BaseCourseTestCase):
             {str(self.course.id): "80.00"},
         )
 
-def test_dashboard_assignment_payload_includes_weight(self):
+    def test_dashboard_assignment_payload_excludes_weight(self):
         self.client.force_authenticate(self.student)
         response = self.client.get("/api/dashboard/")
         assignment = next(
             a for a in response.data["assignments"]
             if a["id"] == self.assignment.id
         )
-        self.assertIn("weight", assignment)
-        self.assertEqual(assignment["weight"], "1.00")
+        self.assertNotIn("weight", assignment)
+
+    def test_dashboard_exposes_parcial_scores_when_ponderacion_enabled(self):
+        settings, _ = CourseSettings.objects.get_or_create(course=self.course)
+        settings.ponderacion_enabled = True
+        settings.p1_acumulado_pct = Decimal("35.00")
+        settings.p1_examen_pct = Decimal("35.00")
+        settings.p2_acumulado_pct = Decimal("15.00")
+        settings.p2_examen_pct = Decimal("15.00")
+        settings.save()
+
+        self.assignment.category = "ACUMULADO"
+        self.assignment.parcial = "PRIMERO"
+        self.assignment.save()
+
+        self.client.force_authenticate(self.student)
+        response = self.client.get("/api/dashboard/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response.data["parcial_scores"],
+            {
+                str(self.course.id): {
+                    "PRIMERO": "80.00",
+                    "SEGUNDO": None,
+                }
+            },
+        )
+
+    def test_dashboard_omits_parcial_scores_without_ponderacion(self):
+        self.client.force_authenticate(self.student)
+        response = self.client.get("/api/dashboard/")
+        self.assertEqual(response.data["parcial_scores"], {})
 
 
 class EnrollmentServiceTests(BaseCourseTestCase):

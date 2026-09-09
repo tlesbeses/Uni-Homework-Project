@@ -21,6 +21,17 @@ import { SearchInput } from "@/shared/components/SearchInput";
 import { Button } from "@/shared/components/ui/Button";
 import { SelectField } from "@/shared/components/ui/SelectField";
 
+const formatParcialCell = (value) =>
+    value !== undefined && value !== null ? `${value}%` : "—";
+
+const assignmentPartialLabel = (assignment) => {
+    const category = assignment.category === "EXAMEN" ? "Exam." : "Acum.";
+    if (!assignment.parcial) {
+        return category;
+    }
+    return `${category} ${assignment.parcial === "SEGUNDO" ? "P2" : "P1"}`;
+};
+
 function EditableGradeCell({
     score,
     maxScore,
@@ -144,6 +155,7 @@ export const GradesReportPage = () => {
 
     const [search, setSearch] = useState("");
     const [orderBy, setOrderBy] = useState("last_name");
+    const refreshSeqRef = useRef(0);
 
     useEffect(() => {
         if (!courseId) {
@@ -204,6 +216,21 @@ export const GradesReportPage = () => {
         },
         [setSearchParams]
     );
+
+    const refreshReport = useCallback(async () => {
+        if (!sectionId) { return; }
+        const seq = (refreshSeqRef.current += 1);
+        try {
+            const data = await getSectionGradesReport(sectionId);
+            if (seq === refreshSeqRef.current) {
+                setReport(data);
+            }
+        } catch (err) {
+            if (seq === refreshSeqRef.current) {
+                toast.error(getErrorMessage(err));
+            }
+        }
+    }, [sectionId]);
 
     const handleCourseChange = (e) => {
         const value = e.target.value;
@@ -267,7 +294,8 @@ export const GradesReportPage = () => {
             });
             return { ...prev, students: nextStudents };
         });
-    }, []);
+        refreshReport();
+    }, [refreshReport]);
 
     const filteredStudents = useMemo(() => {
         if (!report) { return []; }
@@ -373,13 +401,6 @@ export const GradesReportPage = () => {
                         <div className="flex items-center gap-2">
                             <Button
                                 type="button"
-                                onClick={() => window.print()}
-                                variant="outline"
-                            >
-                                Imprimir / PDF
-                            </Button>
-                            <Button
-                                type="button"
                                 onClick={handleExportCsv}
                                 disabled={exportingCsv}
                                 variant="soft"
@@ -438,10 +459,26 @@ export const GradesReportPage = () => {
                                                 className="px-4 py-3 text-center font-semibold text-gray-700 whitespace-nowrap"
                                             >
                                                 {a.title}
+                                                <span className="block text-[11px] font-medium text-gray-400 mt-0.5">
+                                                    {assignmentPartialLabel(a)}
+                                                </span>
                                             </th>
                                         ))}
                                         <th className="px-4 py-3 text-center font-semibold text-gray-700">
                                             Total
+                                        </th>
+                                        {report.ponderacion_enabled && (
+                                            <>
+                                                <th className="px-4 py-3 text-center font-semibold text-gray-700 whitespace-nowrap">
+                                                    Parcial 1
+                                                </th>
+                                                <th className="px-4 py-3 text-center font-semibold text-gray-700 whitespace-nowrap">
+                                                    Parcial 2
+                                                </th>
+                                            </>
+                                        )}
+                                        <th className="px-4 py-3 text-center font-semibold text-gray-700 whitespace-nowrap">
+                                            Nota final
                                         </th>
                                     </tr>
                                 </thead>
@@ -466,6 +503,30 @@ export const GradesReportPage = () => {
                                             ))}
                                             <td className="px-4 py-3 text-center font-bold text-gray-800">
                                                 {student.total}
+                                            </td>
+                                            {report.ponderacion_enabled && (
+                                                <>
+                                                    <td className="px-4 py-3 text-center font-semibold text-gray-800 whitespace-nowrap">
+                                                        {formatParcialCell(
+                                                            student
+                                                                .parcial_scores
+                                                                ?.PRIMERO
+                                                        )}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-center font-semibold text-gray-800 whitespace-nowrap">
+                                                        {formatParcialCell(
+                                                            student
+                                                                .parcial_scores
+                                                                ?.SEGUNDO
+                                                        )}
+                                                    </td>
+                                                </>
+                                            )}
+                                            <td className="px-4 py-3 text-center font-semibold text-indigo-700 whitespace-nowrap">
+                                                {student.final !== undefined &&
+                                                student.final !== null
+                                                    ? `${student.final}%`
+                                                    : "—"}
                                             </td>
                                         </tr>
                                     ))}

@@ -143,7 +143,8 @@ def _build_payload(section):
                 "title": a.title,
                 "description": a.description,
                 "max_score": _json_safe(a.max_score),
-                "weight": _json_safe(a.weight),
+                "category": a.category,
+                "parcial": a.parcial,
                 "due_date": _json_safe(a.due_date),
                 "is_published": a.is_published,
             }

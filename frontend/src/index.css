@@ -4,6 +4,16 @@ html, body {
   background-color: #312e81;
 }
 
+/* Oculta el ojito nativo del navegador en los campos de contraseña: el
+   toggle de ver/ocultar lo aporta InputField y debe verse siempre igual. */
+::-ms-reveal {
+  display: none;
+}
+input[type="password"]::-webkit-credentials-auto-fill-button,
+input[type="password"]::-webkit-textfield-decoration-container {
+  display: none;
+}
+
 @theme {
   --animate-pop: pop 150ms ease-out;
 

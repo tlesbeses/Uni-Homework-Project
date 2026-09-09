@@ -1,5 +1,6 @@
 import secrets
 import string
+from decimal import Decimal
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -299,6 +300,84 @@ class CourseSettings(TimeStampedModel):
         default=False,
         help_text="Approve student enrollment requests automatically.",
     )
+
+    ponderacion_enabled = models.BooleanField(
+        default=False,
+        help_text=(
+            "Use the per-partial grading scheme (acumulados and exams with "
+            "the configured percentages) instead of the plain average "
+            "of every published assignment."
+        ),
+    )
+
+    p1_acumulado_pct = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("25.00"),
+        help_text=(
+            "Share of the final grade coming from partial 1 accumulated "
+            "works. All four percentages must add up to 100."
+        ),
+    )
+
+    p1_examen_pct = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("25.00"),
+        help_text="Share of the final grade coming from partial 1 exams.",
+    )
+
+    p2_acumulado_pct = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("25.00"),
+        help_text="Share of the final grade coming from partial 2 accumulated works.",
+    )
+
+    p2_examen_pct = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("25.00"),
+        help_text="Share of the final grade coming from partial 2 exams.",
+    )
+
+    def clean(self):
+        super().clean()
+        percentages = [
+            self.p1_acumulado_pct,
+            self.p1_examen_pct,
+            self.p2_acumulado_pct,
+            self.p2_examen_pct,
+        ]
+        if any(pct is not None and pct < 0 for pct in percentages):
+            raise ValidationError("Percentages cannot be negative.")
+        if any(pct is not None and pct > 100 for pct in percentages):
+            raise ValidationError("Percentages cannot exceed 100.")
+        if sum(pct or Decimal("0") for pct in percentages) != Decimal("100.00"):
+            raise ValidationError(
+                {
+                    "p2_examen_pct": (
+                        "The four percentages must add up to 100."
+                    )
+                }
+            )
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(p1_acumulado_pct__gte=0)
+                    & models.Q(p1_acumulado_pct__lte=100)
+                    & models.Q(p1_examen_pct__gte=0)
+                    & models.Q(p1_examen_pct__lte=100)
+                    & models.Q(p2_acumulado_pct__gte=0)
+                    & models.Q(p2_acumulado_pct__lte=100)
+                    & models.Q(p2_examen_pct__gte=0)
+                    & models.Q(p2_examen_pct__lte=100)
+                ),
+                name="course_coursesettings_pcts_within_0_100",
+            ),
+        ]
 
     def __str__(self):
         return f"Settings for {self.course}"

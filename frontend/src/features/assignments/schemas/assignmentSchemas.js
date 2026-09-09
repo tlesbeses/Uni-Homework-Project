@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+const category = z.enum(["ACUMULADO", "EXAMEN"]).default("ACUMULADO");
+const parcial = z.enum(["PRIMERO", "SEGUNDO"]).default("PRIMERO");
+
 export const assignmentFormSchema = z.object({
     title: z.string().min(3, "El título debe tener al menos 3 caracteres"),
     description: z
@@ -9,10 +12,10 @@ export const assignmentFormSchema = z.object({
     max_score: z.coerce
         .number()
         .positive("La nota máxima debe ser mayor a 0"),
-    weight: z.coerce
-        .number()
-        .positive("El peso debe ser mayor a 0")
-        .optional(),
+    category,
+    parcial,
     due_date: z.string().optional(),
     is_published: z.boolean(),
 });
+
+export { category, parcial };

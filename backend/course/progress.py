@@ -2,7 +2,7 @@
 
 Computes, per published assignment and per approved student, the numbers
 the teacher needs to see how the course is going: how many students were
-graded, the score distribution, each student's weighted final grade and the
+graded, the score distribution, each student's final grade and the
 course average. Reuses the same ``scores_by_pair`` pattern as the exporters
 so all aggregate views agree on the data.
 """

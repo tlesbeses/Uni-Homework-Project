@@ -4,6 +4,7 @@ import AppLayout from "@/app/layouts/AppLayout";
 import AuthLayout from "@/app/layouts/AuthLayout";
 import { ProtectedRoute } from "@/features/auth/components/ProtectedRoute";
 import { SuspenseWrapper } from "./PageFallback";
+import { RouteErrorScreen } from "./RouteErrorScreen";
 
 const lazyPage = (importFn, name) =>
     lazy(() => importFn().then((m) => ({ default: m[name] })));
@@ -33,6 +34,7 @@ const NotificationsPage = lazyPage(() => import("@/features/notifications/pages/
 
 export const router = createBrowserRouter([
   {
+    errorElement: <RouteErrorScreen />,
     path: "/",
     element: (
       <SuspenseWrapper>
@@ -41,6 +43,7 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    errorElement: <RouteErrorScreen />,
     path: "/401",
     element: (
       <SuspenseWrapper>
@@ -49,6 +52,7 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    errorElement: <RouteErrorScreen />,
     path: "/403",
     element: (
       <SuspenseWrapper>
@@ -57,6 +61,7 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    errorElement: <RouteErrorScreen />,
     element: <AuthLayout />,
     children: [
       {
@@ -78,6 +83,7 @@ export const router = createBrowserRouter([
     ],
   },
   {
+    errorElement: <RouteErrorScreen />,
     element: (
       <ProtectedRoute>
         <AppLayout />
@@ -249,6 +255,7 @@ export const router = createBrowserRouter([
     ],
   },
   {
+    errorElement: <RouteErrorScreen />,
     path: "*",
     element: (
       <SuspenseWrapper>

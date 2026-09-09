@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from rest_framework import serializers
@@ -25,8 +27,46 @@ class UserBriefSerializer(serializers.ModelSerializer):
 class CourseSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = CourseSettings
-        fields = ["id", "auto_accept_students"]
+        fields = [
+            "id",
+            "auto_accept_students",
+            "ponderacion_enabled",
+            "p1_acumulado_pct",
+            "p1_examen_pct",
+            "p2_acumulado_pct",
+            "p2_examen_pct",
+        ]
         read_only_fields = ["id"]
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        instance = self.instance
+        percentages = [
+            attrs.get(
+                field,
+                getattr(instance, field, None),
+            )
+            for field in (
+                "p1_acumulado_pct",
+                "p1_examen_pct",
+                "p2_acumulado_pct",
+                "p2_examen_pct",
+            )
+        ]
+        if any(pct is not None and pct < 0 for pct in percentages):
+            raise serializers.ValidationError("Percentages cannot be negative.")
+        if any(pct is not None and pct > Decimal("100.00") for pct in percentages):
+            raise serializers.ValidationError("Percentages cannot exceed 100.")
+        total = sum(pct or Decimal("0") for pct in percentages)
+        if total != Decimal("100.00"):
+            raise serializers.ValidationError(
+                {
+                    "p2_examen_pct": (
+                        "The four percentages must add up to 100."
+                    )
+                }
+            )
+        return attrs
 
 
 class CourseSerializer(serializers.ModelSerializer):
@@ -307,7 +347,8 @@ class DashboardAssignmentSerializer(serializers.ModelSerializer):
             "id",
             "title",
             "max_score",
-            "weight",
+            "category",
+            "parcial",
             "course_id",
             "is_published",
             "created_at",

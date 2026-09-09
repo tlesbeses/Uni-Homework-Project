@@ -73,6 +73,13 @@ export const AssignmentSection = ({ courseId, isTeacher, isOwner, selectedSectio
         navigate(`/grades?${params.toString()}`);
     };
 
+    const handleReport = () => {
+        const params = new URLSearchParams();
+        if (courseId) { params.set("course", courseId); }
+        if (selectedSectionId) { params.set("section", selectedSectionId); }
+        navigate(`/grades/report?${params.toString()}`);
+    };
+
     const confirmDelete = async () => {
         const assignment = pendingDelete;
         setPendingDelete(null);
@@ -103,9 +110,14 @@ export const AssignmentSection = ({ courseId, isTeacher, isOwner, selectedSectio
                     Asignaciones
                 </h2>
                 {canManage && (
-                    <Button onClick={() => setIsCreateOpen(true)}>
-                        + Nueva asignación
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={handleReport}>
+                            Ver reporte
+                        </Button>
+                        <Button onClick={() => setIsCreateOpen(true)}>
+                            + Nueva asignación
+                        </Button>
+                    </div>
                 )}
             </div>
 

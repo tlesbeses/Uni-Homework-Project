@@ -1,9 +1,10 @@
 """Seed demo data so the evolution/progress/print features can be eyeballed.
 
 Creates a teacher, a handful of students, one course with two sections,
-published assignments (plus one draft), teams, approved enrollments and
-grades applied in stages through the grading services so FinalScoreSnapshot
-accumulates real evolution points and notifications fire.
+published assignments (acumulados y exámenes por parcial with the ponderated
+final grade enabled), teams, approved enrollments and grades applied in
+stages through the grading services so FinalScoreSnapshot accumulates real
+evolution points and notifications fire.
 
 The command is idempotent: it always wipes the demo users and demo course
 first and rebuilds them (evolution points and notifications included), so it
@@ -16,8 +17,8 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.management.base import BaseCommand
 
-from assignments.models import Assignment
-from course.models import Course, Section, Visibility
+from assignments.models import Assignment, AssignmentCategory, AssignmentParcial
+from course.models import Course, CourseSettings, Section, Visibility
 from course.services import approve_enrollment, create_enrollment
 from grading.services import grade_student, grade_team
 from teams.models import Team, TeamMember
@@ -81,6 +82,16 @@ class Command(BaseCommand):
             teacher=teacher,
             visibility=Visibility.PUBLIC,
         )
+        CourseSettings.objects.update_or_create(
+            course=course,
+            defaults={
+                "ponderacion_enabled": True,
+                "p1_acumulado_pct": Decimal("15.00"),
+                "p1_examen_pct": Decimal("35.00"),
+                "p2_acumulado_pct": Decimal("35.00"),
+                "p2_examen_pct": Decimal("15.00"),
+            },
+        )
         section_a = Section.objects.create(course=course, name="1TS1")
         section_b = Section.objects.create(course=course, name="2TS2")
 
@@ -111,29 +122,33 @@ class Command(BaseCommand):
                 title="Examen parcial",
                 description="Primera evaluación escrita.",
                 max_score=Decimal("100"),
-                weight=Decimal("1.50"),
+                category=AssignmentCategory.EXAMEN,
+                parcial=AssignmentParcial.PRIMERO,
             ),
             Assignment.objects.create(
                 course=course,
                 title="Trabajo práctico",
                 description="Proyecto en equipo.",
                 max_score=Decimal("100"),
-                weight=Decimal("1.00"),
+                category=AssignmentCategory.ACUMULADO,
+                parcial=AssignmentParcial.PRIMERO,
             ),
             Assignment.objects.create(
                 course=course,
                 title="Examen final",
                 description="Evaluación final individual.",
                 max_score=Decimal("100"),
-                weight=Decimal("2.00"),
+                category=AssignmentCategory.EXAMEN,
+                parcial=AssignmentParcial.SEGUNDO,
             ),
             Assignment.objects.create(
                 course=course,
                 title="Taller de repaso (borrador)",
                 description="Corrección manual pendiente, oculto a estudiantes.",
                 max_score=Decimal("50"),
-                weight=Decimal("0.50"),
                 is_published=False,
+                category=AssignmentCategory.ACUMULADO,
+                parcial=AssignmentParcial.SEGUNDO,
             ),
         ]
 

@@ -45,6 +45,7 @@ export const AdminUsersPage = () => {
     const [impersonatingId, setImpersonatingId] = useState(null);
     const [pendingDeactivate, setPendingDeactivate] = useState(null);
     const [pendingRoleChange, setPendingRoleChange] = useState(null);
+    const [pendingActions, setPendingActions] = useState(null);
 
     const { users, loading, error, reload } = useAdminUsers({ search, role });
 
@@ -285,14 +286,15 @@ export const AdminUsersPage = () => {
                                                 Sin acciones
                                             </p>
                                         ) : (
-                                            <div className="flex items-center justify-end gap-2">
+                                            <>
+                                            <div className="hidden sm:flex items-center justify-end gap-2">
                                                 <button
                                                     type="button"
                                                     onClick={() =>
                                                         handleToggleActive(u)
                                                     }
                                                     disabled={busy}
-                                                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition disabled:opacity-50 ${
+                                                    className={`inline-flex items-center justify-center gap-2 min-h-[2.75rem] px-3 py-1.5 rounded-lg text-xs font-semibold border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 ${
                                                         u.is_active
                                                             ? "text-red-600 border-red-200 hover:bg-red-50"
                                                             : "text-emerald-600 border-emerald-200 hover:bg-emerald-50"
@@ -309,6 +311,7 @@ export const AdminUsersPage = () => {
                                                     disabled={busy}
                                                     size="sm"
                                                     variant="outline"
+                                                    className="!whitespace-normal min-h-[2.75rem]"
                                                 >
                                                     {u.roles.includes(
                                                         "Teacher"
@@ -326,12 +329,38 @@ export const AdminUsersPage = () => {
                                                     }
                                                     size="sm"
                                                     variant="secondary"
+                                                    className="!whitespace-normal min-h-[2.75rem]"
                                                 >
                                                     {impersonating
                                                         ? "Probando..."
                                                         : "Probar como"}
                                                 </Button>
                                             </div>
+                                            <div className="sm:hidden flex justify-end">
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        setPendingActions(u)
+                                                    }
+                                                    aria-label={`Acciones de ${formatUser(u)}`}
+                                                    aria-haspopup="dialog"
+                                                    aria-expanded={
+                                                        pendingActions?.id ===
+                                                        u.id
+                                                    }
+                                                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                                                >
+                                                    <svg
+                                                        viewBox="0 0 24 24"
+                                                        fill="currentColor"
+                                                        aria-hidden="true"
+                                                        className="w-5 h-5"
+                                                    >
+                                                        <path d="M12 5a1.75 1.75 0 1 0 0 3.5A1.75 1.75 0 0 0 12 5Zm0 10.25a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5Zm0-5.125a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5Z" />
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                            </>
                                         )}
                                     </td>
                                 </tr>
@@ -393,6 +422,67 @@ export const AdminUsersPage = () => {
                 onConfirm={handleRoleChange}
                 busy={Boolean(busyId)}
             />
+
+            {pendingActions && (
+                <Modal
+                    open
+                    title={`Acciones · ${formatUser(pendingActions)}`}
+                    onClose={() => setPendingActions(null)}
+                    size="md"
+                >
+                    <div className="p-6 flex flex-col gap-2">
+                        <Button
+                            className="w-full"
+                            variant={
+                                pendingActions.is_active
+                                    ? "danger"
+                                    : "success"
+                            }
+                            disabled={busyId === pendingActions.id}
+                            onClick={() => {
+                                const target = pendingActions;
+                                setPendingActions(null);
+                                handleToggleActive(target);
+                            }}
+                        >
+                            {pendingActions.is_active
+                                ? "Desactivar"
+                                : "Activar"}
+                        </Button>
+                        <Button
+                            className="w-full"
+                            variant="outline"
+                            disabled={busyId === pendingActions.id}
+                            onClick={() => {
+                                const target = pendingActions;
+                                setPendingActions(null);
+                                setPendingRoleChange(target);
+                            }}
+                        >
+                            {pendingActions.roles.includes("Teacher")
+                                ? "Hacer estudiante"
+                                : "Hacer profesor"}
+                        </Button>
+                        <Button
+                            className="w-full"
+                            variant="secondary"
+                            disabled={
+                                busyId === pendingActions.id ||
+                                impersonatingId === pendingActions.id
+                            }
+                            onClick={() => {
+                                const target = pendingActions;
+                                setPendingActions(null);
+                                handleImpersonate(target);
+                            }}
+                        >
+                            {impersonatingId === pendingActions.id
+                                ? "Probando..."
+                                : "Probar como"}
+                        </Button>
+                    </div>
+                </Modal>
+            )}
         </div>
     );
 };
