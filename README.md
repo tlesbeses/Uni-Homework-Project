@@ -1,6 +1,6 @@
 # EduNotas
 
-Aplicación web de gestión académica para profesores y estudiantes: cursos, secciones, equipos, tareas y calificaciones. Incluye soporte PWA, exportación de notas a Excel, autenticación por roles (Estudiante / Profesor / Admin), **impersonación de superusuario**, **registro de actividad** y un **panel de administración** de usuarios y eventos.
+Aplicación web de gestión académica para profesores y estudiantes: cursos, secciones, equipos, tareas y calificaciones. Incluye soporte PWA, exportación de notas a Excel y CSV, autenticación por roles (Estudiante / Profesor / Admin), **impersonación de superusuario**, **registro de actividad**, **notificaciones**, **snapshots** (historial inmodificable de secciones eliminadas) y un **panel de administración** de usuarios, errores y eventos.
 
 **Frontend:** React 19 + Vite + Tailwind CSS 4 + TanStack Query (SPA en español)
 
@@ -22,8 +22,11 @@ Aplicación web de gestión académica para profesores y estudiantes: cursos, se
 - [Variables de entorno](#variables-de-entorno)
 - [API](#api)
 - [Modelos de datos](#modelos-de-datos)
+- [Snapshots](#snapshots)
+- [Notificaciones y errores](#notificaciones-y-errores)
 - [Autenticación y seguridad](#autenticación-y-seguridad)
 - [Impersonación y auditoría](#impersonación-y-auditoría)
+- [DevOps y CI](#devops-y-ci)
 - [Despliegue a producción](#despliegue-a-producción)
   - [Render (backend)](#render-backend)
   - [Frontend en otro origen](#frontend-en-otro-origen)
@@ -37,12 +40,16 @@ Aplicación web de gestión académica para profesores y estudiantes: cursos, se
 
 - **Gestión de cursos** — Los profesores crean cursos (públicos o privados). Cada curso genera un **código de acceso de 8 caracteres** único y se crea con al menos una **sección** (p. ej. "1TS1"). Se puede alternar visibilidad, estado activo/inactivo y aceptación automática de alumnos.
 - **Inscripción** — Los estudiantes se inscriben mediante código (curso privado) o navegando/enrrollándose en cursos públicos. Las solicitudes pasan por estados `PENDING`, `APPROVED` y `REJECTED`; los profesores las aprueban o rechazan.
-- **Tareas (assignments)** — Los profesores crean tareas por curso con título, descripción, puntuación máxima, fecha límite opcional y estado publicado/borrador (los borradores se ocultan a los estudiantes).
+- **Tareas (assignments)** — Los profesores crean tareas por curso con título, descripción, puntuación máxima, fecha límite opcional y estado publicado/borrador (los borradores se ocultan a los estudiantes). Cada tarea tiene **categoría** (`Acumulado` / `Examen`) y **parcial** (`Parcial 1` / `Parcial 2`) que determinan cómo se computa la nota final cuando el curso usa ponderación.
 - **Equipos** — Dentro de cada sección, los estudiantes forman equipos liderados por un líder. El sistema garantiza **un equipo por estudiante por curso**. Líderes y profesores pueden añadir/quitar miembros y cambiar el liderazgo.
 - **Calificación** — Los profesores califican a un **equipo completo** (una nota aplicada a todos los miembros, con anulaciones individuales preservadas) o a un **estudiante individual**. Las notas están restringidas a `0 <= nota <= max_score`.
 - **Autoguardado de notas** — Las calificaciones se guardan **automáticamente** al salir de cada campo (blur) y al cambiar de evaluación o de curso, de modo que las notas tecleadas nunca se pierdan aunque el usuario no pulse el botón guardar. El botón "✓" (individual) y "Aplicar a todos" (equipo) se mantienen; el valor `0` se guarda como nota válida y un campo vacío **no** borra una nota existente.
-- **Informes / Exportación** — Los profesores ven un informe por sección (matriz de estudiantes × tareas con totales) y lo **exportan a Excel (.xlsx)**.
-- **Paneles de control** — Paneles específicos por rol (profesor vs. estudiante) con cursos, inscripciones, notas y tareas.
+- **Ponderación por parciales** — Los cursos pueden activar un esquema de nota final por parciales: cuatro porcentajes configurables (`P1 Acumulado`, `P1 Examen`, `P2 Acumulado`, `P2 Examen`, que suman 100). El reporte muestra el **desglose por parcial** y la **nota final**; cuando la ponderación está desactivada, la nota final es `Σ(score) / Σ(max) x100` (el campo `weight` por tarea fue **eliminado**).
+- **Informes / Exportación** — Los profesores ven un informe por sección (matriz de estudiantes × tareas con totales) con el **badge de categoría/parcial** bajo el título de cada tarea ("Acum. P1", "Exam. P2"). Lo exportan a **Excel (.xlsx)** o **CSV**; las cabeceras llevan el título en una fila y el badge en la siguiente.
+- **Snapshots** — Al eliminar una sección (o su curso) se captura una **copia inmutable en JSON** (`SectionSnapshot`) con cursos, secciones, equipos, tareas, notas, notas finales y estadísticas. Desde el panel se puede **navegar el historial** y exportar dichos datos (Excel/CSV) aunque las filas originales ya no existan.
+- **Notificaciones** — Campana en la navbar con contador de no leídas: avisos al **publicar notas** y ante eventos de **matrícula** (solicitud, aprobación, rechazo). Se pueden marcar como leídas una a una o todas.
+- **Registro de errores** — Los errores en producción se guardan en **ErrorLog** (endpoint `/api/errors/`) y se revisan desde un panel de administración con detalle por error.
+- **Paneles de control** — Paneles específicos por rol (profesor vs. estudiante) con cursos, inscripciones, notas, tareas y una **evolución de la nota final** con gráfico.
 - **PWA** — Progressive Web App con banner de instalación, splash screen, manifest personalizado y service worker servido por Django.
 - **Control de acceso por roles** — Los usuarios pertenecen a grupos de Django (`Student`, `Teacher`, `Admin`). Los superusuarios omiten todas las comprobaciones de permisos.
 - **Impersonación de superusuario** — Un superusuario puede **ver la aplicación como otro usuario** (banner de impersonación persistente), para depurar y revisar el sistema desde otras cuentas.
