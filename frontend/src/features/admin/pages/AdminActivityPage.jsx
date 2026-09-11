@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useActivityLogs } from "@/features/admin/hooks/useActivityLogs";
+import { useLoginStats } from "@/features/admin/hooks/useLoginStats";
 import {
     actionLabel,
     actionStyle,
@@ -27,6 +28,23 @@ function formatDate(value) {
     });
 }
 
+// Formatea 'YYYY-MM-DD' sin pasar por Date.parse (evita el corrimiento de día
+// por zona horaria al interpretar la fecha como medianoche UTC).
+function formatDay(iso) {
+    if (!iso) {
+        return "—";
+    }
+    const [year, month, day] = iso.split("-").map(Number);
+    if (!year || !month || !day) {
+        return iso;
+    }
+    return new Date(year, month - 1, day).toLocaleDateString("es-ES", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+    });
+}
+
 export const AdminActivityPage = () => {
     const [action, setAction] = useState("");
     const [entityType, setEntityType] = useState("");
@@ -34,6 +52,9 @@ export const AdminActivityPage = () => {
     const [from, setFrom] = useState("");
     const [to, setTo] = useState("");
     const [debouncedUser, setDebouncedUser] = useState("");
+
+    const { stats: loginStats, loading: statsLoading, error: statsError } =
+        useLoginStats(7);
 
     useEffect(() => {
         const timeout = setTimeout(() => setDebouncedUser(userId), 400);
@@ -65,9 +86,81 @@ export const AdminActivityPage = () => {
             <div>
                 <h1 className="text-2xl font-bold text-gray-800">Actividad</h1>
                 <p className="text-gray-500 mt-1 text-sm">
-                    Historial de eventos del sistema: impersonaciones y
-                    calificaciones registradas.
+                    Historial de eventos del sistema: impersonaciones,
+                    calificaciones e inicios de sesión registrados.
                 </p>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                    <h2 className="text-sm font-semibold text-gray-700">
+                        Accesos (últimos {loginStats?.days ?? 7} días)
+                    </h2>
+                    <span className="text-xs text-gray-400">
+                        Basado en los logins registrados en el historial
+                    </span>
+                </div>
+
+                {statsLoading && !loginStats && (
+                    <p className="text-sm text-gray-400">
+                        Cargando métricas de acceso...
+                    </p>
+                )}
+                {statsError && !loginStats && (
+                    <p className="text-sm text-red-600">
+                        No se pudieron cargar las métricas: {statsError}
+                    </p>
+                )}
+
+                {loginStats && (
+                    <>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="bg-indigo-50 rounded-lg px-4 py-3">
+                                <p className="text-3xl font-bold text-indigo-700">
+                                    {loginStats.totals.logins}
+                                </p>
+                                <p className="text-xs text-indigo-500">
+                                    Logins totales
+                                </p>
+                            </div>
+                            <div className="bg-emerald-50 rounded-lg px-4 py-3">
+                                <p className="text-3xl font-bold text-emerald-700">
+                                    {loginStats.totals.unique_users}
+                                </p>
+                                <p className="text-xs text-emerald-500">
+                                    Usuarios únicos que entraron
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="text-left text-xs font-semibold uppercase tracking-wider text-gray-400">
+                                        <th className="pb-2">Día</th>
+                                        <th className="pb-2">Logins</th>
+                                        <th className="pb-2">Usuarios únicos</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {loginStats.per_day.map((day) => (
+                                        <tr key={day.date}>
+                                            <td className="py-2 text-gray-700">
+                                                {formatDay(day.date)}
+                                            </td>
+                                            <td className="py-2 text-gray-800">
+                                                {day.logins}
+                                            </td>
+                                            <td className="py-2 text-gray-800">
+                                                {day.unique_users}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </>
+                )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">

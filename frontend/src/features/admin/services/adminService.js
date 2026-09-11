@@ -63,6 +63,15 @@ export const getActivityLogs = async (params) => {
     return response.data;
 };
 
+export const getLoginStats = async (params) => {
+    const { signal, days = 7 } = params ?? {};
+    const response = await api.get("/auth/admin/login-stats/", {
+        params: { days },
+        signal,
+    });
+    return response.data;
+};
+
 export const getErrorLogs = async (params) => {
     const { signal, source, page, pageSize, ...queryParams } = params ?? {};
     const query = { ...queryParams };

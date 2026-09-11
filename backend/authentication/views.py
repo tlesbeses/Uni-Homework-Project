@@ -1,6 +1,10 @@
+from datetime import timedelta
+
 from django.conf import settings
 from django.contrib.auth.models import Group
-from django.db.models import Q
+from django.db.models import Count, Q
+from django.db.models.functions import TruncDate
+from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.filters import SearchFilter
 from rest_framework.response import Response
@@ -327,6 +331,81 @@ class AdminActivityView(APIView):
         page = paginator.paginate_queryset(qs, request)
         payload = EventLogSerializer(page, many=True).data
         return paginator.get_paginated_response(payload)
+
+
+class LoginStatsView(APIView):
+    """Métricas de acceso (adopción) para la consola de administración.
+
+    Agrega por día los logins registrados en EventLog: cantidad total de
+    logins y usuarios únicos por día, para responder "¿están entrando los
+    usuarios (y sobre todo los estudiantes)?". Solo superusuarios. De paso
+    limpia perezosamente los eventos de login más viejos que
+    ``LOGIN_RETENTION_DAYS`` para que EventLog no crezca sin límite.
+    """
+
+    LOGIN_RETENTION_DAYS = 30
+    DEFAULT_DAYS = 7
+    MAX_DAYS = 90
+
+    permission_classes = [IsSuperuser]
+    throttle_classes = [AdminThrottle]
+
+    def get(self, request):
+        try:
+            days = int(request.query_params.get("days", self.DEFAULT_DAYS))
+        except (TypeError, ValueError):
+            days = self.DEFAULT_DAYS
+        days = max(1, min(days, self.MAX_DAYS))
+
+        cutoff = timezone.now() - timedelta(days=self.LOGIN_RETENTION_DAYS)
+        EventLog.objects.filter(
+            action=EventLog.ACTION_LOGIN,
+            created_at__lt=cutoff,
+        ).delete()
+
+        since = (timezone.now() - timedelta(days=days - 1)).date()
+        rows = (
+            EventLog.objects.filter(
+                action=EventLog.ACTION_LOGIN,
+                actor__isnull=False,
+                created_at__date__gte=since,
+            )
+            .annotate(day=TruncDate("created_at"))
+            .values("day")
+            .annotate(
+                logins=Count("id"),
+                unique_users=Count("actor_id", distinct=True),
+            )
+            .order_by("day")
+        )
+        by_day = {row["day"]: row for row in rows}
+
+        today = timezone.now().date()
+        per_day = [
+            {
+                "date": (today - timedelta(days=days - 1 - offset)).isoformat(),
+                "logins": by_day.get(today - timedelta(days=days - 1 - offset), {}).get("logins", 0),
+                "unique_users": by_day.get(today - timedelta(days=days - 1 - offset), {}).get("unique_users", 0),
+            }
+            for offset in range(days)
+        ]
+
+        totals = EventLog.objects.filter(
+            action=EventLog.ACTION_LOGIN,
+            actor__isnull=False,
+            created_at__date__gte=since,
+        ).aggregate(
+            logins=Count("id"),
+            unique_users=Count("actor_id", distinct=True),
+        )
+
+        return Response(
+            {
+                "days": days,
+                "totals": totals,
+                "per_day": per_day,
+            }
+        )
 
 
 class ErrorLogEndpoint(APIView):

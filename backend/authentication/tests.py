@@ -1,8 +1,10 @@
+from datetime import timedelta
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser, Group
 from django.test import RequestFactory, TestCase, override_settings
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from rest_framework.test import APITestCase
@@ -554,6 +556,108 @@ class LoginAuditTests(APITestCase):
         self.assertEqual(
             EventLog.objects.filter(action=EventLog.ACTION_LOGIN).count(),
             1,
+        )
+
+
+class LoginStatsTests(APITestCase):
+    """`GET /auth/admin/login-stats/` agrega logins por día (adopción).
+
+    Solo superusuarios. Devuelve logins y usuarios únicos por día para los
+    últimos N días (default 7) y limpia perezosamente los eventos de login
+    más viejos que la retención (30 días).
+    """
+
+    def setUp(self):
+        student_group = Group.objects.get_or_create(name="Student")[0]
+        self.admin = User.objects.create_superuser(
+            username="admin", email="admin@example.com", password="pass"
+        )
+        self.student = User.objects.create_user(
+            username="student", email="student@example.com", password="pass"
+        )
+        self.student.groups.add(student_group)
+        self.other = User.objects.create_user(
+            username="other", email="other@example.com", password="pass"
+        )
+        self.other.groups.add(student_group)
+
+    def _login_event(self, user, **extra):
+        return EventLog.objects.create(
+            actor=user,
+            action=EventLog.ACTION_LOGIN,
+            entity_type="user",
+            entity_id=user.id,
+            target=user,
+            metadata={"roles": ["Student"]},
+            **extra,
+        )
+
+    def test_superuser_gets_daily_aggregates(self):
+        self._login_event(self.student)
+        self._login_event(self.student)
+        self._login_event(self.other)
+        EventLog.objects.create(
+            actor=self.admin,
+            action=EventLog.ACTION_IMPERSONATE,
+            entity_type="user",
+            entity_id=self.student.id,
+        )
+
+        self.client.force_authenticate(self.admin)
+        response = self.client.get("/auth/admin/login-stats/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.data
+        self.assertEqual(data["days"], 7)
+        self.assertEqual(data["totals"]["logins"], 3)
+        self.assertEqual(data["totals"]["unique_users"], 2)
+
+        today_iso = timezone.now().date().isoformat()
+        today_row = next(day for day in data["per_day"] if day["date"] == today_iso)
+        self.assertEqual(today_row["logins"], 3)
+        self.assertEqual(today_row["unique_users"], 2)
+        self.assertEqual(len(data["per_day"]), 7)
+
+    def test_days_param_clamped(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.get("/auth/admin/login-stats/", {"days": 0})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["days"], 1)
+
+        response = self.client.get("/auth/admin/login-stats/", {"days": 9999})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["days"], 90)
+
+        response = self.client.get("/auth/admin/login-stats/", {"days": "abc"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["days"], 7)
+
+    def test_non_superuser_forbidden(self):
+        student_group = Group.objects.get_or_create(name="Student")[0]
+        user = User.objects.create_user(
+            username="pepe", email="pepe@example.com", password="pass"
+        )
+        user.groups.add(student_group)
+        self.client.force_authenticate(user)
+        response = self.client.get("/auth/admin/login-stats/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_anonymous_forbidden(self):
+        response = self.client.get("/auth/admin/login-stats/")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_old_login_events_are_cleaned_up(self):
+        stale = self._login_event(self.student)
+        EventLog.objects.filter(pk=stale.pk).update(
+            created_at=timezone.now() - timedelta(days=40)
+        )
+
+        self.client.force_authenticate(self.admin)
+        response = self.client.get("/auth/admin/login-stats/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["totals"]["logins"], 0)
+        self.assertFalse(
+            EventLog.objects.filter(action=EventLog.ACTION_LOGIN).exists()
         )
 
 
