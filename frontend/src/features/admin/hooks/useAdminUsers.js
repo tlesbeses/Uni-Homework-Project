@@ -2,12 +2,13 @@ import { useQuery } from "@tanstack/react-query";
 import { getAdminUsers } from "@/features/admin/services/adminService";
 import { queryKeys } from "@/lib/queryKeys";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
+import { fetchAllPages } from "@/shared/utils/fetchAllPages";
 
 export const useAdminUsers = ({ search = "", role = "" } = {}) => {
     const query = useQuery({
         queryKey: queryKeys.admin.users({ search, role }),
         queryFn: () =>
-            getAdminUsers({
+            fetchAllPages(getAdminUsers, {
                 search: search || undefined,
                 role: role || undefined,
             }),
