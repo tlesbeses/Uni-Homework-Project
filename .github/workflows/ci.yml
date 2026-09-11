@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   backend:
-    name: Backend (check + tests)
+    name: Backend (check + tests + coverage)
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -45,16 +45,34 @@ jobs:
           cache-dependency-path: backend/requirements.txt
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r requirements.txt coverage pip-audit
 
       - name: Django system check
         run: python manage.py check
 
-      - name: Run tests
-        run: python manage.py test --parallel
+      - name: Check no pending migrations
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: Run tests with coverage
+        env:
+          COVERAGE_PROCESS_START: ${{ github.workspace }}/backend/.coveragerc
+        run: |
+          coverage run manage.py test --parallel
+          coverage combine
+          coverage report --fail-under=85
+          coverage json
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/coverage.json
+
+      - name: Audit Python dependencies
+        run: pip-audit -r requirements.txt
 
   frontend:
-    name: Frontend (lint + tests + build)
+    name: Frontend (lint + tests + coverage + build)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -71,11 +89,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Audit npm dependencies
+        run: npm audit --audit-level=high
+
       - name: Lint
         run: npm run lint
 
-      - name: Run tests
-        run: npm test
+      - name: Run tests with coverage
+        run: npm run coverage
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: frontend/coverage
 
       - name: Build
         run: npm run build
