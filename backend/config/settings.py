@@ -280,6 +280,7 @@ if not DEBUG and "test" not in sys.argv:
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_REFERRER_POLICY = "same-origin"
 
 # Caché: Redis en producción (si REDIS_URL está configurado), local-mem en desarrollo.
 # Para migrar a Redis: 1) pip install redis, 2) agregar REDIS_URL en Render, 3) reiniciar.
