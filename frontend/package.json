@@ -24,7 +24,7 @@
     "react-toastify": "^11.1.0",
     "recharts": "^3.10.1",
     "tailwindcss": "^4.3.3",
-    "zod": "^4.4.3"
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^7.0.1",
