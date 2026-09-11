@@ -54,10 +54,8 @@ jobs:
         run: python manage.py makemigrations --check --dry-run
 
       - name: Run tests with coverage
-        env:
-          COVERAGE_PROCESS_START: ${{ github.workspace }}/backend/.coveragerc
         run: |
-          coverage run manage.py test --parallel
+          coverage run manage.py test
           coverage combine
           coverage report --fail-under=85
           coverage json
