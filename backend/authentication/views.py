@@ -96,6 +96,18 @@ class LoginView(TokenObtainPairView):
         data = dict(serializer.validated_data)
         refresh_token = data.pop("refresh", None)
 
+        user = serializer.user
+        log_event(
+            actor=user,
+            action=EventLog.ACTION_LOGIN,
+            entity_type="user",
+            entity_id=user.id,
+            target=user,
+            metadata={
+                "roles": list(user.groups.values_list("name", flat=True))
+            },
+        )
+
         response = Response(data, status=status.HTTP_200_OK)
         if refresh_token:
             _set_refresh_cookie(response, refresh_token)

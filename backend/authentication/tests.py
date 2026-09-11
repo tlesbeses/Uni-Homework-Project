@@ -493,6 +493,70 @@ class RefreshCsrfSyncTests(APITestCase):
             RefreshToken(old_token).verify()
 
 
+class LoginAuditTests(APITestCase):
+    """Todo login exitoso queda registrado en EventLog (auditoría de acceso).
+
+    El frontend ya tenía el filtro y las etiquetas para la acción ``login``;
+    esta clase fija que el backend emita el evento con el actor y sus roles
+    (para poder medir la adopción por rol desde el panel de administración).
+    """
+
+    def setUp(self):
+        student_group = Group.objects.get_or_create(name="Student")[0]
+        self.student = User.objects.create_user(
+            username="student",
+            email="student@example.com",
+            password="pass",
+        )
+        self.student.groups.add(student_group)
+
+    def _login(self, username="student", password="pass"):
+        csrf_response = self.client.get("/auth/csrf/")
+        self.assertEqual(csrf_response.status_code, status.HTTP_200_OK)
+        return self.client.post(
+            "/auth/login/",
+            {"username": username, "password": password},
+            HTTP_X_CSRFTOKEN=csrf_response.data["csrfToken"],
+        )
+
+    def test_login_success_creates_event_log(self):
+        response = self._login()
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        log = EventLog.objects.get(action=EventLog.ACTION_LOGIN)
+        self.assertEqual(log.actor, self.student)
+        self.assertEqual(log.target, self.student)
+        self.assertEqual(log.entity_type, "user")
+        self.assertEqual(log.entity_id, self.student.id)
+        self.assertIn("Student", log.metadata["roles"])
+
+    def test_login_failure_does_not_create_event_log(self):
+        response = self._login(password="wrong")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertFalse(
+            EventLog.objects.filter(action=EventLog.ACTION_LOGIN).exists()
+        )
+
+    def test_refresh_does_not_create_login_event(self):
+        self._login()
+        self.assertEqual(
+            EventLog.objects.filter(action=EventLog.ACTION_LOGIN).count(),
+            1,
+        )
+
+        csrf_response = self.client.get("/auth/csrf/")
+        response = self.client.post(
+            "/auth/jwt/refresh/",
+            {},
+            HTTP_X_CSRFTOKEN=csrf_response.data["csrfToken"],
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            EventLog.objects.filter(action=EventLog.ACTION_LOGIN).count(),
+            1,
+        )
+
+
 class LoginThrottleToggleTests(APITestCase):
     def test_login_throttle_disabled_when_disable_throttle_flag_on(self):
         """Con DISABLE_THROTTLE (test/load) el login no devuelve 429."""
