@@ -1,25 +1,24 @@
-import { useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { getAdminUsers } from "@/features/admin/services/adminService";
-import { useAllData } from "@/shared/hooks/useAllData";
+import { queryKeys } from "@/lib/queryKeys";
+import { getErrorMessage } from "@/shared/utils/getErrorMessage";
+import { fetchAllPages } from "@/shared/utils/fetchAllPages";
 
 export const useAdminUsers = ({ search = "", role = "" } = {}) => {
-    const fetchUsers = useCallback(
-        (params) =>
-            getAdminUsers({
-                ...params,
+    const query = useQuery({
+        queryKey: queryKeys.admin.users({ search, role }),
+        queryFn: () =>
+            fetchAllPages(getAdminUsers, {
                 search: search || undefined,
                 role: role || undefined,
             }),
-        [search, role]
-    );
-
-    const { data, setData, loading, error, reload } = useAllData(fetchUsers);
+        staleTime: 30_000,
+    });
 
     return {
-        users: data ?? [],
-        setUsers: setData,
-        loading,
-        error,
-        reload,
+        users: query.data ?? [],
+        loading: query.isLoading,
+        error: query.error ? getErrorMessage(query.error) : "",
+        reload: () => query.refetch(),
     };
 };

@@ -1,13 +1,24 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 export const KebabMenu = ({ items }) => {
     const [open, setOpen] = useState(false);
     const menuRef = useRef(null);
+    const buttonRef = useRef(null);
+    const menuId = useId();
+
+    const focusItem = (index) => {
+        const menuItems = menuRef.current?.querySelectorAll('[role="menuitem"]');
+        if (menuItems && index >= 0 && index < menuItems.length) {
+            menuItems[index].focus();
+        }
+    };
 
     useEffect(() => {
         if (!open) {
-            return;
+            return undefined;
         }
+
+        focusItem(0);
 
         const handleClickOutside = (event) => {
             if (menuRef.current && !menuRef.current.contains(event.target)) {
@@ -17,7 +28,32 @@ export const KebabMenu = ({ items }) => {
 
         const handleKeyDown = (event) => {
             if (event.key === "Escape") {
+                event.preventDefault();
                 setOpen(false);
+                buttonRef.current?.focus?.();
+                return;
+            }
+            if (event.key === "Tab") {
+                setOpen(false);
+                return;
+            }
+            const menuItems = menuRef.current?.querySelectorAll('[role="menuitem"]');
+            if (!menuItems || menuItems.length === 0) {
+                return;
+            }
+            const currentIndex = Array.from(menuItems).indexOf(document.activeElement);
+            if (event.key === "ArrowDown") {
+                event.preventDefault();
+                focusItem((currentIndex + 1) % menuItems.length);
+            } else if (event.key === "ArrowUp") {
+                event.preventDefault();
+                focusItem((currentIndex - 1 + menuItems.length) % menuItems.length);
+            } else if (event.key === "Home") {
+                event.preventDefault();
+                focusItem(0);
+            } else if (event.key === "End") {
+                event.preventDefault();
+                focusItem(menuItems.length - 1);
             }
         };
 
@@ -33,10 +69,13 @@ export const KebabMenu = ({ items }) => {
     return (
         <div ref={menuRef} className="relative">
             <button
+                ref={buttonRef}
                 type="button"
                 onClick={() => setOpen((prev) => !prev)}
                 aria-label="Opciones"
                 aria-expanded={open}
+                aria-haspopup="menu"
+                aria-controls={menuId}
                 className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 focus:outline-none"
             >
                 <svg
@@ -50,11 +89,16 @@ export const KebabMenu = ({ items }) => {
             </button>
 
             {open && (
-                <div className="absolute right-0 z-10 mt-1 w-44 rounded-lg bg-white shadow-lg border border-gray-100 py-1">
+                <div
+                    id={menuId}
+                    role="menu"
+                    className="absolute right-0 z-10 mt-1 w-44 rounded-lg bg-white shadow-lg border border-gray-100 py-1"
+                >
                     {(items ?? []).map((item) => (
                         <button
                             key={item.label}
                             type="button"
+                            role="menuitem"
                             onClick={() => {
                                 item.onClick();
                                 setOpen(false);

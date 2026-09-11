@@ -106,6 +106,12 @@ class TeamViewSet(viewsets.ModelViewSet):
         section_id = request.data.get("section_id") or request.data.get("section")
         if section_id is not None:
             try:
+                section_id = int(section_id)
+            except (TypeError, ValueError):
+                raise DRFValidationError(
+                    {"section_id": "Debe ser un número entero."}
+                )
+            try:
                 section = Section.objects.get(pk=section_id)
             except Section.DoesNotExist:
                 raise NotFound("Section not found.")
@@ -198,6 +204,10 @@ class TeamViewSet(viewsets.ModelViewSet):
     def remove_member(self, request, pk=None, student_id=None):
         """Remove a student from a team."""
         team = self.get_object()
+        try:
+            student_id = int(student_id)
+        except (TypeError, ValueError):
+            raise NotFound("Miembro no encontrado.")
         membership = get_object_or_404(TeamMember, team=team, student_id=student_id)
 
         if membership.student_id == team.leader_id:

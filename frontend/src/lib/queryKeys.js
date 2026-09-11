@@ -53,6 +53,8 @@ export const queryKeys = {
 
         report: (sectionId) => [...queryKeys.grades.all, "report", sectionId],
 
+        history: (gradeId) => [...queryKeys.grades.all, "history", gradeId],
+
         evolution: (courseId) => [
             ...queryKeys.grades.all,
             "evolution",
@@ -71,6 +73,46 @@ export const queryKeys = {
     },
     auth: {
         me: ["auth", "me"],
+    },
+    admin: {
+        all: ["admin"],
+
+        users: (params) => [...queryKeys.admin.all, "users", params ?? {}],
+
+        loginStats: (days) => [
+            ...queryKeys.admin.all,
+            "login-stats",
+            days,
+        ],
+
+        errorLogs: (params) => [
+            ...queryKeys.admin.all,
+            "error-logs",
+            params ?? {},
+        ],
+
+        errorLog: (errorId) => [
+            ...queryKeys.admin.all,
+            "error-log",
+            errorId,
+        ],
+
+        activityLogs: (params) => [
+            ...queryKeys.admin.all,
+            "activity-logs",
+            params ?? {},
+        ],
+    },
+    snapshots: {
+        all: ["snapshots"],
+
+        list: (params) => [...queryKeys.snapshots.all, "list", params ?? {}],
+
+        detail: (snapshotId) => [
+            ...queryKeys.snapshots.all,
+            "detail",
+            snapshotId,
+        ],
     },
 };
 

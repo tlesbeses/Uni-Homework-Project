@@ -78,6 +78,116 @@ def _average_percentage(assignments, scores):
     return (score_sum / max_sum) * Decimal("100")
 
 
+def _buckets_from_assignments(percentages, assignments):
+    """Group already-loaded assignments into (category, parcial) buckets."""
+    buckets = {key: [] for key in percentages}
+    for assignment in assignments:
+        key = (assignment.category, assignment.parcial)
+        if key in buckets:
+            buckets[key].append(assignment)
+    return buckets
+
+
+def _scores_by_students(*, course, student_ids):
+    """Map ``student_id`` -> ``{assignment_id: score}`` with a single query."""
+    if not student_ids:
+        return {}
+    by_student = {}
+    for assignment_id, student_id, score in Grade.objects.filter(
+        assignment__course=course,
+        student_id__in=student_ids,
+    ).values_list("assignment_id", "student_id", "score"):
+        by_student.setdefault(student_id, {})[assignment_id] = score
+    return by_student
+
+
+def _plain_final_grade_from_data(assignments, scores):
+    if not assignments:
+        return None
+    average = _average_percentage(assignments, scores)
+    if average is None:
+        return None
+    return average.quantize(_ROUNDING)
+
+
+def _ponderated_final_from_data(settings, assignments, scores):
+    if settings is None:
+        return None
+    percentages = _ponderacion_percentages(settings)
+    buckets = _buckets_from_assignments(percentages, assignments)
+    if not any(buckets.values()):
+        return None
+    total = Decimal("0")
+    contributed = False
+    for (category, parcial), pct in percentages.items():
+        bucket = buckets[(category, parcial)]
+        if not bucket:
+            continue
+        average = _average_percentage(bucket, scores)
+        if average is None:
+            continue
+        contributed = True
+        total += average * (pct / Decimal("100"))
+    if not contributed:
+        return None
+    return total.quantize(_ROUNDING)
+
+
+def _breakdown_from_data(settings, assignments, scores):
+    if settings is None:
+        return []
+    percentages = _ponderacion_percentages(settings)
+    buckets = _buckets_from_assignments(percentages, assignments)
+    if not any(buckets.values()):
+        return []
+    components = []
+    for (category, parcial), pct in percentages.items():
+        bucket = buckets[(category, parcial)]
+        if not bucket:
+            continue
+        average = _average_percentage(bucket, scores)
+        components.append(
+            {
+                "type": category,
+                "parcial": parcial,
+                "pct": str(pct.quantize(Decimal("0.01"))),
+                "average": (
+                    str(average.quantize(Decimal("0.01"))) if average is not None else None
+                ),
+                "assignments": len(bucket),
+            }
+        )
+    return components
+
+
+def _parcial_scores_from_data(settings, assignments, scores):
+    if settings is None or not settings.ponderacion_enabled:
+        return {_PRIMERO: None, _SEGUNDO: None}
+    percentages = _ponderacion_percentages(settings)
+    buckets = _buckets_from_assignments(percentages, assignments)
+    result = {}
+    for parcial in (_PRIMERO, _SEGUNDO):
+        pct_numerator = Decimal("0")
+        pct_denominator = Decimal("0")
+        for category in (_ACUMULADO, _EXAMEN):
+            bucket = buckets[(category, parcial)]
+            if not bucket:
+                continue
+            pct = percentages[(category, parcial)]
+            average = _average_percentage(bucket, scores)
+            if average is None:
+                continue
+            pct_denominator += pct
+            pct_numerator += average * pct
+        if pct_denominator <= 0:
+            result[parcial] = None
+        else:
+            result[parcial] = (pct_numerator / pct_denominator).quantize(
+                _ROUNDING
+            )
+    return result
+
+
 def _ponderacion_percentages(settings):
     """Map each (category, parcial) bucket to its configured percentage."""
     return {
@@ -116,38 +226,11 @@ def ponderated_breakdown_for_student(*, course, student):
     score of the bucket (like the plain final grade).
     Returns an empty list when the course has no published assignments.
     """
-    settings = _effective_settings(course)
-    if settings is None:
-        return []
-    percentages = _ponderacion_percentages(settings)
-    buckets = {key: [] for key in percentages}
-    for assignment in _published_assignments(course=course):
-        key = (assignment.category, assignment.parcial)
-        if key in buckets:
-            buckets[key].append(assignment)
-
-    if not any(buckets.values()):
-        return []
-
-    scores = _scores_by_assignment(course=course, student=student)
-    components = []
-    for (category, parcial), pct in percentages.items():
-        bucket = buckets[(category, parcial)]
-        if not bucket:
-            continue
-        average = _average_percentage(bucket, scores)
-        components.append(
-            {
-                "type": category,
-                "parcial": parcial,
-                "pct": str(pct.quantize(Decimal("0.01"))),
-                "average": (
-                    str(average.quantize(Decimal("0.01"))) if average is not None else None
-                ),
-                "assignments": len(bucket),
-            }
-        )
-    return components
+    return _breakdown_from_data(
+        _effective_settings(course),
+        list(_published_assignments(course=course)),
+        _scores_by_assignment(course=course, student=student),
+    )
 
 
 def ponderated_final_grade_for_student(*, course, student):
@@ -156,32 +239,11 @@ def ponderated_final_grade_for_student(*, course, student):
     Contributions only come from buckets with published assignments;
     ``None`` when there is nothing to grade yet.
     """
-    percentages = _ponderacion_percentages(_effective_settings(course))
-    buckets = {key: [] for key in percentages}
-    for assignment in _published_assignments(course=course):
-        key = (assignment.category, assignment.parcial)
-        if key in buckets:
-            buckets[key].append(assignment)
-
-    if not any(buckets.values()):
-        return None
-
-    scores = _scores_by_assignment(course=course, student=student)
-    total = Decimal("0")
-    contributed = False
-    for (category, parcial), pct in percentages.items():
-        bucket = buckets[(category, parcial)]
-        if not bucket:
-            continue
-        average = _average_percentage(bucket, scores)
-        if average is None:
-            continue
-        contributed = True
-        total += average * (pct / Decimal("100"))
-
-    if not contributed:
-        return None
-    return total.quantize(_ROUNDING)
+    return _ponderated_final_from_data(
+        _effective_settings(course),
+        list(_published_assignments(course=course)),
+        _scores_by_assignment(course=course, student=student),
+    )
 
 
 def ponderated_parcial_scores_for_student(*, course, student):
@@ -202,35 +264,11 @@ def ponderated_parcial_scores_for_student(*, course, student):
     settings = _effective_settings(course)
     if settings is None or not settings.ponderacion_enabled:
         return {_PRIMERO: None, _SEGUNDO: None}
-    percentages = _ponderacion_percentages(settings)
-    buckets = {key: [] for key in percentages}
-    for assignment in _published_assignments(course=course):
-        key = (assignment.category, assignment.parcial)
-        if key in buckets:
-            buckets[key].append(assignment)
-
-    scores = _scores_by_assignment(course=course, student=student)
-    result = {}
-    for parcial in (_PRIMERO, _SEGUNDO):
-        pct_numerator = Decimal("0")
-        pct_denominator = Decimal("0")
-        for category in (_ACUMULADO, _EXAMEN):
-            bucket = buckets[(category, parcial)]
-            if not bucket:
-                continue
-            pct = percentages[(category, parcial)]
-            average = _average_percentage(bucket, scores)
-            if average is None:
-                continue
-            pct_denominator += pct
-            pct_numerator += average * pct
-        if pct_denominator <= 0:
-            result[parcial] = None
-        else:
-            result[parcial] = (pct_numerator / pct_denominator).quantize(
-                _ROUNDING
-            )
-    return result
+    return _parcial_scores_from_data(
+        settings,
+        list(_published_assignments(course=course)),
+        _scores_by_assignment(course=course, student=student),
+    )
 
 
 def _plain_final_grade(*, course, student):
@@ -238,15 +276,13 @@ def _plain_final_grade(*, course, student):
 
     Returns ``None`` when the course has no published assignments.
     """
-    assignments = _published_assignments(course=course)
-    if not assignments.exists():
+    assignments = list(_published_assignments(course=course))
+    if not assignments:
         return None
-
-    scores = _scores_by_assignment(course=course, student=student)
-    average = _average_percentage(assignments, scores)
-    if average is None:
-        return None
-    return average.quantize(_ROUNDING)
+    return _plain_final_grade_from_data(
+        assignments,
+        _scores_by_assignment(course=course, student=student),
+    )
 
 
 def final_grade_for_student(*, course, student):
@@ -260,3 +296,94 @@ def final_grade_for_student(*, course, student):
     if settings is not None and settings.ponderacion_enabled:
         return ponderated_final_grade_for_student(course=course, student=student)
     return _plain_final_grade(course=course, student=student)
+
+
+def final_grades_for_students(*, course, student_ids):
+    """Return ``{student_id: Decimal or None}`` for every ``student_id``.
+
+    Runs a fixed number of queries (course settings, published assignments
+    and one bulk grades query) no matter how many students are requested.
+    Use it everywhere a loop would call ``final_grade_for_student`` per
+    student to avoid the N+1 pattern. Results match calling
+    ``final_grade_for_student`` for each student individually.
+    """
+    student_ids = list(dict.fromkeys(student_ids))
+    if not student_ids:
+        return {}
+    settings = _effective_settings(course)
+    assignments = list(_published_assignments(course=course))
+    scores_by_student = _scores_by_students(
+        course=course, student_ids=student_ids
+    )
+    ponderated = settings is not None and settings.ponderacion_enabled
+    return {
+        student_id: (
+            _ponderated_final_from_data(
+                settings, assignments, scores_by_student.get(student_id, {})
+            )
+            if ponderated
+            else _plain_final_grade_from_data(
+                assignments, scores_by_student.get(student_id, {})
+            )
+        )
+        for student_id in student_ids
+    }
+
+
+def ponderated_parcial_scores_for_students(*, course, student_ids):
+    """Return ``{student_id: {PRIMERO: .., SEGUNDO: ..}}``.
+
+    Fixed number of queries regardless of how many students are requested.
+    When ponderación is disabled (or settings missing) every student gets
+    ``{PRIMERO: None, SEGUNDO: None}``, mirroring
+    ``ponderated_parcial_scores_for_student``.
+    """
+    student_ids = list(dict.fromkeys(student_ids))
+    if not student_ids:
+        return {}
+    settings = _effective_settings(course)
+    if settings is None or not settings.ponderacion_enabled:
+        return {
+            student_id: {_PRIMERO: None, _SEGUNDO: None}
+            for student_id in student_ids
+        }
+    assignments = list(_published_assignments(course=course))
+    scores_by_student = _scores_by_students(
+        course=course, student_ids=student_ids
+    )
+    return {
+        student_id: _parcial_scores_from_data(
+            settings,
+            assignments,
+            scores_by_student.get(student_id, {}),
+        )
+        for student_id in student_ids
+    }
+
+
+def student_course_grade_bundle(*, course, student):
+    """Return every per-student grade output of ``course`` in one pass.
+
+    Fetches course settings, published assignments and the student's scores
+    once (three queries) and reuses them for ``final``, ``breakdown`` and
+    ``parcial_scores``. ``ponderacion_enabled`` tells the caller whether the
+    breakdown/parcial fields carry real data (otherwise they are empty/None,
+    exactly like calling the per-student functions individually).
+    """
+    settings = _effective_settings(course)
+    assignments = list(_published_assignments(course=course))
+    scores = _scores_by_assignment(course=course, student=student)
+    ponderated = settings is not None and settings.ponderacion_enabled
+    if not ponderated:
+        return {
+            "final": _plain_final_grade_from_data(assignments, scores),
+            "breakdown": [],
+            "parcial_scores": {_PRIMERO: None, _SEGUNDO: None},
+            "ponderacion_enabled": False,
+        }
+    return {
+        "final": _ponderated_final_from_data(settings, assignments, scores),
+        "breakdown": _breakdown_from_data(settings, assignments, scores),
+        "parcial_scores": _parcial_scores_from_data(settings, assignments, scores),
+        "ponderacion_enabled": True,
+    }

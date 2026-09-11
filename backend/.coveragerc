@@ -1,0 +1,13 @@
+[run]
+parallel = True
+source = authentication,course,teams,assignments,grading,notifications,config
+omit =
+    */migrations/*
+    */tests.py
+    */test_*.py
+    */apps.py
+    */admin.py
+
+[report]
+show_missing = True
+skip_covered = True

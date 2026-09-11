@@ -31,7 +31,7 @@ class LoginUserSerializer(serializers.ModelSerializer):
         read_only_fields = ("is_staff", "is_superuser", "is_active")
 
     def get_roles(self, obj):
-        return list(obj.groups.values_list("name", flat=True))
+        return [group.name for group in obj.groups.all()]
 
     def get_permissions(self, obj):
         return list(obj.get_all_permissions())
@@ -74,7 +74,7 @@ class UserSerializer(DjoserUserSerializer):
         read_only_fields = ('is_staff', 'is_superuser', 'is_active',)
 
     def get_roles(self, obj):
-        return list(obj.groups.values_list("name", flat=True))
+        return [group.name for group in obj.groups.all()]
 
     def get_permissions(self, obj):
         return list(obj.get_all_permissions())
@@ -106,7 +106,7 @@ class AdminUserSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_roles(self, obj):
-        return list(obj.groups.values_list("name", flat=True))
+        return [group.name for group in obj.groups.all()]
 
 
 class ImpersonationLogSerializer(serializers.ModelSerializer):

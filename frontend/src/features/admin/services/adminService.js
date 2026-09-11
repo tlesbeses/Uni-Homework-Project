@@ -1,4 +1,4 @@
-import { api } from "@/lib/axios";
+import { api, queryApi } from "@/lib/axios";
 
 export const getAdminUsers = async (params) => {
     const { signal, search, role, ...queryParams } = params ?? {};
@@ -9,7 +9,7 @@ export const getAdminUsers = async (params) => {
     if (role) {
         query.role = role;
     }
-    const response = await api.get("/auth/admin/users/", {
+    const response = await queryApi.get("/auth/admin/users/", {
         params: query,
         signal,
     });
@@ -56,7 +56,7 @@ export const getActivityLogs = async (params) => {
     if (pageSize) {
         query.page_size = pageSize;
     }
-    const response = await api.get("/auth/admin/activity/", {
+    const response = await queryApi.get("/auth/admin/activity/", {
         params: query,
         signal,
     });
@@ -65,7 +65,7 @@ export const getActivityLogs = async (params) => {
 
 export const getLoginStats = async (params) => {
     const { signal, days = 7 } = params ?? {};
-    const response = await api.get("/auth/admin/login-stats/", {
+    const response = await queryApi.get("/auth/admin/login-stats/", {
         params: { days },
         signal,
     });
@@ -84,7 +84,7 @@ export const getErrorLogs = async (params) => {
     if (pageSize) {
         query.page_size = pageSize;
     }
-    const response = await api.get("/api/errors/", {
+    const response = await queryApi.get("/api/errors/", {
         params: query,
         signal,
     });
@@ -92,7 +92,7 @@ export const getErrorLogs = async (params) => {
 };
 
 export const getErrorLog = async (errorId, opts) => {
-    const response = await api.get(`/api/errors/${errorId}/`, {
+    const response = await queryApi.get(`/api/errors/${errorId}/`, {
         signal: opts?.signal,
     });
     return response.data;

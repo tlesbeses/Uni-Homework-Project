@@ -5,6 +5,7 @@ from django.contrib.auth.models import Group
 from django.db.models import Count, Q
 from django.db.models.functions import TruncDate
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 from rest_framework import status, viewsets
 from rest_framework.filters import SearchFilter
 from rest_framework.response import Response
@@ -291,6 +292,28 @@ class ImpersonateView(APIView):
         return Response({"access": str(token)})
 
 
+def _clean_int_param(value, field):
+    """Convierte un query param a entero o responde 400 si no lo es."""
+    if value is None or value == "":
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        raise ValidationError({field: "Debe ser un número entero."})
+
+
+def _clean_date_param(value, field):
+    """Convierte un query param a fecha ISO (AAAA-MM-DD) o responde 400."""
+    if value is None or value == "":
+        return None
+    parsed = parse_date(value)
+    if parsed is None:
+        raise ValidationError(
+            {field: "Debe ser una fecha ISO válida (AAAA-MM-DD)."}
+        )
+    return parsed
+
+
 class AdminActivityView(APIView):
     """Historial de actividad (EventLog) para la consola de administración.
 
@@ -303,7 +326,9 @@ class AdminActivityView(APIView):
     throttle_classes = [AdminThrottle]
 
     def get(self, request):
-        qs = EventLog.objects.select_related("actor", "target")
+        qs = EventLog.objects.select_related(
+            "actor", "target"
+        ).prefetch_related("actor__groups", "target__groups")
 
         action = request.query_params.get("action")
         if action:
@@ -313,16 +338,16 @@ class AdminActivityView(APIView):
         if entity_type:
             qs = qs.filter(entity_type=entity_type)
 
-        user_id = request.query_params.get("user_id")
-        if user_id:
+        user_id = _clean_int_param(request.query_params.get("user_id"), "user_id")
+        if user_id is not None:
             qs = qs.filter(Q(actor_id=user_id) | Q(target_id=user_id))
 
-        date_from = request.query_params.get("from")
-        if date_from:
+        date_from = _clean_date_param(request.query_params.get("from"), "from")
+        if date_from is not None:
             qs = qs.filter(created_at__date__gte=date_from)
 
-        date_to = request.query_params.get("to")
-        if date_to:
+        date_to = _clean_date_param(request.query_params.get("to"), "to")
+        if date_to is not None:
             qs = qs.filter(created_at__date__lte=date_to)
 
         qs = qs.order_by("-created_at")

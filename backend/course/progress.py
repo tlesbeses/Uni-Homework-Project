@@ -12,7 +12,7 @@ from statistics import fmean
 from assignments.models import Assignment
 from authentication.models import User
 from course.models import Enrollment, Status
-from grading.final import final_grade_for_student
+from grading.final import final_grades_for_students
 from grading.models import Grade
 
 
@@ -75,8 +75,13 @@ def course_progress(course) -> dict:
 
     student_stats = []
     finals = []
+    final_scores = (
+        final_grades_for_students(course=course, student_ids=student_ids)
+        if student_ids
+        else {}
+    )
     for user in users:
-        final = final_grade_for_student(course=course, student=user)
+        final = final_scores.get(user.id)
         grade_count = sum(
             1
             for assignment in assignments

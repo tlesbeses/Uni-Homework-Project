@@ -4,16 +4,20 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-django = "*"
-djangorestframework = "*"
 djoser = "*"
 django-filter = "*"
 djangorestframework-simplejwt = "*"
 python-dotenv = "*"
+django = "==6.0.8"
+djangorestframework = "==3.17.2"
+sqlparse = "==0.6.0"
+cryptography = "==50.0.0"
 
 [dev-packages]
 locust = "*"
 waitress = "*"
+pip-audit = "*"
+coverage = "*"
 
 [requires]
 python_version = "3.14"
