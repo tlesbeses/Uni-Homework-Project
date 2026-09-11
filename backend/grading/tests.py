@@ -23,8 +23,10 @@ from authentication.models import EventLog
 from course.models import Course, CourseSettings, Enrollment, Section, Status
 from grading.final import (
     final_grade_for_student,
+    final_grades_for_students,
     ponderated_breakdown_for_student,
     ponderated_parcial_scores_for_student,
+    ponderated_parcial_scores_for_students,
 )
 from grading.models import FinalScoreSnapshot, Grade
 from teams.models import Team, TeamMember
@@ -1459,3 +1461,141 @@ class FinalScoreSnapshotTests(GradingAPITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("course", response.data)
+
+
+class BatchFinalGradeTests(TransactionTestCase):
+    """The batch helpers must equal per-student results with fixed queries.
+
+    Guards the Fase 3 refactor: it must not change any computed grade while
+    keeping the query count independent of the number of students.
+    """
+
+    def setUp(self):
+        self.teacher = User.objects.create_user("batch_teacher", password="pass")
+        self.course = Course.objects.create(
+            title="Batch Course", teacher=self.teacher
+        )
+        self.section = Section.objects.create(course=self.course, name="Default")
+        course_settings, _ = CourseSettings.objects.get_or_create(course=self.course)
+        course_settings.ponderacion_enabled = True
+        course_settings.save()
+        self.students = []
+        for index in range(4):
+            user = User.objects.create_user(f"batch_student_{index}", password="pass")
+            Enrollment.objects.create(
+                section=self.section,
+                student=user,
+                status=Status.APPROVED,
+            )
+            self.students.append(user)
+
+        self.a1 = Assignment.objects.create(
+            course=self.course,
+            title="Homework",
+            max_score="20.00",
+            category="ACUMULADO",
+            parcial="PRIMERO",
+            is_published=True,
+        )
+        self.a2 = Assignment.objects.create(
+            course=self.course,
+            title="Exam",
+            max_score="50.00",
+            category="EXAMEN",
+            parcial="PRIMERO",
+            is_published=True,
+        )
+        for index, student in enumerate(self.students):
+            Grade.objects.create(
+                assignment=self.a1,
+                student=student,
+                score=f"{8 + index}.00",
+                graded_by=self.teacher,
+            )
+            Grade.objects.create(
+                assignment=self.a2,
+                student=student,
+                score=f"{30 + index}.00",
+                graded_by=self.teacher,
+            )
+
+    @property
+    def student_ids(self):
+        return [student.id for student in self.students]
+
+    def test_batch_matches_per_student_final(self):
+        batch = final_grades_for_students(
+            course=self.course, student_ids=self.student_ids
+        )
+        for student in self.students:
+            self.assertEqual(
+                batch[student.id],
+                final_grade_for_student(course=self.course, student=student),
+            )
+
+    def test_batch_matches_per_student_partials(self):
+        batch = ponderated_parcial_scores_for_students(
+            course=self.course, student_ids=self.student_ids
+        )
+        for student in self.students:
+            self.assertEqual(
+                batch[student.id],
+                ponderated_parcial_scores_for_student(
+                    course=self.course, student=student
+                ),
+            )
+
+    def test_batch_uses_constant_number_of_queries(self):
+        with self.assertNumQueries(3):
+            final_grades_for_students(
+                course=self.course, student_ids=self.student_ids
+            )
+
+    def test_batch_partials_use_constant_number_of_queries(self):
+        with self.assertNumQueries(3):
+            ponderated_parcial_scores_for_students(
+                course=self.course, student_ids=self.student_ids
+            )
+
+    def test_batch_plain_course_matches_per_student(self):
+        plain_course = Course.objects.create(
+            title="Plain Course", teacher=self.teacher
+        )
+        section = Section.objects.create(course=plain_course, name="Default")
+        student = User.objects.create_user("plain_student", password="pass")
+        Enrollment.objects.create(
+            section=section, student=student, status=Status.APPROVED
+        )
+        assignment = Assignment.objects.create(
+            course=plain_course,
+            title="Homework",
+            max_score="10.00",
+            is_published=True,
+        )
+        Grade.objects.create(
+            assignment=assignment,
+            student=student,
+            score="7.00",
+            graded_by=self.teacher,
+        )
+
+        batch = final_grades_for_students(
+            course=plain_course, student_ids=[student.id]
+        )
+        expected = final_grade_for_student(
+            course=plain_course, student=student
+        )
+        self.assertEqual(batch[student.id], expected)
+        self.assertEqual(expected, Decimal("70.00"))
+
+    def test_batch_without_students_returns_empty(self):
+        self.assertEqual(
+            final_grades_for_students(course=self.course, student_ids=[]),
+            {},
+        )
+        self.assertEqual(
+            ponderated_parcial_scores_for_students(
+                course=self.course, student_ids=[]
+            ),
+            {},
+        )

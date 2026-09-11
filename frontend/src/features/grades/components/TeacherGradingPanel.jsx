@@ -1,50 +1,35 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useAllAssignments } from "@/features/assignments/hooks/useAllAssignments";
-import { getEnrollments, getSections } from "@/features/courses/services/courseService";
-import { useAllData } from "@/shared/hooks/useAllData";
+import {
+    getEnrollments,
+    getSections,
+} from "@/features/courses/services/courseService";
 import { useCourses } from "@/features/courses/hooks/useCourses";
 import { useAssignmentGrades } from "@/features/grades/hooks/useAssignmentGrades";
 import {
     useGradeStudent,
     useGradeTeam,
 } from "@/features/grades/hooks/useGradeMutations";
+import { useGradingDrafts } from "@/features/grades/hooks/useGradingDrafts";
 import { getTeams } from "@/features/teams/services/teamService";
-import { getGradeHistory } from "@/features/grades/services/gradeService";
+import { queryKeys } from "@/lib/queryKeys";
+import { fetchAllPages } from "@/shared/utils/fetchAllPages";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
-import { Button } from "@/shared/components/ui/Button";
 import { SelectField } from "@/shared/components/ui/SelectField";
-import { Modal } from "@/shared/components/ui/Modal";
-
-const DOT_COLORS = [
-    "bg-red-500",
-    "bg-orange-400",
-    "bg-emerald-500",
-    "bg-blue-500",
-    "bg-purple-500",
-    "bg-yellow-400",
-    "bg-teal-500",
-    "bg-pink-500",
-];
-
-const studentName = (student) =>
-    `${student.first_name || student.username} ${student.last_name ?? ""}`
-        .trim()
-        .replace(/\s+/g, " ");
-
-const studentInitials = (student) => {
-    const first = (student.first_name || student.username || "?").trim();
-    const last = (student.last_name ?? "").trim();
-    return `${first[0] ?? "?"}${last[0] ?? ""}`.toUpperCase();
-};
-
-const formatScore = (score) =>
-    score === null || score === undefined ? "__" : String(score);
-
-const teamDraftKey = (teamId) => `t:${teamId}`;
-const memberDraftKey = (teamId, studentId) => `m:${teamId}:${studentId}`;
-const unteamedDraftKey = (studentId) => `u:${studentId}`;
+import { GradeHistoryModal } from "@/features/grades/components/grading/GradeHistoryModal";
+import { MemberRow } from "@/features/grades/components/grading/MemberRow";
+import { TeamListPanel } from "@/features/grades/components/grading/TeamListPanel";
+import { TeamNoteForm } from "@/features/grades/components/grading/TeamNoteForm";
+import {
+    formatScore,
+    memberDraftKey,
+    studentName,
+    teamDraftKey,
+    unteamedDraftKey,
+} from "@/features/grades/components/grading/gradingUtils";
 
 export const TeacherGradingPanel = () => {
     const { assignments, loading: assignmentsLoading } = useAllAssignments();
@@ -60,50 +45,33 @@ export const TeacherGradingPanel = () => {
         () => searchParams.get("section") ?? ""
     );
     const [overwriteIndividual, setOverwriteIndividual] = useState(false);
-    const [drafts, setDrafts] = useState({});
-    const [savingKey, setSavingKey] = useState(null);
-    const inFlightRef = useRef(new Set());
     const detailRef = useRef(null);
     const [historyGrade, setHistoryGrade] = useState(null);
     const [historyStudent, setHistoryStudent] = useState(null);
-    const [history, setHistory] = useState(null);
-    const [historyLoading, setHistoryLoading] = useState(false);
 
     const selectedAssignment = assignments.find(
         (item) => String(item.id) === String(selectedAssignmentId)
     );
     const courseId = selectedAssignment?.course?.id ?? null;
 
-    const [sections, setSections] = useState([]);
+    const { data: sections = [] } = useQuery({
+        queryKey: queryKeys.courses.sections(courseId ?? ""),
+        queryFn: () => fetchAllPages((params) => getSections(courseId, params)),
+        enabled: Boolean(courseId),
+        staleTime: 30_000,
+    });
+
     useEffect(() => {
         if (!courseId) {
-            setSections([]);
             setSectionFilter("");
             return;
         }
-        let active = true;
-        getSections(courseId, { page_size: 100 })
-            .then((data) => {
-                if (active) {
-                    const list = data?.results ?? data ?? [];
-                    setSections(list);
-                    setSectionFilter((current) =>
-                        current && list.some((s) => String(s.id) === String(current))
-                            ? current
-                            : (list[0]?.id ?? "")
-                    );
-                }
-            })
-            .catch(() => {
-                if (active) {
-                    setSections([]);
-                    setSectionFilter("");
-                }
-            });
-        return () => {
-            active = false;
-        };
-    }, [courseId]);
+        setSectionFilter((current) =>
+            current && sections.some((s) => String(s.id) === String(current))
+                ? current
+                : (sections[0]?.id ?? "")
+        );
+    }, [courseId, sections]);
 
     const filteredAssignments = courseFilter
         ? assignments.filter(
@@ -112,29 +80,27 @@ export const TeacherGradingPanel = () => {
           )
         : assignments;
 
-    const { data: rawTeams, loading: teamsLoading } = useAllData(
-        useCallback(
-            (params) =>
-                courseId
-                    ? getTeams({
-                          course: courseId,
-                          section: sectionFilter || undefined,
-                          ...params,
-                      })
-                    : Promise.resolve([]),
-            [courseId, sectionFilter]
-        )
-    );
+    const { data: rawTeams, isLoading: teamsLoading } = useQuery({
+        queryKey: queryKeys.teams.list({
+            course: courseId ?? "",
+            section: sectionFilter || undefined,
+        }),
+        queryFn: () =>
+            fetchAllPages(getTeams, {
+                course: courseId,
+                section: sectionFilter || undefined,
+            }),
+        enabled: Boolean(courseId),
+        staleTime: 30_000,
+    });
 
-    const { data: rawEnrollments } = useAllData(
-        useCallback(
-            (params) =>
-                courseId
-                    ? getEnrollments(courseId, params)
-                    : Promise.resolve([]),
-            [courseId]
-        )
-    );
+    const { data: rawEnrollments } = useQuery({
+        queryKey: queryKeys.courses.enrollments(courseId ?? ""),
+        queryFn: () =>
+            fetchAllPages((params) => getEnrollments(courseId, params)),
+        enabled: Boolean(courseId),
+        staleTime: 30_000,
+    });
 
     const teams = useMemo(() => rawTeams ?? [], [rawTeams]);
     const enrollments = rawEnrollments ?? [];
@@ -143,10 +109,16 @@ export const TeacherGradingPanel = () => {
         (enrollment) => enrollment.status === "APPROVED"
     );
 
-    const teamedIds = new Set(
-        teams.flatMap((team) =>
-            (team.members ?? []).map((member) => String(member.student?.id))
-        )
+    const teamedIds = useMemo(
+        () =>
+            new Set(
+                teams.flatMap((team) =>
+                    (team.members ?? []).map(
+                        (member) => String(member.student?.id)
+                    )
+                )
+            ),
+        [teams]
     );
     const unteamedStudents = students.filter(
         (enrollment) =>
@@ -212,56 +184,6 @@ export const TeacherGradingPanel = () => {
         [gradesByStudentId]
     );
 
-    const inputValue = (key, fallback) => {
-        const draft = drafts[key];
-        if (draft !== undefined) {
-            return draft;
-        }
-        return fallback === null || fallback === undefined
-            ? ""
-            : String(fallback);
-    };
-
-    const setDraft = useCallback((key, value) =>
-        setDrafts((prev) => ({ ...prev, [key]: value })), []);
-
-    const clearDraft = useCallback((key) =>
-        setDrafts((prev) => {
-            if (!(key in prev)) {
-                return prev;
-            }
-            const next = { ...prev };
-            delete next[key];
-            return next;
-        }), []);
-
-    const beginSave = useCallback((key) => {
-        if (inFlightRef.current.has(key)) {
-            return false;
-        }
-        inFlightRef.current.add(key);
-        return true;
-    }, []);
-
-    const endSave = useCallback((key) => {
-        inFlightRef.current.delete(key);
-    }, []);
-
-    const isValidScore = useCallback(
-        (raw) => {
-            if (raw === "" || raw === null || raw === undefined) {
-                return false;
-            }
-            const value = Number(raw);
-            return (
-                Number.isFinite(value) &&
-                value >= 0 &&
-                value <= maxScore
-            );
-        },
-        [maxScore]
-    );
-
     const studentPersistedScore = useCallback(
         (studentId) => {
             const grade = gradesByStudentId.get(String(studentId));
@@ -272,210 +194,29 @@ export const TeacherGradingPanel = () => {
         [gradesByStudentId]
     );
 
-    const autosaveMemberKey = useCallback(
-        async (key) => {
-            const raw = drafts[key];
-            if (!selectedAssignmentId || raw === "" || raw === undefined) {
-                return;
-            }
-            if (!isValidScore(raw)) {
-                return;
-            }
-            const studentId =
-                key.startsWith("m:")
-                    ? key.split(":").pop()
-                    : key.startsWith("u:")
-                      ? key.slice(2)
-                      : null;
-            if (!studentId) {
-                return;
-            }
-            const persisted = studentPersistedScore(studentId);
-            if (persisted !== null && Number(raw) === persisted) {
-                clearDraft(key);
-                return;
-            }
-            if (!beginSave(key)) {
-                return;
-            }
-            setSavingKey(key);
-            try {
-                await gradeStudentMutation.mutateAsync({
-                    assignmentId: selectedAssignmentId,
-                    studentId,
-                    score: raw,
-                });
-                clearDraft(key);
-                toast.success("Nota individual guardada");
-            } catch (err) {
-                toast.error(getErrorMessage(err));
-            } finally {
-                setSavingKey(null);
-                endSave(key);
-            }
-        },
-        [
-            drafts,
-            selectedAssignmentId,
-            isValidScore,
-            studentPersistedScore,
-            beginSave,
-            endSave,
-            clearDraft,
-            gradeStudentMutation,
-        ]
-    );
-
-    const autosaveTeamKey = useCallback(
-        async (key) => {
-            if (!selectedAssignmentId || !key.startsWith("t:")) {
-                return;
-            }
-            const teamId = key.slice(2);
-            const team = teams.find(
-                (item) => String(item.id) === String(teamId)
-            );
-            if (!team) {
-                return;
-            }
-            const raw = drafts[key];
-            if (!raw) {
-                return;
-            }
-            if (!isValidScore(raw)) {
-                return;
-            }
-            const persisted = getTeamGrade(team);
-            if (persisted !== null && Number(raw) === persisted) {
-                clearDraft(key);
-                return;
-            }
-            if (!beginSave(key)) {
-                return;
-            }
-            setSavingKey(key);
-            try {
-                await gradeTeamMutation.mutateAsync({
-                    assignmentId: selectedAssignmentId,
-                    teamId: team.id,
-                    score: raw,
-                    overwriteIndividual,
-                });
-                clearDraft(key);
-                toast.success(`Nota aplicada al ${team.name}`);
-            } catch (err) {
-                toast.error(getErrorMessage(err));
-            } finally {
-                setSavingKey(null);
-                endSave(key);
-            }
-        },
-        [
-            drafts,
-            selectedAssignmentId,
-            teams,
-            overwriteIndividual,
-            getTeamGrade,
-            isValidScore,
-            beginSave,
-            endSave,
-            clearDraft,
-            gradeTeamMutation,
-        ]
-    );
-
-    const flushPendingDrafts = useCallback(async () => {
-        const pending = [];
-        for (const [key, raw] of Object.entries(drafts)) {
-            if (!isValidScore(raw)) {
-                continue;
-            }
-            if (key.startsWith("t:")) {
-                const teamId = key.slice(2);
-                const team = teams.find(
-                    (item) => String(item.id) === String(teamId)
-                );
-                if (!team) {
-                    continue;
-                }
-                const persisted = getTeamGrade(team);
-                if (persisted !== null && Number(raw) === persisted) {
-                    clearDraft(key);
-                    continue;
-                }
-                pending.push(
-                    (async () => {
-                        if (!beginSave(key)) {
-                            return;
-                        }
-                        try {
-                            await gradeTeamMutation.mutateAsync({
-                                assignmentId: selectedAssignmentId,
-                                teamId: team.id,
-                                score: raw,
-                                overwriteIndividual,
-                            });
-                            clearDraft(key);
-                        } catch (err) {
-                            toast.error(getErrorMessage(err));
-                        } finally {
-                            endSave(key);
-                        }
-                    })()
-                );
-                continue;
-            }
-            const studentId =
-                key.startsWith("m:")
-                    ? key.split(":").pop()
-                    : key.startsWith("u:")
-                      ? key.slice(2)
-                      : null;
-            if (!studentId) {
-                continue;
-            }
-            const persisted = studentPersistedScore(studentId);
-            if (persisted !== null && Number(raw) === persisted) {
-                clearDraft(key);
-                continue;
-            }
-            pending.push(
-                (async () => {
-                    if (!beginSave(key)) {
-                        return;
-                    }
-                    try {
-                        await gradeStudentMutation.mutateAsync({
-                            assignmentId: selectedAssignmentId,
-                            studentId,
-                            score: raw,
-                        });
-                        clearDraft(key);
-                    } catch (err) {
-                        toast.error(getErrorMessage(err));
-                    } finally {
-                        endSave(key);
-                    }
-                })()
-            );
-        }
-        if (pending.length > 0) {
-            await Promise.all(pending);
-        }
-    }, [
-        drafts,
-        teams,
-        selectedAssignmentId,
-        overwriteIndividual,
-        getTeamGrade,
-        isValidScore,
-        studentPersistedScore,
+    const {
+        savingKey,
+        setSavingKey,
+        setDraft,
+        clearDraft,
+        clearAll,
+        draftValue,
+        inputValue,
         beginSave,
         endSave,
-        clearDraft,
+        autosaveMemberKey,
+        autosaveTeamKey,
+        flushPendingDrafts,
+    } = useGradingDrafts({
+        selectedAssignmentId,
+        maxScore,
+        overwriteIndividual,
+        teams,
+        getTeamGrade,
+        studentPersistedScore,
         gradeStudentMutation,
         gradeTeamMutation,
-    ]);
+    });
 
     const handleSelectCourse = (e) => {
         setCourseFilter(e.target.value);
@@ -483,13 +224,13 @@ export const TeacherGradingPanel = () => {
         setSelectedTeamId(null);
         setSectionFilter("");
         flushPendingDrafts();
-        setDrafts({});
+        clearAll();
     };
 
     const handleSelectAssignment = (e) => {
         setSelectedAssignmentId(e.target.value);
         flushPendingDrafts();
-        setDrafts({});
+        clearAll();
     };
 
     const handleSelectTeam = (teamId) => {
@@ -497,14 +238,17 @@ export const TeacherGradingPanel = () => {
         setOverwriteIndividual(false);
         if (window.innerWidth < 1024 && detailRef.current) {
             setTimeout(() => {
-                detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                detailRef.current?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start",
+                });
             }, 0);
         }
     };
 
     const handleSaveTeamNote = async (team) => {
         const key = teamDraftKey(team.id);
-        const raw = drafts[key];
+        const raw = draftValue(key);
         if (!selectedAssignmentId || !team?.id || !raw) {
             return;
         }
@@ -559,7 +303,7 @@ export const TeacherGradingPanel = () => {
             teamId === null
                 ? unteamedDraftKey(studentId)
                 : memberDraftKey(teamId, studentId);
-        const raw = drafts[key];
+        const raw = draftValue(key);
         if (!selectedAssignmentId || !studentId || !raw) {
             return;
         }
@@ -582,6 +326,16 @@ export const TeacherGradingPanel = () => {
             endSave(key);
         }
     };
+
+    const openHistory = useCallback((student, grade) => {
+        setHistoryStudent(student);
+        setHistoryGrade(grade);
+    }, []);
+
+    const closeHistory = useCallback(() => {
+        setHistoryGrade(null);
+        setHistoryStudent(null);
+    }, []);
 
     const visibleTeams = teams.filter((team) => {
         const words = teamNameQuery
@@ -611,35 +365,37 @@ export const TeacherGradingPanel = () => {
         [visibleTeams, getTeamGrade]
     );
 
-    const openHistory = useCallback(
-        async (student, grade) => {
-            setHistoryStudent(student);
-            setHistoryGrade(grade);
-            setHistory(null);
-            setHistoryLoading(true);
-            try {
-                const data = await getGradeHistory(grade.id);
-                setHistory(Array.isArray(data) ? data : data?.results ?? []);
-            } catch (err) {
-                toast.error(getErrorMessage(err));
-                setHistoryGrade(null);
-                setHistoryStudent(null);
-            } finally {
-                setHistoryLoading(false);
-            }
-        },
-        []
-    );
-
-    const closeHistory = useCallback(() => {
-        setHistoryGrade(null);
-        setHistoryStudent(null);
-        setHistory(null);
-    }, []);
-
     const selectedTeam = teams.find(
         (team) => String(team.id) === String(selectedTeamId)
     ) ?? null;
+
+    const renderMemberRow = (teamId, student) => {
+        const key =
+            teamId === null
+                ? unteamedDraftKey(student.id)
+                : memberDraftKey(teamId, student.id);
+        const fallback = getEffectiveScore(student.id, null);
+        const individual = isIndividual(student.id);
+        const grade = gradesByStudentId.get(String(student.id));
+
+        return (
+            <MemberRow
+                teamId={teamId}
+                draftKey={key}
+                student={student}
+                grade={grade}
+                individual={individual}
+                fallback={fallback}
+                maxScore={maxScore}
+                inputValue={inputValue}
+                setDraft={setDraft}
+                savingKey={savingKey}
+                onSave={handleSaveMember}
+                onAutosave={autosaveMemberKey}
+                onOpenHistory={openHistory}
+            />
+        );
+    };
 
     if (assignmentsLoading) {
         return <p className="text-gray-500">Cargando asignaciones...</p>;
@@ -652,75 +408,6 @@ export const TeacherGradingPanel = () => {
             </p>
         );
     }
-
-    const renderMemberRow = (teamId, student) => {
-        const key =
-            teamId === null
-                ? unteamedDraftKey(student.id)
-                : memberDraftKey(teamId, student.id);
-        const fallback = getEffectiveScore(student.id, null);
-        const individual = isIndividual(student.id);
-        const grade = gradesByStudentId.get(String(student.id));
-
-        return (
-            <li
-                key={key}
-                className="py-2.5 flex items-center justify-between gap-3"
-            >
-                <span className="flex items-center gap-2.5 min-w-0">
-                    <span className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 grid place-items-center text-xs font-semibold shrink-0">
-                        {studentInitials(student)}
-                    </span>
-                    <span className="text-sm text-gray-800 truncate">
-                        {studentName(student)}
-                    </span>
-                    {individual && (
-                        <span className="text-[10px] leading-none px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-semibold shrink-0">
-                            individual
-                        </span>
-                    )}
-                    {grade && (
-                        <button
-                            type="button"
-                            onClick={() => openHistory(student, grade)}
-                            className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 hover:underline shrink-0"
-                            title="Ver historial de notas"
-                        >
-                            Historial
-                        </button>
-                    )}
-                </span>
-                <span className="flex items-center gap-2 shrink-0">
-                    <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max={maxScore}
-                        value={inputValue(key, fallback)}
-                        onChange={(e) => setDraft(key, e.target.value)}
-                        onBlur={() => autosaveMemberKey(key)}
-                        onFocus={(e) => e.target.select()}
-                        className="w-16 px-2 py-1.5 rounded-lg border outline-none transition text-right text-sm text-gray-700 border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                        placeholder="__"
-                    />
-                    <span className="text-xs text-gray-400">/ {maxScore}</span>
-                    <Button
-                        size="sm"
-                        onClick={() =>
-                            handleSaveMember(teamId, student.id)
-                        }
-                        disabled={
-                            savingKey === key ||
-                            !inputValue(key, fallback)
-                        }
-                        title="Guardar nota individual"
-                    >
-                        {savingKey === key ? "…" : "✓"}
-                    </Button>
-                </span>
-            </li>
-        );
-    };
 
     return (
         <div className="space-y-6">
@@ -770,202 +457,22 @@ export const TeacherGradingPanel = () => {
 
             {selectedAssignmentId && (
                 <div className="grid gap-6 lg:grid-cols-[320px_1fr] items-start">
-                    <aside className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 space-y-4">
-                        <div className="flex items-center justify-between gap-2">
-                            <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
-                                <span aria-hidden>👥</span> Todos los equipos
-                            </h2>
-                            <span className="text-xs text-gray-400">
-                                {visibleTeams.length}
-                            </span>
-                        </div>
-
-                        <input
-                            type="search"
-                            value={teamNameQuery}
-                            onChange={(e) => setTeamNameQuery(e.target.value)}
-                            placeholder="Filtrar por nombre..."
-                            className="w-full px-3 py-2 rounded-lg border outline-none transition text-sm text-gray-700 border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                        />
-
-                        {sections.length > 0 && (
-                            <div>
-                                <SelectField
-                                    compact
-                                    label="Grupo de clase"
-                                    value={sectionFilter}
-                                    onChange={(e) =>
-                                        setSectionFilter(e.target.value)
-                                    }
-                                >
-                                    {sections.map((section) => (
-                                        <option
-                                            key={section.id}
-                                            value={section.id}
-                                        >
-                                            {section.name}
-                                        </option>
-                                    ))}
-                                </SelectField>
-                                {sectionFilter && (
-                                    <Link
-                                        to={`/grades/report?section=${sectionFilter}`}
-                                        className="mt-2 block w-full px-3 py-2 rounded-lg border border-emerald-200 bg-emerald-50 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 transition text-center"
-                                    >
-                                        Ver reporte
-                                    </Link>
-                                )}
-                            </div>
-                        )}
-
-                        {teamsLoading ? (
-                            <p className="text-sm text-gray-500">
-                                Cargando equipos...
-                            </p>
-                        ) : teams.length === 0 ? (
-                            <p className="text-sm text-gray-500">
-                                Este curso no tiene equipos.
-                            </p>
-                        ) : visibleTeams.length === 0 ? (
-                            <p className="text-sm text-gray-500">
-                                Ningún equipo coincide con el filtro.
-                            </p>
-                        ) : (
-                            <div className="space-y-3 -mx-2">
-                                {ungradedTeams.length > 0 && (
-                                    <div>
-                                        <p className="px-2 mb-1 text-xs font-semibold text-amber-600 uppercase tracking-wider">
-                                            Sin calificar ({ungradedTeams.length})
-                                        </p>
-                                        <ul className="divide-y divide-gray-100">
-                                            {ungradedTeams.map((team, index) => {
-                                                const isSelected =
-                                                    String(selectedTeamId) ===
-                                                    String(team.id);
-                                                const members = team.members ?? [];
-                                                const teamGrade = getTeamGrade(team);
-
-                                                return (
-                                                    <li key={team.id}>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() =>
-                                                                handleSelectTeam(team.id)
-                                                            }
-                                                            className={`w-full flex items-center gap-2.5 px-2 py-3 text-left transition rounded-lg ${
-                                                                isSelected
-                                                                    ? "bg-indigo-50 ring-1 ring-indigo-200"
-                                                                    : "hover:bg-gray-50"
-                                                            }`}
-                                                        >
-                                                            <span
-                                                                className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                                                                    DOT_COLORS[
-                                                                        index %
-                                                                            DOT_COLORS.length
-                                                                    ]
-                                                                }`}
-                                                            />
-                                                            <span className="min-w-0 flex-1">
-                                                                <span className="block text-sm font-semibold text-gray-800 truncate">
-                                                                    {team.name}
-                                                                </span>
-                                                                <span className="block text-xs text-gray-400 mt-0.5">
-                                                                    └ {members.length}{" "}
-                                                                    integrante
-                                                                    {members.length === 1
-                                                                        ? ""
-                                                                        : "s"}
-                                                                </span>
-                                                            </span>
-                                                            <span
-                                                                className={`text-sm font-bold shrink-0 ${
-                                                                    isSelected
-                                                                        ? "text-indigo-700"
-                                                                        : "text-gray-700"
-                                                                }`}
-                                                            >
-                                                                {formatScore(teamGrade)}
-                                                                <span className="text-gray-400 font-normal">
-                                                                    /{maxScore}
-                                                                </span>
-                                                            </span>
-                                                        </button>
-                                                    </li>
-                                                );
-                                            })}
-                                        </ul>
-                                    </div>
-                                )}
-
-                                {gradedTeams.length > 0 && (
-                                    <div>
-                                        <p className="px-2 mb-1 text-xs font-semibold text-emerald-600 uppercase tracking-wider">
-                                            Calificados ({gradedTeams.length})
-                                        </p>
-                                        <ul className="divide-y divide-gray-100">
-                                            {gradedTeams.map((team, index) => {
-                                                const isSelected =
-                                                    String(selectedTeamId) ===
-                                                    String(team.id);
-                                                const members = team.members ?? [];
-                                                const teamGrade = getTeamGrade(team);
-
-                                                return (
-                                                    <li key={team.id}>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() =>
-                                                                handleSelectTeam(team.id)
-                                                            }
-                                                            className={`w-full flex items-center gap-2.5 px-2 py-3 text-left transition rounded-lg ${
-                                                                isSelected
-                                                                    ? "bg-indigo-50 ring-1 ring-indigo-200"
-                                                                    : "hover:bg-gray-50"
-                                                            }`}
-                                                        >
-                                                            <span
-                                                                className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                                                                    DOT_COLORS[
-                                                                        index %
-                                                                            DOT_COLORS.length
-                                                                    ]
-                                                                }`}
-                                                            />
-                                                            <span className="min-w-0 flex-1">
-                                                                <span className="block text-sm font-semibold text-gray-800 truncate">
-                                                                    {team.name}
-                                                                </span>
-                                                                <span className="block text-xs text-gray-400 mt-0.5">
-                                                                    └ {members.length}{" "}
-                                                                    integrante
-                                                                    {members.length === 1
-                                                                        ? ""
-                                                                        : "s"}
-                                                                </span>
-                                                            </span>
-                                                            <span
-                                                                className={`text-sm font-bold shrink-0 ${
-                                                                    isSelected
-                                                                        ? "text-indigo-700"
-                                                                        : "text-gray-700"
-                                                                }`}
-                                                            >
-                                                                {formatScore(teamGrade)}
-                                                                <span className="text-gray-400 font-normal">
-                                                                    /{maxScore}
-                                                                </span>
-                                                            </span>
-                                                        </button>
-                                                    </li>
-                                                );
-                                            })}
-                                        </ul>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </aside>
+                    <TeamListPanel
+                        sections={sections}
+                        sectionFilter={sectionFilter}
+                        setSectionFilter={setSectionFilter}
+                        teamsLoading={teamsLoading}
+                        teamCount={teams.length}
+                        visibleTeams={visibleTeams}
+                        ungradedTeams={ungradedTeams}
+                        gradedTeams={gradedTeams}
+                        selectedTeamId={selectedTeamId}
+                        handleSelectTeam={handleSelectTeam}
+                        teamNameQuery={teamNameQuery}
+                        setTeamNameQuery={setTeamNameQuery}
+                        maxScore={maxScore}
+                        getTeamGrade={getTeamGrade}
+                    />
 
                     <section ref={detailRef} className="space-y-6 min-w-0">
                         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
@@ -1023,103 +530,26 @@ export const TeacherGradingPanel = () => {
                                         </ul>
                                     )}
 
-                                    {(selectedTeam.members ?? []).some(
-                                        (member) =>
+                                    <TeamNoteForm
+                                        team={selectedTeam}
+                                        hasIndividual={(selectedTeam.members ??
+                                            []).some((member) =>
                                             isIndividual(member.student?.id)
-                                    ) && (
-                                        <label className="mt-4 flex items-center gap-2.5 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 cursor-pointer select-none">
-                                            <input
-                                                type="checkbox"
-                                                checked={overwriteIndividual}
-                                                onChange={(e) =>
-                                                    setOverwriteIndividual(
-                                                        e.target.checked
-                                                    )
-                                                }
-                                                className="accent-indigo-600 w-4 h-4"
-                                            />
-                                            Sobrescribir también las notas
-                                            individuales al aplicar la nota del
-                                            equipo
-                                        </label>
-                                    )}
-
-                                    <form
-                                        onSubmit={(event) => {
-                                            event.preventDefault();
-                                            handleSaveTeamNote(selectedTeam);
-                                        }}
-                                        className="mt-4 pt-4 border-t border-gray-200 flex flex-wrap items-center justify-between gap-3"
-                                    >
-                                        <span className="text-sm font-semibold text-gray-700">
-                                            Nota del equipo
-                                        </span>
-                                        <span className="flex items-center gap-2">
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                min="0"
-                                                max={maxScore}
-                                                value={inputValue(
-                                                    teamDraftKey(
-                                                        selectedTeam.id
-                                                    ),
-                                                    getTeamGrade(selectedTeam)
-                                                )}
-                                                onChange={(e) =>
-                                                    setDraft(
-                                                        teamDraftKey(
-                                                            selectedTeam.id
-                                                        ),
-                                                        e.target.value
-                                                    )
-                                                }
-                                                onBlur={() =>
-                                                    autosaveTeamKey(
-                                                        teamDraftKey(
-                                                            selectedTeam.id
-                                                        )
-                                                    )
-                                                }
-                                                onFocus={(e) => e.target.select()}
-                                                className="w-20 px-2 py-1.5 rounded-lg border outline-none transition text-right text-sm font-semibold text-gray-700 border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                                placeholder="__"
-                                            />
-                                            <span className="text-xs text-gray-400">
-                                                / {maxScore}
-                                            </span>
-                                            <Button
-                                                type="submit"
-                                                size="sm"
-                                                disabled={
-                                                    savingKey ===
-                                                        teamDraftKey(
-                                                            selectedTeam.id
-                                                        ) ||
-                                                    !inputValue(
-                                                        teamDraftKey(
-                                                            selectedTeam.id
-                                                        ),
-                                                        getTeamGrade(
-                                                            selectedTeam
-                                                        )
-                                                    )
-                                                }
-                                            >
-                                                {savingKey ===
-                                                teamDraftKey(selectedTeam.id)
-                                                    ? "Guardando..."
-                                                    : "Aplicar a todos"}
-                                            </Button>
-                                        </span>
-                                    </form>
-
-                                    <p className="mt-3 text-xs text-gray-400">
-                                        La nota del equipo se aplica a todos los
-                                        integrantes; las notas individuales la
-                                        reemplazan solo para ese estudiante y se
-                                        conservan al reevaluar el equipo.
-                                    </p>
+                                        )}
+                                        overwriteIndividual={
+                                            overwriteIndividual
+                                        }
+                                        setOverwriteIndividual={
+                                            setOverwriteIndividual
+                                        }
+                                        maxScore={maxScore}
+                                        inputValue={inputValue}
+                                        setDraft={setDraft}
+                                        savingKey={savingKey}
+                                        getTeamGrade={getTeamGrade}
+                                        onSubmit={handleSaveTeamNote}
+                                        onAutosave={autosaveTeamKey}
+                                    />
                                 </div>
                             </div>
                         ) : (
@@ -1151,80 +581,13 @@ export const TeacherGradingPanel = () => {
             )}
 
             {historyGrade && (
-                <Modal open onClose={closeHistory} className="max-h-[80vh] overflow-hidden">
-                    <div className="flex items-start justify-between gap-3 px-6 py-4 border-b border-gray-100">
-                            <div>
-                                <h3 className="text-base font-bold text-gray-800">
-                                    Historial de {studentName(historyStudent)}
-                                </h3>
-                                <p className="text-sm text-gray-500 mt-0.5">
-                                    {selectedAssignment.title} —{" "}
-                                    {maxScore} puntos
-                                </p>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={closeHistory}
-                                aria-label="Cerrar"
-                                className="text-gray-400 hover:text-gray-600 text-xl leading-none"
-                            >
-                                ×
-                            </button>
-                        </div>
-                        <div className="max-h-[60vh] overflow-auto px-6 py-4">
-                            {historyLoading ? (
-                                <p className="text-sm text-gray-500">
-                                    Cargando historial...
-                                </p>
-                            ) : history?.length === 0 ? (
-                                <p className="text-sm text-gray-500">
-                                    Sin registros.
-                                </p>
-                            ) : (
-                                <ol className="space-y-3">
-                                    {(history ?? []).map((entry) => {
-                                        const isCreation = entry.first_record;
-                                        return (
-                                            <li
-                                                key={entry.id}
-                                                className="flex items-start justify-between gap-3 text-sm"
-                                            >
-                                                <div>
-                                                    <p className="text-gray-800 font-semibold">
-                                                        {isCreation
-                                                            ? "Nota registrada"
-                                                            : "Nota actualizada"}
-                                                    </p>
-                                                    <p className="text-xs text-gray-400 mt-0.5">
-                                                        <span className="font-medium text-gray-600">
-                                                            {entry.graded_by
-                                                                ? `${entry.graded_by.first_name || entry.graded_by.username} ${
-                                                                      entry.graded_by.last_name ?? ""
-                                                                  }`.trim()
-                                                                : "—"}
-                                                        </span>{" "}
-                                                        •{" "}
-                                                        {new Date(
-                                                            entry.created_at
-                                                        ).toLocaleString("es-ES", {
-                                                            dateStyle: "short",
-                                                            timeStyle: "short",
-                                                        })}
-                                                    </p>
-                                                </div>
-                                                <p className="font-bold text-gray-800 shrink-0">
-                                                    {isCreation
-                                                        ? ""
-                                                        : `${entry.old_score} → `}
-                                                    {entry.new_score}
-                                                </p>
-                                            </li>
-                                        );
-                                    })}
-                                </ol>
-                            )}
-                        </div>
-                </Modal>
+                <GradeHistoryModal
+                    student={historyStudent}
+                    grade={historyGrade}
+                    assignment={selectedAssignment}
+                    maxScore={maxScore}
+                    onClose={closeHistory}
+                />
             )}
         </div>
     );

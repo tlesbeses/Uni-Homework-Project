@@ -326,7 +326,9 @@ class AdminActivityView(APIView):
     throttle_classes = [AdminThrottle]
 
     def get(self, request):
-        qs = EventLog.objects.select_related("actor", "target")
+        qs = EventLog.objects.select_related(
+            "actor", "target"
+        ).prefetch_related("actor__groups", "target__groups")
 
         action = request.query_params.get("action")
         if action:

@@ -16,7 +16,7 @@ from django.db.models import QuerySet
 
 from assignments.models import Assignment
 from course.models import Course, Enrollment, Section, SectionSnapshot, Status
-from grading.final import final_grade_for_student
+from grading.final import final_grades_for_students
 from grading.models import Grade
 
 
@@ -90,10 +90,17 @@ def _build_payload(section):
         ]
 
     final_scores = []
+    final_by_student = (
+        final_grades_for_students(
+            course=course, student_ids=approved_student_ids
+        )
+        if approved_student_ids
+        else {}
+    )
     for enrollment in students:
         if enrollment.status != Status.APPROVED:
             continue
-        score = final_grade_for_student(course=course, student=enrollment.student)
+        score = final_by_student.get(enrollment.student_id)
         final_scores.append(
             {
                 "student_id": enrollment.student_id,

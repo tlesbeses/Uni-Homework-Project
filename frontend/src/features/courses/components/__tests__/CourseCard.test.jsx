@@ -54,7 +54,7 @@ describe("CourseCard", () => {
         renderCard(course, { isTeacher: true, onToggleActive });
 
         openMenu();
-        fireEvent.click(screen.getByRole("button", { name: "Restaurar" }));
+        fireEvent.click(screen.getByRole("menuitem", { name: "Restaurar" }));
 
         expect(onToggleActive).toHaveBeenCalledWith(
             expect.objectContaining({ is_active: false })
@@ -68,10 +68,10 @@ describe("CourseCard", () => {
         openMenu();
 
         expect(
-            screen.getByRole("button", { name: "Archivar" })
+            screen.getByRole("menuitem", { name: "Archivar" })
         ).toBeInTheDocument();
         expect(
-            screen.queryByRole("button", { name: "Restaurar" })
+            screen.queryByRole("menuitem", { name: "Restaurar" })
         ).not.toBeInTheDocument();
     });
 });

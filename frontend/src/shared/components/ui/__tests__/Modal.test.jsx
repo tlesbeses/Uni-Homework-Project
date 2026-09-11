@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { Modal } from "@/shared/components/ui/Modal";
 
 describe("Modal", () => {
@@ -79,5 +80,63 @@ describe("Modal", () => {
             </Modal>
         );
         expect(screen.queryByRole("button", { name: "Cerrar" })).not.toBeInTheDocument();
+    });
+
+    it("asocia el título al diálogo con aria-labelledby", () => {
+        render(
+            <Modal open title="Nueva tarea" onClose={vi.fn()}>
+                <p>contenido</p>
+            </Modal>
+        );
+        const dialog = screen.getByRole("dialog");
+        const heading = screen.getByRole("heading", { name: "Nueva tarea" });
+        expect(dialog).toHaveAttribute("aria-labelledby", heading.id);
+    });
+
+    it("atrapa el foco dentro del diálogo al presionar Tab", () => {
+        render(
+            <Modal open title="Nueva tarea" onClose={vi.fn()}>
+                <button type="button">Primero</button>
+                <button type="button">Segundo</button>
+            </Modal>
+        );
+        const dialog = screen.getByRole("dialog");
+        const buttons = within(dialog).getAllByRole("button");
+        const firstPanelButton = buttons[0];
+        const lastPanelButton = buttons[buttons.length - 1];
+
+        lastPanelButton.focus();
+        fireEvent.keyDown(document.activeElement, { key: "Tab" });
+        expect(firstPanelButton).toHaveFocus();
+
+        firstPanelButton.focus();
+        fireEvent.keyDown(document.activeElement, { key: "Tab", shiftKey: true });
+        expect(lastPanelButton).toHaveFocus();
+    });
+
+    it("restaura el foco al elemento que abrió el diálogo al cerrar", async () => {
+        const user = userEvent.setup();
+        function Harness() {
+            const [open, setOpen] = useState(false);
+            return (
+                <>
+                    <button type="button" onClick={() => setOpen(true)}>
+                        Abrir
+                    </button>
+                    <Modal open={open} title="Titulo" onClose={() => setOpen(false)}>
+                        <button
+                            type="button"
+                            onClick={() => setOpen(false)}
+                        >
+                            Terminar
+                        </button>
+                    </Modal>
+                </>
+            );
+        }
+        render(<Harness />);
+        await user.click(screen.getByRole("button", { name: "Abrir" }));
+        await user.click(screen.getByRole("button", { name: "Terminar" }));
+        expect(screen.getByRole("button", { name: "Abrir" })).toHaveFocus();
     });
 });

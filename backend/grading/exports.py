@@ -24,7 +24,10 @@ from openpyxl.utils import get_column_letter
 
 from assignments.models import Assignment
 from course.models import Enrollment, Status
-from grading.final import final_grade_for_student, ponderated_parcial_scores_for_student
+from grading.final import (
+    final_grades_for_students,
+    ponderated_parcial_scores_for_students,
+)
 from grading.models import Grade
 
 HEADER_ROW = 4
@@ -116,6 +119,20 @@ def build_section_grades_workbook(*, section) -> bytes:
         settings is not None and settings.ponderacion_enabled
     )
 
+    enrollment_ids = [e.student_id for e in enrollments]
+    final_scores = (
+        final_grades_for_students(course=section.course, student_ids=enrollment_ids)
+        if enrollment_ids
+        else {}
+    )
+    parcial_scores_by_student = (
+        ponderated_parcial_scores_for_students(
+            course=section.course, student_ids=enrollment_ids
+        )
+        if ponderacion_enabled and enrollment_ids
+        else {}
+    )
+
     total_column = len(assignments) + 2
     if ponderacion_enabled:
         parcial1_column = total_column + 1
@@ -155,16 +172,10 @@ def build_section_grades_workbook(*, section) -> bytes:
             total += score
         sheet.cell(row=row, column=total_column, value=round(total, 2))
 
-        final_score = final_grade_for_student(
-            course=section.course,
-            student=enrollment.student,
-        )
+        final_score = final_scores.get(enrollment.student_id)
 
         if ponderacion_enabled:
-            parcial_scores = ponderated_parcial_scores_for_student(
-                course=section.course,
-                student=enrollment.student,
-            )
+            parcial_scores = parcial_scores_by_student.get(enrollment.student_id)
             for parcial_column, parcial_key in [
                 (parcial1_column, "PRIMERO"),
                 (parcial2_column, "SEGUNDO"),
@@ -208,6 +219,19 @@ def build_section_grades_csv(*, section) -> bytes:
     ponderacion_enabled = (
         settings is not None and settings.ponderacion_enabled
     )
+    enrollment_ids = [e.student_id for e in enrollments]
+    final_scores = (
+        final_grades_for_students(course=section.course, student_ids=enrollment_ids)
+        if enrollment_ids
+        else {}
+    )
+    parcial_scores_by_student = (
+        ponderated_parcial_scores_for_students(
+            course=section.course, student_ids=enrollment_ids
+        )
+        if ponderacion_enabled and enrollment_ids
+        else {}
+    )
 
     header_row = [
         "Estudiante",
@@ -243,16 +267,10 @@ def build_section_grades_csv(*, section) -> bytes:
                 total += score
         row.append(round(total, 2))
 
-        final_score = final_grade_for_student(
-            course=section.course,
-            student=enrollment.student,
-        )
+        final_score = final_scores.get(enrollment.student_id)
 
         if ponderacion_enabled:
-            parcial_scores = ponderated_parcial_scores_for_student(
-                course=section.course,
-                student=enrollment.student,
-            )
+            parcial_scores = parcial_scores_by_student.get(enrollment.student_id)
             for parcial_key in ["PRIMERO", "SEGUNDO"]:
                 value = parcial_scores.get(parcial_key)
                 row.append(round(float(value), 2) if value is not None else "")

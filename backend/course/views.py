@@ -54,9 +54,9 @@ from grading.exports import (
     build_section_snapshot_workbook,
 )
 from grading.final import (
-    final_grade_for_student,
-    ponderated_breakdown_for_student,
-    ponderated_parcial_scores_for_student,
+    final_grades_for_students,
+    ponderated_parcial_scores_for_students,
+    student_course_grade_bundle,
 )
 from grading.models import Grade
 from .filters import EnrollmentFilter, SectionFilter
@@ -377,7 +377,7 @@ class DashboardView(APIView):
         return self._student_dashboard(user)
 
     def _admin_dashboard(self):
-        users = User.objects.all()
+        users = User.objects.prefetch_related("groups")
         courses = Course.objects.all()
         pending_enrollments = Enrollment.objects.filter(
             status=Status.PENDING
@@ -394,21 +394,30 @@ class DashboardView(APIView):
         recent_impersonations = (
             EventLog.objects.filter(action=EventLog.ACTION_IMPERSONATE)
             .select_related("actor", "target")
+            .prefetch_related("actor__groups", "target__groups")
             .order_by("-created_at")[:8]
         )
 
         recent_activity = (
             EventLog.objects.select_related("actor", "target")
+            .prefetch_related("actor__groups", "target__groups")
             .order_by("-created_at")[:8]
+        )
+
+        stats = users.aggregate(
+            users_total=Count("id"),
+            users_active=Count("id", filter=Q(is_active=True)),
+            students=Count("id", filter=Q(groups__name="Student"), distinct=True),
+            teachers=Count("id", filter=Q(groups__name="Teacher"), distinct=True),
         )
 
         return Response({
             "type": "admin",
             "stats": {
-                "users_total": users.count(),
-                "users_active": users.filter(is_active=True).count(),
-                "students": users.filter(groups__name="Student").count(),
-                "teachers": users.filter(groups__name="Teacher").count(),
+                "users_total": stats["users_total"],
+                "users_active": stats["users_active"],
+                "students": stats["students"],
+                "teachers": stats["teachers"],
                 "courses": courses.count(),
                 "pending_enrollments": pending_enrollments,
             },
@@ -468,33 +477,22 @@ class DashboardView(APIView):
                 id__in=course_ids
             ).select_related("settings")
         }
-        final_scores = {
-            str(course_id): (
-                str(score) if score is not None else None
-            )
-            for course_id, course in courses.items()
-            for score in [final_grade_for_student(
-                course=course,
-                student=user,
-            )]
-        }
+        final_scores = {}
         final_breakdowns = {}
         parcial_scores = {}
         for course_id, course in courses.items():
-            settings = getattr(course, "settings", None)
-            if settings is not None and settings.ponderacion_enabled:
-                final_breakdowns[str(course_id)] = ponderated_breakdown_for_student(
-                    course=course,
-                    student=user,
-                )
+            bundle = student_course_grade_bundle(course=course, student=user)
+            final = bundle["final"]
+            final_scores[str(course_id)] = (
+                str(final) if final is not None else None
+            )
+            if bundle["ponderacion_enabled"]:
+                final_breakdowns[str(course_id)] = bundle["breakdown"]
                 parcial_scores[str(course_id)] = {
                     key: (
                         str(value) if value is not None else None
                     )
-                    for key, value in ponderated_parcial_scores_for_student(
-                        course=course,
-                        student=user,
-                    ).items()
+                    for key, value in bundle["parcial_scores"].items()
                 }
 
         return Response({
@@ -631,6 +629,23 @@ class SectionViewSet(viewsets.ModelViewSet):
             settings is not None and settings.ponderacion_enabled
         )
 
+        final_scores = (
+            final_grades_for_students(
+                course=section.course,
+                student_ids=enrollment_ids,
+            )
+            if enrollment_ids
+            else {}
+        )
+        parcial_scores_by_student = (
+            ponderated_parcial_scores_for_students(
+                course=section.course,
+                student_ids=enrollment_ids,
+            )
+            if ponderacion_enabled and enrollment_ids
+            else {}
+        )
+
         students = []
         for enrollment in enrollments:
             student = enrollment.student
@@ -642,10 +657,7 @@ class SectionViewSet(viewsets.ModelViewSet):
                 if score is not None:
                     grades_map[str(assignment.id)] = score
                     total += score
-            final_score = final_grade_for_student(
-                course=section.course,
-                student=student,
-            )
+            final_score = final_scores.get(enrollment.student_id)
             students.append({
                 "id": student.id,
                 "name": name,
@@ -655,10 +667,7 @@ class SectionViewSet(viewsets.ModelViewSet):
                     round(float(final_score), 2) if final_score is not None else None
                 ),
                 "parcial_scores": (
-                    ponderated_parcial_scores_for_student(
-                        course=section.course,
-                        student=student,
-                    )
+                    parcial_scores_by_student.get(enrollment.student_id)
                     if ponderacion_enabled
                     else None
                 ),
