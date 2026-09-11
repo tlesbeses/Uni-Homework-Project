@@ -168,6 +168,27 @@ class TeamCRUDTests(TeamAPITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_create_rejects_non_numeric_section_id(self):
+        self.authenticate(self.teacher)
+        response = self.client.post(
+            reverse("team-list"),
+            {"name": "Alpha", "section_id": "abc", "leader_id": self.student.id},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("section_id", response.data)
+
+    def test_create_missing_section_returns_404(self):
+        self.authenticate(self.teacher)
+        response = self.client.post(
+            reverse("team-list"),
+            {"name": "Alpha", "section_id": 999999, "leader_id": self.student.id},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
     def test_students_can_list_and_view_teams(self):
         team = self.create_team()
         self.authenticate(self.student)
@@ -260,6 +281,14 @@ class TeamMemberTests(TeamAPITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_remove_member_with_non_numeric_student_id_returns_404(self):
+        self.authenticate(self.teacher)
+        response = self.client.delete(
+            reverse("team-remove-member", args=[self.team.id, "abc"])
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_leader_can_add_and_remove_members(self):
         self.authenticate(self.student)

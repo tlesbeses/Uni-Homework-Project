@@ -164,6 +164,19 @@ Checklist maestra con lo implementado, lo pendiente y lo descartado (con motivo)
 
 ---
 
+### Fase 1 — Endurecimiento de seguridad y estabilidad (throttles, validación de params, flujos de cuenta)
+
+| Área | Cambio | Archivos | Tests / verificación |
+|------|--------|----------|----------------------|
+| **Seguridad** | `AuthThrottle` ahora clavea por **IP** (antes `UserRateThrottle` devolvía cache key `None` para usuarios anónimos, dejando **sin límite efectivo** a `/auth/jwt/refresh/` y `/auth/jwt/blacklist/`, que se autentican por cookie y siempre son anónimos para DRF) | `authentication/throttle.py` | Suite completa OK |
+| **Estabilidad** | Query params de `AdminActivityView` (`user_id`, `from`, `to`) se validan y devuelven **400** en vez de 500 (antes un valor no numérico/no fecha lanzaba `ValueError` que el `EXCEPTION_HANDLER` registraba como 500 ensuciando `ErrorLog`) | `authentication/views.py` (helpers `_clean_int_param`/`_clean_date_param`) | +4 tests `AdminActivityFilterTests` |
+| **Estabilidad** | `GET /api/grades/evolution/?course=` valida que sea entero → **400** (antes 500) | `grading/views.py` | +1 test |
+| **Estabilidad** | Creación de equipo con `section_id` no numérico → **400**; `remove_member` con `student_id` no numérico → **404** (antes 500) | `teams/views.py` | +2 tests |
+| **Testing** | Cobertura de los **flujos de cuenta** (críticos de seguridad, sin cobertura): registro (usuario creado, rol Student por señal, password con hash, login posterior, duplicado de email, contraseña débil/vacía), edición de perfil (`PATCH /auth/users/me/`, requiere auth) y cambio de contraseña (`set_password` con current_password correcto/incorrecto, requiere auth) | `authentication/tests.py` | +11 tests `AccountFlowTests` |
+| **Testing** | Test del nuevo throttle por IP: refresh cortado con 429 sin flag y sin 429 con `DISABLE_THROTTLE` | `authentication/tests.py` | +2 tests `RefreshThrottleTests` |
+
+Backend: **364 tests OK** (los 4 concurrentes de Postgres siguen skipped en SQLite). El endurecimiento de seguridad: (1) refresh/logout ya no quedan sin límite efectivo, (2) los query/body/URL params inválidos devuelven 400/404 estables en vez de 500 que llenaban el `ErrorLog`, y (3) los flujos de cuenta (registro, perfil, contraseña) por fin tienen cobertura. Pendiente del resto de fases para otra iteración: CI con escaneo de dependencias, `makemigrations --check`, cobertura; batch-loading de N+1 en dashboard/reportes; migración de hooks manuales a TanStack Query; descomposición de `TeacherGradingPanel`; y accesibilidad de `Modal`/`KebabMenu`.
+
 ### PR — Mejoras de UX, notificaciones y acceso administrativo (backlog)
 
 | Prioridad | Área             | Tarea                                                                                  | Estado       |

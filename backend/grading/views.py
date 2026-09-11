@@ -3,7 +3,7 @@
 from django.shortcuts import get_object_or_404
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -179,6 +179,12 @@ class GradeViewSet(viewsets.ReadOnlyModelViewSet):
         snapshots = self._evolution_queryset()
         course_id = request.query_params.get("course")
         if course_id:
+            try:
+                course_id = int(course_id)
+            except (TypeError, ValueError):
+                raise ValidationError(
+                    {"course": "Debe ser un número entero."}
+                )
             snapshots = snapshots.filter(course_id=course_id)
 
         rows = list(

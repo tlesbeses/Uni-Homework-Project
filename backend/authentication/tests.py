@@ -689,6 +689,41 @@ class LoginThrottleToggleTests(APITestCase):
         )
 
 
+class RefreshThrottleTests(APITestCase):
+    """El AuthThrottle ahora clavea por IP: el refresh (anónimo para DRF)
+    ya no queda sin límite efectivo."""
+
+    @override_settings(DISABLE_THROTTLE=False)
+    def test_refresh_throttle_applies_when_not_disabled(self):
+        last_status = None
+        for _ in range(15):
+            response = self.client.post(
+                "/auth/jwt/refresh/",
+                {},
+                HTTP_X_CSRFTOKEN="x",
+            )
+            last_status = response.status_code
+            if last_status == status.HTTP_429_TOO_MANY_REQUESTS:
+                break
+        self.assertEqual(
+            last_status,
+            status.HTTP_429_TOO_MANY_REQUESTS,
+        )
+
+    def test_refresh_throttle_disabled_when_disable_throttle_flag_on(self):
+        last_status = None
+        for _ in range(15):
+            last_status = self.client.post(
+                "/auth/jwt/refresh/",
+                {},
+                HTTP_X_CSRFTOKEN="x",
+            ).status_code
+        self.assertNotEqual(
+            last_status,
+            status.HTTP_429_TOO_MANY_REQUESTS,
+        )
+
+
 class ClientErrorReportTests(APITestCase):
     def setUp(self):
         teacher_group = Group.objects.get_or_create(name="Teacher")[0]
@@ -853,3 +888,181 @@ class ErrorLogConsoleTests(BaseAdminTestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["count"], 1)
         self.assertEqual(response.data["results"][0]["kind"], "ValueError")
+
+
+class AdminActivityFilterTests(BaseAdminTestCase):
+    """Los query params del historial de actividad se validan (400, no 500)."""
+
+    def test_invalid_user_id_returns_400(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.get("/auth/admin/activity/", {"user_id": "abc"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("user_id", response.data)
+
+    def test_invalid_from_date_returns_400(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.get("/auth/admin/activity/", {"from": "ayer"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("from", response.data)
+
+    def test_invalid_to_date_returns_400(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.get("/auth/admin/activity/", {"to": "not-a-date"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("to", response.data)
+
+    def test_valid_filters_still_filter(self):
+        event = EventLog.objects.create(
+            actor=self.student,
+            action=EventLog.ACTION_LOGIN,
+            entity_type="user",
+            entity_id=self.student.id,
+            target=self.student,
+        )
+        event.created_at = timezone.now()
+        event.save()
+
+        self.client.force_authenticate(self.admin)
+        response = self.client.get(
+            "/auth/admin/activity/",
+            {"user_id": self.student.id},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+
+        response = self.client.get(
+            "/auth/admin/activity/",
+            {"from": timezone.now().date().isoformat()},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+
+
+class AccountFlowTests(APITestCase):
+    """Flujos de cuenta: registro, edición de perfil y cambio de contraseña.
+
+    El registro usa Djoser (`POST /auth/users/`): crea el usuario, lo asigna
+    al grupo Student vía la señal post-save y guarda la contraseña con hash.
+    Son flujos críticos de seguridad que quedaban sin cobertura.
+    """
+
+    def setUp(self):
+        self.student_group = Group.objects.get_or_create(name="Student")[0]
+
+    def _register(self, **overrides):
+        payload = {
+            "username": "nuevo",
+            "email": "nuevo@example.com",
+            "first_name": "Nuevo",
+            "last_name": "Estudiante",
+            "password": "StrongPass123",
+        }
+        payload.update(overrides)
+        return self.client.post("/auth/users/", payload, format="json")
+
+    def test_register_creates_user_with_student_role_and_hashed_password(self):
+        response = self._register()
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["username"], "nuevo")
+
+        user = User.objects.get(username="nuevo")
+        self.assertEqual(user.email, "nuevo@example.com")
+        self.assertEqual(user.first_name, "Nuevo")
+        self.assertEqual(user.last_name, "Estudiante")
+        self.assertIn("Student", list(user.groups.values_list("name", flat=True)))
+        self.assertNotEqual(user.password, "StrongPass123")
+        self.assertTrue(user.check_password("StrongPass123"))
+
+    def test_register_user_can_login(self):
+        self._register()
+
+        csrf_response = self.client.get("/auth/csrf/")
+        response = self.client.post(
+            "/auth/login/",
+            {"username": "nuevo", "password": "StrongPass123"},
+            HTTP_X_CSRFTOKEN=csrf_response.data["csrfToken"],
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_register_with_duplicate_email_is_rejected(self):
+        self._register()
+        response = self._register(username="otro", email="nuevo@example.com")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("email", response.data)
+
+    def test_register_with_weak_password_is_rejected(self):
+        response = self._register(password="123")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_register_without_password_is_rejected(self):
+        response = self._register(password="")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_profile_update_requires_authentication(self):
+        response = self.client.patch(
+            "/auth/users/me/", {"first_name": "X"}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_profile_update_changes_fields(self):
+        user = User.objects.create_user(
+            username="profe", email="profe@example.com", password="pass"
+        )
+        self.client.force_authenticate(user)
+
+        response = self.client.patch(
+            "/auth/users/me/",
+            {
+                "first_name": "Ana",
+                "last_name": "Garcia",
+                "email": "ana@example.com",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        user.refresh_from_db()
+        self.assertEqual(user.first_name, "Ana")
+        self.assertEqual(user.last_name, "Garcia")
+        self.assertEqual(user.email, "ana@example.com")
+
+    def test_set_password_changes_password(self):
+        user = User.objects.create_user(
+            username="clave", email="clave@example.com", password="oldPass1"
+        )
+        self.client.force_authenticate(user)
+
+        response = self.client.post(
+            "/auth/users/set_password/",
+            {"new_password": "newPass456", "current_password": "oldPass1"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+        user.refresh_from_db()
+        self.assertFalse(user.check_password("oldPass1"))
+        self.assertTrue(user.check_password("newPass456"))
+
+    def test_set_password_requires_authentication(self):
+        response = self.client.post(
+            "/auth/users/set_password/",
+            {"new_password": "newPass456"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_set_password_with_wrong_current_password_is_rejected(self):
+        user = User.objects.create_user(
+            username="clave2", email="clave2@example.com", password="oldPass1"
+        )
+        self.client.force_authenticate(user)
+
+        response = self.client.post(
+            "/auth/users/set_password/",
+            {"new_password": "newPass456", "current_password": "wrong"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        user.refresh_from_db()
+        self.assertTrue(user.check_password("oldPass1"))

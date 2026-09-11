@@ -17,8 +17,25 @@ class LoginThrottle(_ConditionalThrottleMixin, AnonRateThrottle):
     scope = "login"
 
 
-class AuthThrottle(_ConditionalThrottleMixin, UserRateThrottle):
+class AuthThrottle(_ConditionalThrottleMixin, SimpleRateThrottle):
+    """Limita refresh/logout, que se autentican por cookie HttpOnly.
+
+    Estos endpoints no envían access token, así que para DRF
+    ``request.user`` siempre es ``AnonymousUser``: con el anterior
+    ``UserRateThrottle`` la cache key resultaba ``None`` y no había límite
+    efectivo. Se clavea por usuario autenticado o por IP, igual que
+    ``ErrorThrottle``.
+    """
+
     scope = "auth"
+
+    def get_cache_key(self, request, view):
+        user = getattr(request, "user", None)
+        if user is not None and user.is_authenticated:
+            ident = f"user-{user.pk}"
+        else:
+            ident = request.META.get("REMOTE_ADDR") or "-"
+        return self.cache_format % {"scope": self.scope, "ident": ident}
 
 
 class AdminThrottle(_ConditionalThrottleMixin, UserRateThrottle):

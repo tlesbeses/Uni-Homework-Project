@@ -1450,3 +1450,12 @@ class FinalScoreSnapshotTests(GradingAPITestCase):
         response = self.client.get(reverse("grade-evolution"))
 
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_evolution_rejects_invalid_course_param_with_400(self):
+        self.grade_student(self.assignment, self.student, "70.00", self.teacher)
+        self.authenticate(self.student)
+
+        response = self.client.get(reverse("grade-evolution"), {"course": "abc"})
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("course", response.data)
