@@ -4,16 +4,19 @@ Django 6 + Django REST Framework API.
 
 ## Requisitos
 
-- Python 3.14
-- Pipenv (`pip install pipenv`)
+- Python 3.14 (fijada en `.python-version`)
+- `venv` + `pip`
 
 ## Puesta en marcha local
 
 ```bash
-pipenv install
+python -m venv .venv
+.venv\Scripts\activate            # Windows PowerShell
+# source .venv/bin/activate       # macOS / Linux
+pip install -r requirements.txt
 cp .env.example .env   # luego edita los valores
-pipenv run python manage.py migrate
-pipenv run python manage.py runserver
+python manage.py migrate
+python manage.py runserver
 ```
 
 Para desarrollo local puedes poner `DEBUG=True` en `.env`.
@@ -59,5 +62,5 @@ Sin `SECRET_KEY`, el proceso falla al arrancar.
 ## Tests
 
 ```bash
-pipenv run python manage.py test
+python manage.py test
 ```
