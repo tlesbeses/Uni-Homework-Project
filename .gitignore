@@ -25,6 +25,8 @@ __pycache__/
 .coverage
 .coverage.*
 htmlcov/
+coverage.json
+*.sqlite3
 
 # Editor directories and files
 .vscode/*

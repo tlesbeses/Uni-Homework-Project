@@ -51,7 +51,7 @@ Checklist maestra con lo implementado, lo pendiente y lo descartado (con motivo)
 | 🟠 Media    | UX/UI           | Responsive mobile                                       | ✅ Implementado |
 | 🟠 Media    | UX/UI           | Design system                                           | ✅ Implementado |
 | 🔴 Alta     | Seguridad       | Estandarizar respuestas de error 4xx (DRF, `detail` estable) | ✅ Implementado |
-| 🔴 Alta     | Seguridad       | Autenticación de doble factor (TOTP)                     | ⏳ Pendiente   |
+| 🔴 Alta     | Seguridad       | Autenticación de doble factor (TOTP)                     | ✅ Descartado (decisión) |
 | 🔴 Alta     | Seguridad       | Concurrencia: joins/calificaciones simultáneas no duplican | ✅ Implementado |
 | 🔴 Alta     | Seguridad       | IDOR: editar/borrar curso ajeno → 404                    | ✅ Verificado   |
 | 🟠 Media    | Cursos          | Cierre de curso = bloquear acciones (calificar, inscribirse, equipos) | ✅ Implementado |
@@ -90,6 +90,7 @@ Checklist maestra con lo implementado, lo pendiente y lo descartado (con motivo)
 | Analytics avanzadas          | Sin métricas de uso decididas                                           |
 | Auditoría de teams/sections | Solo se audita lo que afecta calificaciones y admisiones (decisión) |
 | `EventLog` en Django admin   | La página frontend de actividad ya permite inspeccionar los logs        |
+| Autenticación 2FA (TOTP)     | Ámbito académico sin exposición real a cuentas comprometidas; throttling (login 5/min) + cookies reforzadas + CSP cubren el riesgo actual. Se retoma si el sistema sale a producción abierta |
 
 ## Roadmap recomendado (orden de ejecución)
 
