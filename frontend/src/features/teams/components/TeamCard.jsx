@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { formatUser } from "@/features/teams/utils/formatUser";
+import { Button } from "@/shared/components/ui/Button";
 
 export const TeamCard = ({
   team,
@@ -68,21 +69,17 @@ export const TeamCard = ({
 
         {canManage && (
           <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
-            <button
-              type="button"
-              onClick={() => onEdit(team)}
-              className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
-            >
+            <Button variant="link" size="sm" onClick={() => onEdit(team)}>
               Editar
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="linkDanger"
+              size="sm"
               onClick={() => onDelete(team.id)}
               disabled={deleting}
-              className="text-sm font-medium text-red-600 hover:text-red-800 disabled:opacity-50"
             >
               Eliminar
-            </button>
+            </Button>
           </div>
         )}
       </div>

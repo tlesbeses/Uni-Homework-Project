@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AdminUsersPage } from "@/features/admin/pages/AdminUsersPage";
@@ -80,6 +80,19 @@ const mockPaginatedResponse = {
     next: null,
 };
 
+function mockMedia(matches) {
+    window.matchMedia = vi.fn().mockImplementation((query) => ({
+        matches,
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+    }));
+}
+
 function renderPage() {
     const queryClient = new QueryClient({
         defaultOptions: {
@@ -98,6 +111,7 @@ function renderPage() {
 
 describe("AdminUsersPage", () => {
     beforeEach(() => {
+        mockMedia(true);
         adminServiceMock.getAdminUsers.mockReset();
         adminServiceMock.setUserActive.mockReset();
         adminServiceMock.setUserRole.mockReset();
@@ -161,5 +175,47 @@ describe("AdminUsersPage", () => {
         expect(adminServiceMock.getAdminUsers).toHaveBeenCalledWith(
             expect.objectContaining({ page: 1, page_size: 25 })
         );
+    });
+
+    it("en móvil renderiza cards con acciones plegables que se colapsan al perder el foco", async () => {
+        mockMedia(false);
+        renderPage();
+
+        expect(await screen.findByText("Ana Pez")).toBeInTheDocument();
+        expect(screen.queryByRole("table")).not.toBeInTheDocument();
+
+        const cards = screen.getAllByRole("listitem");
+        expect(cards).toHaveLength(3);
+        const anaCard = cards.find((card) =>
+            within(card).queryByText("Ana Pez")
+        );
+        expect(within(anaCard).getByText("@ana")).toBeInTheDocument();
+
+        const toggle = within(anaCard).getByRole("button", {
+            name: "Ver acciones",
+        });
+        expect(toggle).toHaveAttribute("aria-expanded", "false");
+        expect(toggle).toHaveAttribute("aria-controls");
+        expect(within(anaCard).queryByText("Activar")).not.toBeInTheDocument();
+        expect(
+            within(anaCard).queryByText("Hacer profesor")
+        ).not.toBeInTheDocument();
+
+        fireEvent.click(toggle);
+        expect(toggle).toHaveAttribute("aria-expanded", "true");
+        expect(within(anaCard).getByText("Activar")).toBeVisible();
+        expect(
+            within(anaCard).getByText("Hacer profesor")
+        ).toBeVisible();
+        expect(within(anaCard).getByText("Probar como")).toBeVisible();
+        expect(
+            screen.queryByRole("button", { name: /Acciones de/ })
+        ).not.toBeInTheDocument();
+
+        fireEvent.focusOut(toggle, { relatedTarget: document.body });
+        expect(toggle).toHaveAttribute("aria-expanded", "false");
+        expect(
+            within(anaCard).queryByText("Activar")
+        ).not.toBeInTheDocument();
     });
 });

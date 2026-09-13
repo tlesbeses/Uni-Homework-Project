@@ -7,6 +7,7 @@ import {
 } from "@/features/notifications/hooks/useNotificationActions";
 import { getNotifications } from "@/features/notifications/services/notificationService";
 import { notificationMeta } from "@/shared/utils/notificationMeta";
+import { Button } from "@/shared/components/ui/Button";
 
 function formatRelativeTime(dateStr) {
     const date = new Date(dateStr);
@@ -146,16 +147,17 @@ export function NotificationBell({ open: openProp, onOpenChange }) {
                             Notificaciones
                         </p>
                         {unreadCount > 0 && (
-                            <button
-                                type="button"
+                            <Button
+                                variant="link"
+                                size="sm"
+                                className="text-xs"
                                 onClick={() => markAll.mutate()}
                                 disabled={markAll.isPending}
-                                className="text-xs font-medium text-indigo-600 hover:text-indigo-800 disabled:opacity-50"
                             >
                                 {markAll.isPending
                                     ? "Marcando..."
                                     : "Marcar todas"}
-                            </button>
+                            </Button>
                         )}
                     </div>
 

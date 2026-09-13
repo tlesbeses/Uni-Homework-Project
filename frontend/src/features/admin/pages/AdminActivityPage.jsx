@@ -10,6 +10,7 @@ import {
 } from "@/shared/utils/activityMeta";
 import { SelectField } from "@/shared/components/ui/SelectField";
 import { Pager } from "@/shared/components/Pager";
+import { ResponsiveDataTable } from "@/shared/components/ResponsiveDataTable";
 
 const ROLE_BADGES = {
     Student: "bg-emerald-100 text-emerald-700",
@@ -117,6 +118,129 @@ export const AdminActivityPage = () => {
         setActiveTab(tab);
         setPage(1);
     };
+
+    const loginsColumns = [
+        {
+            key: "actor",
+            header: "Usuario",
+            role: "primary",
+            render: (log) => (
+                <>
+                    <p className="font-medium text-gray-800">
+                        {userName(log.actor) ?? "—"}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                        @{log.actor?.username}
+                    </p>
+                </>
+            ),
+        },
+        {
+            key: "roles",
+            header: "Rol",
+            role: "secondary",
+            render: (log) => {
+                const roles = log.metadata?.roles ?? [];
+                return roles.length === 0 ? (
+                    <span className="text-gray-400">—</span>
+                ) : (
+                    <div className="flex flex-wrap gap-1">
+                        {roles.map((role) => (
+                            <span
+                                key={role}
+                                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                                    ROLE_BADGES[role] ??
+                                    "bg-gray-100 text-gray-700"
+                                }`}
+                            >
+                                {ROLE_LABELS[role] ?? role}
+                            </span>
+                        ))}
+                    </div>
+                );
+            },
+        },
+        {
+            key: "created_at",
+            header: "Fecha",
+            role: "secondary",
+            render: (log) => (
+                <span className="whitespace-nowrap text-gray-600">
+                    {formatDate(log.created_at)}
+                </span>
+            ),
+        },
+    ];
+
+    const activityColumns = [
+        {
+            key: "action",
+            header: "Acción",
+            role: "primary",
+            render: (log) => (
+                <span
+                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${actionStyle(log.action)}`}
+                >
+                    {actionLabel(log.action)}
+                </span>
+            ),
+        },
+        {
+            key: "entity_type",
+            header: "Entidad",
+            role: "secondary",
+            render: (log) => (
+                <span className="text-gray-600">
+                    {entityTypeLabel(log.entity_type)}
+                </span>
+            ),
+        },
+        {
+            key: "actor",
+            header: "Actor",
+            role: "primary",
+            render: (log) => (
+                <span className="text-gray-800">
+                    {userName(log.actor) ?? "—"}
+                </span>
+            ),
+        },
+        {
+            key: "target",
+            header: "Objetivo",
+            role: "secondary",
+            render: (log) => (
+                <span className="text-gray-800">
+                    {userName(log.target) ?? "—"}
+                </span>
+            ),
+        },
+        {
+            key: "detail",
+            header: "Detalle",
+            role: "optional",
+            render: (log) =>
+                activityDetailLines(log).length > 0 ? (
+                    <ul className="space-y-0.5">
+                        {activityDetailLines(log).map((line) => (
+                            <li key={line}>{line}</li>
+                        ))}
+                    </ul>
+                ) : (
+                    <span className="text-gray-400">—</span>
+                ),
+        },
+        {
+            key: "created_at",
+            header: "Fecha",
+            role: "secondary",
+            render: (log) => (
+                <span className="whitespace-nowrap text-gray-600">
+                    {formatDate(log.created_at)}
+                </span>
+            ),
+        },
+    ];
 
     return (
         <div className="space-y-6">
@@ -318,157 +442,22 @@ export const AdminActivityPage = () => {
                 </p>
             )}
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
-                {loginsOnly ? (
-                    <table className="min-w-full divide-y divide-gray-100 text-sm">
-                        <thead>
-                            <tr className="text-left text-xs font-semibold uppercase tracking-wider text-gray-400">
-                                <th className="px-5 py-3">Usuario</th>
-                                <th className="px-5 py-3">Rol</th>
-                                <th className="px-5 py-3">Fecha</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {loading && logs.length === 0 && (
-                                <tr>
-                                    <td
-                                        colSpan={3}
-                                        className="px-5 py-10 text-center text-gray-400"
-                                    >
-                                        Cargando accesos...
-                                    </td>
-                                </tr>
-                            )}
-                            {!loading && logs.length === 0 && (
-                                <tr>
-                                    <td
-                                        colSpan={3}
-                                        className="px-5 py-10 text-center text-gray-400"
-                                    >
-                                        No se encontraron accesos registrados.
-                                    </td>
-                                </tr>
-                            )}
-                            {logs.map((log) => {
-                                const roles = log.metadata?.roles ?? [];
-                                return (
-                                    <tr key={log.id}>
-                                        <td className="px-5 py-3">
-                                            <p className="font-medium text-gray-800">
-                                                {userName(log.actor) ?? "—"}
-                                            </p>
-                                            <p className="text-xs text-gray-400">
-                                                @{log.actor?.username}
-                                            </p>
-                                        </td>
-                                        <td className="px-5 py-3">
-                                            {roles.length === 0 ? (
-                                                <span className="text-gray-400">
-                                                    —
-                                                </span>
-                                            ) : (
-                                                <div className="flex flex-wrap gap-1">
-                                                    {roles.map((role) => (
-                                                        <span
-                                                            key={role}
-                                                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                                                                ROLE_BADGES[role] ??
-                                                                "bg-gray-100 text-gray-700"
-                                                            }`}
-                                                        >
-                                                            {ROLE_LABELS[
-                                                                role
-                                                            ] ?? role}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </td>
-                                        <td className="px-5 py-3 text-gray-600 whitespace-nowrap">
-                                            {formatDate(log.created_at)}
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                ) : (
-                    <table className="min-w-full divide-y divide-gray-100 text-sm">
-                        <thead>
-                            <tr className="text-left text-xs font-semibold uppercase tracking-wider text-gray-400">
-                                <th className="px-5 py-3">Acción</th>
-                                <th className="px-5 py-3">Entidad</th>
-                                <th className="px-5 py-3">Actor</th>
-                                <th className="px-5 py-3">Objetivo</th>
-                                <th className="px-5 py-3">Detalle</th>
-                                <th className="px-5 py-3">Fecha</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {loading && logs.length === 0 && (
-                                <tr>
-                                    <td
-                                        colSpan={6}
-                                        className="px-5 py-10 text-center text-gray-400"
-                                    >
-                                        Cargando actividad...
-                                    </td>
-                                </tr>
-                            )}
-                            {!loading && logs.length === 0 && (
-                                <tr>
-                                    <td
-                                        colSpan={6}
-                                        className="px-5 py-10 text-center text-gray-400"
-                                    >
-                                        No se encontraron eventos de actividad.
-                                    </td>
-                                </tr>
-                            )}
-                            {logs.map((log) => (
-                                <tr key={log.id}>
-                                    <td className="px-5 py-3">
-                                        <span
-                                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${actionStyle(log.action)}`}
-                                        >
-                                            {actionLabel(log.action)}
-                                        </span>
-                                    </td>
-                                    <td className="px-5 py-3 text-gray-600">
-                                        {entityTypeLabel(log.entity_type)}
-                                    </td>
-                                    <td className="px-5 py-3 text-gray-800">
-                                        {userName(log.actor) ?? "—"}
-                                    </td>
-                                    <td className="px-5 py-3 text-gray-800">
-                                        {userName(log.target) ?? "—"}
-                                    </td>
-                                    <td className="px-5 py-3 text-gray-700">
-                                        {activityDetailLines(log).length > 0 ? (
-                                            <ul className="space-y-0.5">
-                                                {activityDetailLines(log).map(
-                                                    (line) => (
-                                                        <li key={line}>
-                                                            {line}
-                                                        </li>
-                                                    )
-                                                )}
-                                            </ul>
-                                        ) : (
-                                            <span className="text-gray-400">
-                                                —
-                                            </span>
-                                        )}
-                                    </td>
-                                    <td className="px-5 py-3 text-gray-600 whitespace-nowrap">
-                                        {formatDate(log.created_at)}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                )}
-            </div>
+            <ResponsiveDataTable
+                columns={loginsOnly ? loginsColumns : activityColumns}
+                rows={logs}
+                rowKey={(log) => log.id}
+                loading={loading && logs.length === 0}
+                loadingContent={
+                    loginsOnly ? "Cargando accesos..." : "Cargando actividad..."
+                }
+                emptyContent={
+                    loginsOnly
+                        ? "No se encontraron accesos registrados."
+                        : "No se encontraron eventos de actividad."
+                }
+                ariaLabel={loginsOnly ? "Accesos" : "Actividad"}
+                rowClassName={() => "hover:bg-indigo-50/40 transition"}
+            />
 
             {!loading && count > 0 && (
                 <div className="flex flex-wrap items-center justify-between gap-3">

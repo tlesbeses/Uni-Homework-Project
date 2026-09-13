@@ -6,6 +6,7 @@ import {
 } from "@/features/snapshots/services/snapshotService";
 import { useSnapshot } from "@/features/snapshots/hooks/useSnapshot";
 import { Button } from "@/shared/components/ui/Button";
+import { ResponsiveDataTable } from "@/shared/components/ResponsiveDataTable";
 
 function formatDate(value) {
     if (!value) {
@@ -97,6 +98,155 @@ export const SnapshotDetailPage = () => {
             .map((entry) => [entry.student_id, entry.score])
     );
 
+    const studentColumns = [
+        {
+            key: "name",
+            header: "Nombre",
+            role: "primary",
+            render: (student) => (
+                <span className="font-medium text-gray-800">
+                    {student.first_name || student.username}{" "}
+                    {student.last_name}
+                </span>
+            ),
+        },
+        {
+            key: "username",
+            header: "Usuario",
+            role: "secondary",
+            render: (student) => (
+                <span className="text-gray-600">
+                    @{student.username}
+                </span>
+            ),
+        },
+        {
+            key: "status",
+            header: "Estado",
+            role: "secondary",
+            render: (student) => (
+                <span
+                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusStyle(student.status)}`}
+                >
+                    {statusLabel(student.status)}
+                </span>
+            ),
+        },
+        {
+            key: "finalGrade",
+            header: "Nota final",
+            role: "secondary",
+            render: (student) => (
+                <span className="font-medium text-gray-800">
+                    {completionLabel(finalByStudent[student.student_id])}
+                </span>
+            ),
+        },
+    ];
+
+    const assignmentColumns = [
+        {
+            key: "title",
+            header: "Título",
+            role: "primary",
+            render: (assignment) => (
+                <span className="font-medium text-gray-800">
+                    {assignment.title}
+                </span>
+            ),
+        },
+        {
+            key: "dueDate",
+            header: "Fecha límite",
+            role: "secondary",
+            render: (assignment) => (
+                <span className="whitespace-nowrap text-gray-600">
+                    {formatDateOnly(assignment.due_date)}
+                </span>
+            ),
+        },
+        {
+            key: "status",
+            header: "Estado",
+            role: "secondary",
+            render: (assignment) => (
+                <span
+                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        assignment.is_published
+                            ? "bg-emerald-50 text-emerald-700"
+                            : "bg-gray-100 text-gray-600"
+                    }`}
+                >
+                    {assignment.is_published ? "Publicada" : "Borrador"}
+                </span>
+            ),
+        },
+        {
+            key: "max_score",
+            header: "Puntaje máx.",
+            role: "optional",
+            render: (assignment) => (
+                <span className="text-gray-600">
+                    {assignment.max_score}
+                </span>
+            ),
+        },
+    ];
+
+    const gradeColumns = [
+        {
+            key: "assignment",
+            header: "Tarea",
+            role: "primary",
+            render: (grade) => {
+                const assignment = assignments.find(
+                    (item) => item.id === grade.assignment_id,
+                );
+                return (
+                    <span className="font-medium text-gray-800">
+                        {assignment?.title ?? "Tarea borrada"}
+                    </span>
+                );
+            },
+        },
+        {
+            key: "student",
+            header: "Estudiante",
+            role: "secondary",
+            render: (grade) => {
+                const student = students.find(
+                    (item) => item.student_id === grade.student_id,
+                );
+                return (
+                    <span className="text-gray-600">
+                        {student?.first_name || student?.username}{" "}
+                        {student?.last_name}
+                    </span>
+                );
+            },
+        },
+        {
+            key: "score",
+            header: "Nota",
+            role: "primary",
+            render: (grade) => (
+                <span className="font-bold text-gray-800">
+                    {grade.score}
+                </span>
+            ),
+        },
+        {
+            key: "type",
+            header: "Tipo",
+            role: "optional",
+            render: (grade) => (
+                <span className="text-gray-600">
+                    {grade.is_individual ? "Individual" : "Equipo"}
+                </span>
+            ),
+        },
+    ];
+
     const handleExport = async (kind) => {
         setActionError("");
         try {
@@ -179,57 +329,17 @@ export const SnapshotDetailPage = () => {
                 <StatCard label="Notas" value={stats.grades ?? 0} />
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
-                <div className="px-5 py-4 border-b border-gray-100">
-                    <h3 className="text-lg font-semibold text-gray-800">
-                        Estudiantes
-                    </h3>
-                </div>
-                <table className="min-w-full divide-y divide-gray-100 text-sm">
-                    <thead>
-                        <tr className="text-left text-xs font-semibold uppercase tracking-wider text-gray-400">
-                            <th className="px-5 py-3">Nombre</th>
-                            <th className="px-5 py-3">Usuario</th>
-                            <th className="px-5 py-3">Estado</th>
-                            <th className="px-5 py-3">Nota final</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                        {students.length === 0 && (
-                            <tr>
-                                <td
-                                    colSpan={4}
-                                    className="px-5 py-8 text-center text-gray-400"
-                                >
-                                    Sin estudiantes al momento del borrado.
-                                </td>
-                            </tr>
-                        )}
-                        {students.map((student) => (
-                            <tr key={student.student_id}>
-                                <td className="px-5 py-3 text-gray-800">
-                                    {student.first_name || student.username}{" "}
-                                    {student.last_name}
-                                </td>
-                                <td className="px-5 py-3 text-gray-600">
-                                    @{student.username}
-                                </td>
-                                <td className="px-5 py-3">
-                                    <span
-                                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusStyle(student.status)}`}
-                                    >
-                                        {statusLabel(student.status)}
-                                    </span>
-                                </td>
-                                <td className="px-5 py-3 text-gray-800">
-                                    {completionLabel(
-                                        finalByStudent[student.student_id]
-                                    )}
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+            <div>
+                <h3 className="text-lg font-semibold text-gray-800 mb-3">
+                    Estudiantes
+                </h3>
+                <ResponsiveDataTable
+                    columns={studentColumns}
+                    rows={students}
+                    rowKey={(student) => student.student_id}
+                    emptyContent="Sin estudiantes al momento del borrado."
+                    ariaLabel="Estudiantes"
+                />
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
@@ -268,117 +378,32 @@ export const SnapshotDetailPage = () => {
                 </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
-                <div className="px-5 py-4 border-b border-gray-100">
-                    <h3 className="text-lg font-semibold text-gray-800">
-                        Tareas ({assignments.length})
-                    </h3>
-                </div>
-                <table className="min-w-full divide-y divide-gray-100 text-sm">
-                    <thead>
-                        <tr className="text-left text-xs font-semibold uppercase tracking-wider text-gray-400">
-                            <th className="px-5 py-3">Título</th>
-                            <th className="px-5 py-3">Puntaje máx.</th>
-                            <th className="px-5 py-3">Fecha límite</th>
-                            <th className="px-5 py-3">Estado</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                        {assignments.length === 0 && (
-                            <tr>
-                                <td
-                                    colSpan={4}
-                                    className="px-5 py-8 text-center text-gray-400"
-                                >
-                                    Sin tareas al momento del borrado.
-                                </td>
-                            </tr>
-                        )}
-                        {assignments.map((assignment) => (
-                            <tr key={assignment.id}>
-                                <td className="px-5 py-3 text-gray-800">
-                                    {assignment.title}
-                                </td>
-                                <td className="px-5 py-3 text-gray-600">
-                                    {assignment.max_score}
-                                </td>
-                                <td className="px-5 py-3 text-gray-600 whitespace-nowrap">
-                                    {formatDateOnly(assignment.due_date)}
-                                </td>
-                                <td className="px-5 py-3">
-                                    <span
-                                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                                            assignment.is_published
-                                                ? "bg-emerald-50 text-emerald-700"
-                                                : "bg-gray-100 text-gray-600"
-                                        }`}
-                                    >
-                                        {assignment.is_published
-                                            ? "Publicada"
-                                            : "Borrador"}
-                                    </span>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+            <div>
+                <h3 className="text-lg font-semibold text-gray-800 mb-3">
+                    Tareas ({assignments.length})
+                </h3>
+                <ResponsiveDataTable
+                    columns={assignmentColumns}
+                    rows={assignments}
+                    rowKey={(assignment) => assignment.id}
+                    emptyContent="Sin tareas al momento del borrado."
+                    ariaLabel="Tareas"
+                />
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
-                <div className="px-5 py-4 border-b border-gray-100">
-                    <h3 className="text-lg font-semibold text-gray-800">
-                        Notas ({grades.length})
-                    </h3>
-                </div>
-                <table className="min-w-full divide-y divide-gray-100 text-sm">
-                    <thead>
-                        <tr className="text-left text-xs font-semibold uppercase tracking-wider text-gray-400">
-                            <th className="px-5 py-3">Tarea</th>
-                            <th className="px-5 py-3">Estudiante</th>
-                            <th className="px-5 py-3">Nota</th>
-                            <th className="px-5 py-3">Tipo</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                        {grades.length === 0 && (
-                            <tr>
-                                <td
-                                    colSpan={4}
-                                    className="px-5 py-8 text-center text-gray-400"
-                                >
-                                    Aún no había notas registradas.
-                                </td>
-                            </tr>
-                        )}
-                        {grades.map((grade) => {
-                            const assignment = assignments.find(
-                                (item) => item.id === grade.assignment_id
-                            );
-                            const student = students.find(
-                                (item) => item.student_id === grade.student_id
-                            );
-                            return (
-                                <tr key={`${grade.assignment_id}-${grade.student_id}`}>
-                                    <td className="px-5 py-3 text-gray-800">
-                                        {assignment?.title ?? "Tarea borrada"}
-                                    </td>
-                                    <td className="px-5 py-3 text-gray-600">
-                                        {student?.first_name || student?.username}{" "}
-                                        {student?.last_name}
-                                    </td>
-                                    <td className="px-5 py-3 text-gray-800">
-                                        {grade.score}
-                                    </td>
-                                    <td className="px-5 py-3 text-gray-600">
-                                        {grade.is_individual
-                                            ? "Individual"
-                                            : "Equipo"}
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
+            <div>
+                <h3 className="text-lg font-semibold text-gray-800 mb-3">
+                    Notas ({grades.length})
+                </h3>
+                <ResponsiveDataTable
+                    columns={gradeColumns}
+                    rows={grades}
+                    rowKey={(grade) =>
+                        `${grade.assignment_id}-${grade.student_id}`
+                    }
+                    emptyContent="Aún no había notas registradas."
+                    ariaLabel="Notas"
+                />
             </div>
         </div>
     );

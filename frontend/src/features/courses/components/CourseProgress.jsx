@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useCourseProgress } from "@/features/courses/hooks/useCourseProgress";
+import { Button } from "@/shared/components/ui/Button";
+import { ResponsiveDataTable } from "@/shared/components/ResponsiveDataTable";
 
 const formatScore = (value) =>
     value === null || value === undefined ? "—" : String(Number(value.toFixed(2)));
@@ -32,6 +34,62 @@ const ProgressBar = ({ value }) => {
         </div>
     );
 };
+
+const progressColumns = [
+    {
+        key: "title",
+        header: "Tarea",
+        role: "primary",
+        render: (assignment) => (
+            <span className="font-medium text-gray-800">
+                {assignment.title}
+            </span>
+        ),
+    },
+    {
+        key: "graded",
+        header: "Calificadas",
+        role: "secondary",
+        render: (assignment) => (
+            <span className="text-gray-600">
+                {assignment.graded}/{assignment.graded + assignment.pending}
+            </span>
+        ),
+    },
+    {
+        key: "avg",
+        header: "Promedio",
+        role: "secondary",
+        render: (assignment) => (
+            <div className="flex items-center gap-2">
+                <ProgressBar value={assignment.avg} />
+                <span className="text-xs text-gray-600">
+                    {formatScore(assignment.avg)}
+                </span>
+            </div>
+        ),
+    },
+    {
+        key: "max",
+        header: "Máx",
+        role: "optional",
+        render: (assignment) => (
+            <span className="text-gray-600">
+                {formatScore(assignment.max)}
+            </span>
+        ),
+    },
+    {
+        key: "min",
+        header: "Mín",
+        role: "optional",
+        render: (assignment) => (
+            <span className="text-gray-600">
+                {formatScore(assignment.min)}
+            </span>
+        ),
+    },
+];
 
 export const CourseProgress = ({ courseId }) => {
     const { progress, loading, error } = useCourseProgress(courseId);
@@ -68,13 +126,14 @@ export const CourseProgress = ({ courseId }) => {
                         {progress?.course_title}
                     </p>
                 </div>
-                <button
-                    type="button"
+                <Button
+                    variant="link"
+                    size="sm"
+                    className="text-xs"
                     onClick={() => setIsOpen(false)}
-                    className="text-xs font-medium text-indigo-600 hover:text-indigo-800"
                 >
                     Ocultar ▲
-                </button>
+                </Button>
             </div>
 
             {loading && (
@@ -108,64 +167,13 @@ export const CourseProgress = ({ courseId }) => {
                             El curso aún no tiene tareas publicadas.
                         </p>
                     ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="border-b border-gray-100 text-left text-xs text-gray-500 uppercase tracking-wide">
-                                        <th className="py-2 pr-3 font-medium">
-                                            Tarea
-                                        </th>
-                                        <th className="py-2 pr-3 font-medium">
-                                            Calificadas
-                                        </th>
-                                        <th className="py-2 pr-3 font-medium">
-                                            Promedio
-                                        </th>
-                                        <th className="py-2 pr-3 font-medium">
-                                            Máx
-                                        </th>
-                                        <th className="py-2 font-medium">
-                                            Mín
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {progress.assignments.map((assignment) => (
-                                        <tr
-                                            key={assignment.id}
-                                            className="border-b border-gray-50 last:border-0"
-                                        >
-                                            <td className="py-2 pr-3 text-gray-800">
-                                                {assignment.title}
-                                            </td>
-                                            <td className="py-2 pr-3 text-gray-600">
-                                                {assignment.graded}/
-                                                {assignment.graded +
-                                                    assignment.pending}
-                                            </td>
-                                            <td className="py-2 pr-3">
-                                                <div className="flex items-center gap-2">
-                                                    <ProgressBar
-                                                        value={assignment.avg}
-                                                    />
-                                                    <span className="text-xs text-gray-600">
-                                                        {formatScore(
-                                                            assignment.avg
-                                                        )}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td className="py-2 pr-3 text-gray-600">
-                                                {formatScore(assignment.max)}
-                                            </td>
-                                            <td className="py-2 text-gray-600">
-                                                {formatScore(assignment.min)}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                        <ResponsiveDataTable
+                            columns={progressColumns}
+                            rows={progress.assignments}
+                            rowKey={(assignment) => assignment.id}
+                            emptyContent="El curso aún no tiene tareas publicadas."
+                            ariaLabel="Progreso por tarea"
+                        />
                     )}
                 </div>
             )}

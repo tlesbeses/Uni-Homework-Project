@@ -14,6 +14,7 @@ import { Modal } from "@/shared/components/ui/Modal";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 import { formatUser } from "@/features/teams/utils/formatUser";
 import { ConfirmModal } from "@/shared/components/ConfirmModal";
+import { ResponsiveDataTable } from "@/shared/components/ResponsiveDataTable";
 import { Pager } from "@/shared/components/Pager";
 
 const ROLE_STYLES = {
@@ -46,7 +47,6 @@ export const AdminUsersPage = () => {
     const [impersonatingId, setImpersonatingId] = useState(null);
     const [pendingDeactivate, setPendingDeactivate] = useState(null);
     const [pendingRoleChange, setPendingRoleChange] = useState(null);
-    const [pendingActions, setPendingActions] = useState(null);
 
     const { users, count, totalPages, loading, error, reload, page, setPage, pageSize, handlePageSizeChange } =
         useAdminUsers({ search, role });
@@ -189,194 +189,137 @@ export const AdminUsersPage = () => {
                 </p>
             )}
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-100 text-sm">
-                    <thead>
-                        <tr className="text-left text-xs font-semibold uppercase tracking-wider text-gray-400">
-                            <th className="px-5 py-3">Usuario</th>
-                            <th className="px-5 py-3">Email</th>
-                            <th className="px-5 py-3">Rol</th>
-                            <th className="px-5 py-3">Estado</th>
-                            <th className="px-5 py-3">Alta</th>
-                            <th className="px-5 py-3 text-right">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                        {loading && users.length === 0 && (
-                            <tr>
-                                <td
-                                    colSpan={6}
-                                    className="px-5 py-10 text-center text-gray-400"
-                                >
-                                    Cargando usuarios...
-                                </td>
-                            </tr>
-                        )}
-                        {!loading && users.length === 0 && (
-                            <tr>
-                                <td
-                                    colSpan={6}
-                                    className="px-5 py-10 text-center text-gray-400"
-                                >
-                                    No se encontraron usuarios.
-                                </td>
-                            </tr>
-                        )}
-                        {sortedUsers.map((u) => {
-                            const isSelf = u.id === currentUser?.id;
-                            const busy = busyId === u.id;
-                            const impersonating = impersonatingId === u.id;
+            <ResponsiveDataTable
+                ariaLabel="Usuarios registrados"
+                columns={[
+                    {
+                        key: "user",
+                        header: "Usuario",
+                        role: "primary",
+                        render: (u) => (
+                            <>
+                                <p className="font-medium text-gray-800">
+                                    {formatUser(u)}
+                                    {u.id === currentUser?.id && (
+                                        <span className="ml-2 text-xs text-gray-400">
+                                            (tú)
+                                        </span>
+                                    )}
+                                </p>
+                                <p className="text-xs text-gray-400">
+                                    @{u.username}
+                                </p>
+                            </>
+                        ),
+                    },
+                    {
+                        key: "email",
+                        header: "Email",
+                        role: "secondary",
+                        className: "text-gray-600",
+                        render: (u) => u.email || "—",
+                    },
+                    {
+                        key: "role",
+                        header: "Rol",
+                        role: "secondary",
+                        render: (u) => {
                             const roleKey = u.is_superuser
                                 ? "Superuser"
                                 : u.roles.includes("Teacher")
                                   ? "Teacher"
                                   : "Student";
                             return (
-                                <tr
-                                    key={u.id}
-                                    className={
-                                        u.is_active ? "" : "bg-gray-50"
-                                    }
+                                <span
+                                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${ROLE_STYLES[roleKey]}`}
                                 >
-                                    <td className="px-5 py-3">
-                                        <p className="font-medium text-gray-800">
-                                            {formatUser(u)}
-                                            {isSelf && (
-                                                <span className="ml-2 text-xs text-gray-400">
-                                                    (tú)
-                                                </span>
-                                            )}
-                                        </p>
-                                        <p className="text-xs text-gray-400">
-                                            @{u.username}
-                                        </p>
-                                    </td>
-                                    <td className="px-5 py-3 text-gray-600">
-                                        {u.email || "—"}
-                                    </td>
-                                    <td className="px-5 py-3">
-                                        <span
-                                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${ROLE_STYLES[roleKey]}`}
-                                        >
-                                            {u.is_superuser
-                                                ? "Superusuario"
-                                                : u.roles.includes("Teacher")
-                                                  ? "Profesor"
-                                                  : "Estudiante"}
-                                        </span>
-                                    </td>
-                                    <td className="px-5 py-3">
-                                        <span
-                                            className={`inline-flex items-center gap-1.5 text-xs font-medium ${
-                                                u.is_active
-                                                    ? "text-emerald-600"
-                                                    : "text-red-500"
-                                            }`}
-                                        >
-                                            <span
-                                                className={`h-2 w-2 rounded-full ${
-                                                    u.is_active
-                                                        ? "bg-emerald-500"
-                                                        : "bg-red-500"
-                                                }`}
-                                            />
-                                            {u.is_active
-                                                ? "Activo"
-                                                : "Inactivo"}
-                                        </span>
-                                    </td>
-                                    <td className="px-5 py-3 text-gray-600">
-                                        {formatDate(u.date_joined)}
-                                    </td>
-                                    <td className="px-5 py-3">
-                                        {u.is_superuser ? (
-                                            <p className="text-right text-xs text-gray-400">
-                                                Sin acciones
-                                            </p>
-                                        ) : (
-                                            <>
-                                            <div className="hidden sm:flex items-center justify-end gap-2">
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        handleToggleActive(u)
-                                                    }
-                                                    disabled={busy}
-                                                    className={`inline-flex items-center justify-center gap-2 min-h-[2.75rem] px-3 py-1.5 rounded-lg text-xs font-semibold border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 ${
-                                                        u.is_active
-                                                            ? "text-red-600 border-red-200 hover:bg-red-50"
-                                                            : "text-emerald-600 border-emerald-200 hover:bg-emerald-50"
-                                                    }`}
-                                                >
-                                                    {u.is_active
-                                                        ? "Desactivar"
-                                                        : "Activar"}
-                                                </button>
-                                                <Button
-                                                    onClick={() =>
-                                                        setPendingRoleChange(u)
-                                                    }
-                                                    disabled={busy}
-                                                    size="sm"
-                                                    variant="outline"
-                                                    className="!whitespace-normal min-h-[2.75rem]"
-                                                >
-                                                    {u.roles.includes(
-                                                        "Teacher"
-                                                    )
-                                                        ? "Hacer estudiante"
-                                                        : "Hacer profesor"}
-                                                </Button>
-                                                <Button
-                                                    onClick={() =>
-                                                        handleImpersonate(u)
-                                                    }
-                                                    disabled={
-                                                        busy ||
-                                                        impersonating
-                                                    }
-                                                    size="sm"
-                                                    variant="secondary"
-                                                    className="!whitespace-normal min-h-[2.75rem]"
-                                                >
-                                                    {impersonating
-                                                        ? "Probando..."
-                                                        : "Probar como"}
-                                                </Button>
-                                            </div>
-                                            <div className="sm:hidden flex justify-end">
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        setPendingActions(u)
-                                                    }
-                                                    aria-label={`Acciones de ${formatUser(u)}`}
-                                                    aria-haspopup="dialog"
-                                                    aria-expanded={
-                                                        pendingActions?.id ===
-                                                        u.id
-                                                    }
-                                                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-                                                >
-                                                    <svg
-                                                        viewBox="0 0 24 24"
-                                                        fill="currentColor"
-                                                        aria-hidden="true"
-                                                        className="w-5 h-5"
-                                                    >
-                                                        <path d="M12 5a1.75 1.75 0 1 0 0 3.5A1.75 1.75 0 0 0 12 5Zm0 10.25a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5Zm0-5.125a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5Z" />
-                                                    </svg>
-                                                </button>
-                                            </div>
-                                            </>
-                                        )}
-                                    </td>
-                                </tr>
+                                    {u.is_superuser
+                                        ? "Superusuario"
+                                        : u.roles.includes("Teacher")
+                                          ? "Profesor"
+                                          : "Estudiante"}
+                                </span>
                             );
-                        })}
-                    </tbody>
-                </table>
-            </div>
+                        },
+                    },
+                    {
+                        key: "state",
+                        header: "Estado",
+                        role: "primary",
+                        render: (u) => (
+                            <span
+                                className={`inline-flex items-center gap-1.5 text-xs font-medium ${
+                                    u.is_active
+                                        ? "text-emerald-600"
+                                        : "text-red-500"
+                                }`}
+                            >
+                                <span
+                                    className={`h-2 w-2 rounded-full ${
+                                        u.is_active
+                                            ? "bg-emerald-500"
+                                            : "bg-red-500"
+                                    }`}
+                                />
+                                {u.is_active ? "Activo" : "Inactivo"}
+                            </span>
+                        ),
+                    },
+                    {
+                        key: "date_joined",
+                        header: "Alta",
+                        role: "secondary",
+                        className: "text-gray-600",
+                        render: (u) => formatDate(u.date_joined),
+                    },
+                ]}
+                rows={sortedUsers}
+                rowKey={(u) => u.id}
+                rowClassName={(u) => (u.is_active ? "" : "bg-gray-50")}
+                noActionsLabel="Sin acciones"
+                actionsLabel="Ver acciones"
+                actions={(u) => {
+                    if (u.is_superuser) {
+                        return [];
+                    }
+                    return [
+                        {
+                            key: "toggle-active",
+                            label: u.is_active ? "Desactivar" : "Activar",
+                            onClick: handleToggleActive,
+                            disabled: (row) => busyId === row.id,
+                            variant: u.is_active ? "dangerSoft" : "successSoft",
+                            size: "sm",
+                        },
+                        {
+                            key: "change-role",
+                            label: u.roles.includes("Teacher")
+                                ? "Hacer estudiante"
+                                : "Hacer profesor",
+                            onClick: setPendingRoleChange,
+                            disabled: (row) => busyId === row.id,
+                            variant: "outline",
+                            size: "sm",
+                        },
+                        {
+                            key: "impersonate",
+                            label:
+                                impersonatingId === u.id
+                                    ? "Probando..."
+                                    : "Probar como",
+                            onClick: handleImpersonate,
+                            disabled: (row) =>
+                                busyId === row.id ||
+                                impersonatingId === row.id,
+                            variant: "secondary",
+                            size: "sm",
+                        },
+                    ];
+                }}
+                loading={loading && users.length === 0}
+                loadingContent="Cargando usuarios..."
+                emptyContent="No se encontraron usuarios."
+            />
 
             {!loading && count > 0 && (
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -446,67 +389,6 @@ export const AdminUsersPage = () => {
                 onConfirm={handleRoleChange}
                 busy={Boolean(busyId)}
             />
-
-            {pendingActions && (
-                <Modal
-                    open
-                    title={`Acciones · ${formatUser(pendingActions)}`}
-                    onClose={() => setPendingActions(null)}
-                    size="md"
-                >
-                    <div className="p-6 flex flex-col gap-2">
-                        <Button
-                            className="w-full"
-                            variant={
-                                pendingActions.is_active
-                                    ? "danger"
-                                    : "success"
-                            }
-                            disabled={busyId === pendingActions.id}
-                            onClick={() => {
-                                const target = pendingActions;
-                                setPendingActions(null);
-                                handleToggleActive(target);
-                            }}
-                        >
-                            {pendingActions.is_active
-                                ? "Desactivar"
-                                : "Activar"}
-                        </Button>
-                        <Button
-                            className="w-full"
-                            variant="outline"
-                            disabled={busyId === pendingActions.id}
-                            onClick={() => {
-                                const target = pendingActions;
-                                setPendingActions(null);
-                                setPendingRoleChange(target);
-                            }}
-                        >
-                            {pendingActions.roles.includes("Teacher")
-                                ? "Hacer estudiante"
-                                : "Hacer profesor"}
-                        </Button>
-                        <Button
-                            className="w-full"
-                            variant="secondary"
-                            disabled={
-                                busyId === pendingActions.id ||
-                                impersonatingId === pendingActions.id
-                            }
-                            onClick={() => {
-                                const target = pendingActions;
-                                setPendingActions(null);
-                                handleImpersonate(target);
-                            }}
-                        >
-                            {impersonatingId === pendingActions.id
-                                ? "Probando..."
-                                : "Probar como"}
-                        </Button>
-                    </div>
-                </Modal>
-            )}
         </div>
     );
 };

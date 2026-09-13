@@ -3,6 +3,7 @@ import { useGrades } from "@/features/grades/hooks/useGrades";
 import { useDashboard } from "@/features/courses/hooks/useDashboard";
 import { EvolutionChart } from "@/features/grades/components/EvolutionChart";
 import { useGradeEvolution } from "@/features/grades/hooks/useGradeEvolution";
+import { Button } from "@/shared/components/ui/Button";
 
 const formatPoints = (value) => String(Number(value.toFixed(2)));
 
@@ -144,13 +145,13 @@ export const StudentCourseGrades = () => {
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-end">
-                <button
-                    type="button"
+                <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={() => window.print()}
-                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
                 >
                     Imprimir / PDF
-                </button>
+                </Button>
             </div>
             {groups.map((group) => {
                 const key = `c:${group.course.id}`;
@@ -246,17 +247,18 @@ export const StudentCourseGrades = () => {
                                     ))}
                                 </ul>
                                 <div className="border-t border-gray-100 px-5 py-3">
-                                    <button
-                                        type="button"
+                                    <Button
+                                        variant="link"
+                                        size="sm"
+                                        className="px-0"
                                         onClick={() =>
                                             toggleEvolution(group.course.id)
                                         }
-                                        className="text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:underline"
                                     >
                                         {evolutionId === group.course.id
                                             ? "Ocultar evolución de mi nota final ▲"
                                             : "Ver evolución de mi nota final ▼"}
-                                    </button>
+                                    </Button>
                                     {evolutionId === group.course.id && (
                                         <EvolutionSeries
                                             courseId={group.course.id}
