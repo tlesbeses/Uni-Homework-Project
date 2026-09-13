@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AdminUsersPage } from "@/features/admin/pages/AdminUsersPage";
@@ -133,5 +133,33 @@ describe("AdminUsersPage", () => {
         expect(
             await screen.findByText("No se encontraron usuarios.")
         ).toBeInTheDocument();
+    });
+
+    it("muestra el selector de registros por página y cambia el tamaño", async () => {
+        const manyUsers = Array.from({ length: 30 }, (_, index) => ({
+            id: 100 + index,
+            username: `usuario${index}`,
+            first_name: "Usuario",
+            last_name: `${index + 1}`,
+            email: "",
+            roles: ["Student"],
+            is_superuser: false,
+            is_active: true,
+            date_joined: "2026-01-01T00:00:00Z",
+        }));
+        adminServiceMock.getAdminUsers.mockResolvedValue({
+            results: manyUsers.slice(0, 9),
+            count: 30,
+            next: null,
+        });
+
+        renderPage();
+
+        expect(await screen.findByText("30 usuarios")).toBeInTheDocument();
+        const select = screen.getByLabelText("Registros por página");
+        fireEvent.change(select, { target: { value: "25" } });
+        expect(adminServiceMock.getAdminUsers).toHaveBeenCalledWith(
+            expect.objectContaining({ page: 1, page_size: 25 })
+        );
     });
 });

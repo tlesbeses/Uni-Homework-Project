@@ -10,7 +10,10 @@ const { activityMock } = vi.hoisted(() => ({
         loading: false,
         error: "",
         page: 1,
+        totalPages: 1,
+        pageSize: 15,
         setPage: vi.fn(),
+        handlePageSizeChange: vi.fn(),
         reload: vi.fn(),
     },
 }));
@@ -93,5 +96,18 @@ describe("AdminActivityPage", () => {
         expect(
             screen.getByText(/No se pudieron cargar las métricas/)
         ).toBeInTheDocument();
+    });
+
+    it("muestra el selector de registros por página cuando hay varias páginas", () => {
+        activityMock.count = 40;
+        activityMock.totalPages = 3;
+
+        renderPage();
+
+        expect(screen.getByText("40 registros")).toBeInTheDocument();
+        expect(
+            screen.getByLabelText("Registros por página")
+        ).toBeInTheDocument();
+        expect(screen.getByText("Página 1 de 3")).toBeInTheDocument();
     });
 });

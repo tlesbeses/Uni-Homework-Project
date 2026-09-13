@@ -4,18 +4,19 @@ import { getNotifications } from "@/features/notifications/services/notification
 import { queryKeys } from "@/lib/queryKeys";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 
-const PAGE_SIZE = 15;
+const DEFAULT_PAGE_SIZE = 15;
 
 export const useNotifications = () => {
     const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
     const [unreadOnly, setUnreadOnly] = useState(false);
 
     const { data, isLoading, error, refetch } = useQuery({
-        queryKey: queryKeys.notifications.list({ page, unreadOnly }),
+        queryKey: queryKeys.notifications.list({ page, pageSize, unreadOnly }),
         queryFn: () =>
             getNotifications({
                 page,
-                page_size: PAGE_SIZE,
+                page_size: pageSize,
                 unread_only: unreadOnly || undefined,
             }).then((data) => {
                 const items = Array.isArray(data.results)
@@ -31,14 +32,21 @@ export const useNotifications = () => {
 
     const notifications = data?.items ?? [];
     const count = data?.count ?? 0;
-    const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
+    const totalPages = Math.max(1, Math.ceil(count / pageSize));
+
+    const handlePageSizeChange = (size) => {
+        setPageSize(size);
+        setPage(1);
+    };
 
     return {
         notifications,
         count,
-        page,
         totalPages,
+        page,
         setPage,
+        pageSize,
+        handlePageSizeChange,
         unreadOnly,
         setUnreadOnly,
         loading: isLoading,

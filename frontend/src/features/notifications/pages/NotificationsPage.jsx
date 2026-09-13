@@ -32,6 +32,8 @@ export const NotificationsPage = () => {
         page,
         totalPages,
         setPage,
+        pageSize,
+        handlePageSizeChange,
         unreadOnly,
         setUnreadOnly,
         loading,
@@ -150,7 +152,14 @@ export const NotificationsPage = () => {
                 )}
             </div>
 
-            <Pager page={page} totalPages={totalPages} onChange={setPage} />
+            <Pager
+                page={page}
+                totalPages={totalPages}
+                onChange={setPage}
+                pageSize={pageSize}
+                onPageSizeChange={handlePageSizeChange}
+                defaultPageSize={15}
+            />
         </div>
     );
 };

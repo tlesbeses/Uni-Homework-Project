@@ -43,6 +43,7 @@ export const InputField = ({ label, name, type = "text", placeholder, register, 
     const [show, setShow] = useState(false);
     const fieldId = useId();
     const isPassword = type === "password";
+    const isNumber = type === "number";
     const fieldProps = register && name ? register(name) : {};
 
     return (
@@ -58,6 +59,11 @@ export const InputField = ({ label, name, type = "text", placeholder, register, 
                     {...fieldProps}
                     type={isPassword && show ? "text" : type}
                     placeholder={placeholder}
+                    onFocus={
+                        isNumber
+                            ? (event) => event.target.select()
+                            : undefined
+                    }
                     className={`w-full px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm ${isPassword ? "pr-12" : ""} ${error
                         ? "border-red-400 focus:ring-2 focus:ring-red-200 focus:border-red-400"
                         : "border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"

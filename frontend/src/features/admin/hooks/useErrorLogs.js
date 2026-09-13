@@ -7,9 +7,12 @@ import { getErrorLogs } from "@/features/admin/services/adminService";
 import { queryKeys } from "@/lib/queryKeys";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 
+const DEFAULT_PAGE_SIZE = 15;
+
 export const useErrorLogs = ({ source = "" } = {}) => {
     const [page, setPage] = useState(1);
-    const params = { source: source || undefined, page };
+    const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+    const params = { source: source || undefined, page, page_size: pageSize };
     const query = useQuery({
         queryKey: queryKeys.admin.errorLogs(params),
         queryFn: () => getErrorLogs(params),
@@ -17,13 +20,25 @@ export const useErrorLogs = ({ source = "" } = {}) => {
         staleTime: 30_000,
     });
 
+    const logs = query.data?.results ?? [];
+    const count = query.data?.count ?? 0;
+    const totalPages = Math.max(1, Math.ceil(count / pageSize));
+
+    const handlePageSizeChange = (size) => {
+        setPageSize(size);
+        setPage(1);
+    };
+
     return {
-        logs: query.data?.results ?? [],
-        count: query.data?.count ?? 0,
+        logs,
+        count,
+        totalPages,
         loading: query.isLoading,
         error: query.error ? getErrorMessage(query.error) : "",
         page,
         setPage,
+        pageSize,
+        handlePageSizeChange,
         reload: () => query.refetch(),
     };
 };

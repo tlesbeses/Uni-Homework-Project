@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useSnapshots } from "@/features/snapshots/hooks/useSnapshots";
+import { Pager } from "@/shared/components/Pager";
 
 function formatDate(value) {
     if (!value) {
@@ -31,11 +32,10 @@ export const SnapshotsPage = () => {
         return () => clearTimeout(timeout);
     }, [search]);
 
-    const { snapshots, count, loading, error, page, setPage } = useSnapshots({
-        search: debouncedSearch,
-    });
-
-    const totalPages = Math.max(1, Math.ceil(count / 15));
+    const { snapshots, count, totalPages, loading, error, page, setPage, pageSize, handlePageSizeChange } =
+        useSnapshots({
+            search: debouncedSearch,
+        });
 
     return (
         <div className="space-y-6">
@@ -162,34 +162,19 @@ export const SnapshotsPage = () => {
             </div>
 
             {!loading && count > 0 && (
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="text-sm text-gray-500">
                         {count} grupo{count !== 1 ? "s" : ""} borrado
                         {count !== 1 ? "s" : ""}
                     </p>
-                    <div className="flex items-center gap-3">
-                        <button
-                            type="button"
-                            onClick={() => setPage((p) => Math.max(1, p - 1))}
-                            disabled={page <= 1}
-                            className="px-3 py-1.5 rounded-lg text-sm font-medium text-indigo-600 border border-indigo-200 hover:bg-indigo-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            Anterior
-                        </button>
-                        <span className="text-sm text-gray-500">
-                            Página {page} de {totalPages}
-                        </span>
-                        <button
-                            type="button"
-                            onClick={() =>
-                                setPage((p) => Math.min(totalPages, p + 1))
-                            }
-                            disabled={page >= totalPages}
-                            className="px-3 py-1.5 rounded-lg text-sm font-medium text-indigo-600 border border-indigo-200 hover:bg-indigo-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            Siguiente
-                        </button>
-                    </div>
+                    <Pager
+                        page={page}
+                        totalPages={totalPages}
+                        onChange={setPage}
+                        pageSize={pageSize}
+                        onPageSizeChange={handlePageSizeChange}
+                        defaultPageSize={9}
+                    />
                 </div>
             )}
         </div>

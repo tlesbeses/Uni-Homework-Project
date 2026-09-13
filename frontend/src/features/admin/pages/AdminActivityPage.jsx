@@ -8,8 +8,8 @@ import {
     entityTypeLabel,
     userName,
 } from "@/shared/utils/activityMeta";
-import { Button } from "@/shared/components/ui/Button";
 import { SelectField } from "@/shared/components/ui/SelectField";
+import { Pager } from "@/shared/components/Pager";
 
 function formatDate(value) {
     if (!value) {
@@ -64,10 +64,13 @@ export const AdminActivityPage = () => {
     const {
         logs,
         count,
+        totalPages,
         loading,
         error,
         page,
         setPage,
+        pageSize,
+        handlePageSizeChange,
     } = useActivityLogs({
         action,
         entityType,
@@ -79,7 +82,6 @@ export const AdminActivityPage = () => {
     const hasFilters = Boolean(
         action || entityType || debouncedUser || from || to
     );
-    const totalPages = Math.max(1, Math.ceil(count / 15));
 
     return (
         <div className="space-y-6">
@@ -319,33 +321,18 @@ export const AdminActivityPage = () => {
             </div>
 
             {!loading && count > 0 && (
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="text-sm text-gray-500">
                         {count} registro{count !== 1 ? "s" : ""}
                     </p>
-                    <div className="flex items-center gap-3">
-                        <Button
-                            onClick={() => setPage((p) => Math.max(1, p - 1))}
-                            disabled={page <= 1}
-                            size="sm"
-                            variant="outline"
-                        >
-                            Anterior
-                        </Button>
-                        <span className="text-sm text-gray-500">
-                            Página {page} de {totalPages}
-                        </span>
-                        <Button
-                            onClick={() =>
-                                setPage((p) => Math.min(totalPages, p + 1))
-                            }
-                            disabled={page >= totalPages}
-                            size="sm"
-                            variant="outline"
-                        >
-                            Siguiente
-                        </Button>
-                    </div>
+                    <Pager
+                        page={page}
+                        totalPages={totalPages}
+                        onChange={setPage}
+                        pageSize={pageSize}
+                        onPageSizeChange={handlePageSizeChange}
+                        defaultPageSize={15}
+                    />
                 </div>
             )}
         </div>

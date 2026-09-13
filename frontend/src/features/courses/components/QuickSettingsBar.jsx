@@ -280,6 +280,7 @@ export const QuickSettingsBar = ({
                       max="100"
                       step="0.01"
                       value={pcts[key]}
+                      onFocus={(e) => e.target.select()}
                       onBlur={() => handlePctBlur(key)}
                       onChange={(e) => handlePctChange(key, e.target.value)}
                       aria-invalid={isInvalid}

@@ -64,4 +64,12 @@ describe("InputField", () => {
         expect(screen.getByText("Campo requerido")).toBeInTheDocument();
         expect(screen.queryByText("Ayuda")).not.toBeInTheDocument();
     });
+
+    it("selecciona todo el contenido al enfocar un campo numérico", () => {
+        render(<InputField label="Nota máxima" name="max_score" type="number" />);
+        const input = screen.getByLabelText("Nota máxima");
+        const select = vi.spyOn(input, "select");
+        fireEvent.focus(input);
+        expect(select).toHaveBeenCalled();
+    });
 });

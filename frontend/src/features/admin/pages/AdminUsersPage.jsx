@@ -14,6 +14,7 @@ import { Modal } from "@/shared/components/ui/Modal";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 import { formatUser } from "@/features/teams/utils/formatUser";
 import { ConfirmModal } from "@/shared/components/ConfirmModal";
+import { Pager } from "@/shared/components/Pager";
 
 const ROLE_STYLES = {
     Teacher: "bg-indigo-100 text-indigo-700",
@@ -47,7 +48,8 @@ export const AdminUsersPage = () => {
     const [pendingRoleChange, setPendingRoleChange] = useState(null);
     const [pendingActions, setPendingActions] = useState(null);
 
-    const { users, loading, error, reload } = useAdminUsers({ search, role });
+    const { users, count, totalPages, loading, error, reload, page, setPage, pageSize, handlePageSizeChange } =
+        useAdminUsers({ search, role });
 
     const sortedUsers = useMemo(
         () =>
@@ -158,7 +160,10 @@ export const AdminUsersPage = () => {
                 <div className="sm:w-72">
                     <SearchInput
                         value={search}
-                        onChange={setSearch}
+                        onChange={(value) => {
+                            setSearch(value);
+                            setPage(1);
+                        }}
                         placeholder="Buscar por nombre, usuario o email..."
                     />
                 </div>
@@ -166,7 +171,10 @@ export const AdminUsersPage = () => {
                     compact
                     className="sm:w-48"
                     value={role}
-                    onChange={(event) => setRole(event.target.value)}
+                    onChange={(event) => {
+                        setRole(event.target.value);
+                        setPage(1);
+                    }}
                     aria-label="Filtrar por rol"
                 >
                     <option value="">Todos los roles</option>
@@ -369,6 +377,22 @@ export const AdminUsersPage = () => {
                     </tbody>
                 </table>
             </div>
+
+            {!loading && count > 0 && (
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm text-gray-500">
+                        {count} usuario{count !== 1 ? "s" : ""}
+                    </p>
+                    <Pager
+                        page={page}
+                        totalPages={totalPages}
+                        onChange={setPage}
+                        pageSize={pageSize}
+                        onPageSizeChange={handlePageSizeChange}
+                        defaultPageSize={9}
+                    />
+                </div>
+            )}
 
             {pendingDeactivate && (
                 <Modal
