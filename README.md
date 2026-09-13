@@ -140,8 +140,7 @@ Uni-Homework-Project/
 ├── README.md
 ├── backend/                          # Proyecto Django REST
 │   ├── .env.example                  # Plantilla de variables de entorno
-│   ├── Pipfile / Pipfile.lock        # Deps (Pipenv)
-│   ├── requirements.txt              # Deps (pip)
+│   ├── requirements.txt              # Deps (pip) — única lista de dependencias
 │   ├── manage.py
 │   ├── config/                       # Raíz del proyecto Django
 │   │   ├── settings.py
@@ -173,10 +172,10 @@ Uni-Homework-Project/
 
 ## Requisitos
 
-- **Node.js** ≥ 20 (para el frontend)
+- **Node.js** ≥ 22 (para el frontend; versión fijada en `frontend/.nvmrc`)
 - **npm**
-- **Python** 3.14
-- **Pipenv** (`pip install pipenv`) o **pip** + `venv`
+- **Python** 3.14 (versión fijada en `backend/.python-version`)
+- `venv` + `pip` para Python
 - PostgreSQL (solo para producción; en desarrollo se usa SQLite)
 
 ---
@@ -187,11 +186,14 @@ Uni-Homework-Project/
 
 ```bash
 cd backend
-pipenv install                    # o: pip install -r requirements.txt
+python -m venv .venv
+.venv\Scripts\activate            # Windows PowerShell
+# source .venv/bin/activate       # macOS / Linux
+pip install -r requirements.txt
 cp .env.example .env              # copia y edita los valores
-pipenv run python manage.py migrate
-pipenv run python manage.py createadmin   # opcional: crea superusuario
-pipenv run python manage.py runserver     # http://127.0.0.1:8000
+python manage.py migrate
+python manage.py createadmin      # opcional: crea superusuario
+python manage.py runserver        # http://127.0.0.1:8000
 ```
 
 Para desarrollo local pon `DEBUG=True` en `backend/.env`.
@@ -437,7 +439,7 @@ Por defecto el despliegue es same-origin (Django sirve `frontend/dist`). Si el f
 | `npm run build` (frontend)                            | Build de producción → `dist/`                                 |
 | `npm run lint` (frontend)                             | Lint con oxlint                                               |
 | `npm run preview` (frontend)                          | Previsualizar build                                           |
-| `pipenv run python manage.py runserver` (backend)     | Dev server Django                                             |
+| `python manage.py runserver` (backend)               | Dev server Django                                             |
 | `python manage.py createadmin` (backend)              | Crear/actualizar superusuario desde env                       |
 | `python manage.py test` (backend)                     | Ejecutar tests                                                |
 | `python manage.py collectstatic --no-input` (backend) | Recoger estáticos                                             |
@@ -449,8 +451,25 @@ Por defecto el despliegue es same-origin (Django sirve `frontend/dist`). Si el f
 ```bash
 # Backend
 cd backend
-pipenv run python manage.py test
+python manage.py test
 ```
+
+---
+
+## Mantenimiento de dependencias
+
+- **Dependabot** (`.github/dependabot.yml`) escanea `backend/requirements.txt`, `frontend/package.json` y las GitHub Actions (semanal/mensualmente).
+- La **única fuente de verdad** para las dependencias del backend es `backend/requirements.txt` (CI y Render la usan con `pip install -r requirements.txt`). No hay `Pipfile`/Pipenv.
+
+### Actualizaciones revisadas y diferidas
+
+Durante el cierre se revisaron todas las propuestas de Dependabot. Estas se cerraron a propósito (cambios mayores que exigirían revalidación completa) y pueden reintentarse en el futuro:
+
+| Paquete(s) | Propuesta | Motivo del retraso |
+| --- | --- | --- |
+| django, djangorestframework, djoser | 6.0.8 → 6.1.1 · 3.17.2 → 3.18.1 · 2.3.3 → 2.3.4 | Bump del core; requiere revalidar los 370 tests y el flujo de auth. |
+| social-auth-app-django, social-auth-core | majors (5 → 6 · 4 → 5) | Librerías no usadas en el código. |
+| redis | 6.2.0 → 8.1.0 | Redis en modo latente (sin `REDIS_URL` en producción). |
 
 ---
 
