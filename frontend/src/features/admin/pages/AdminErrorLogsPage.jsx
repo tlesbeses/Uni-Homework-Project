@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useErrorLogs } from "@/features/admin/hooks/useErrorLogs";
 import { SelectField } from "@/shared/components/ui/SelectField";
+import { ResponsiveDataTable } from "@/shared/components/ResponsiveDataTable";
 import { Pager } from "@/shared/components/Pager";
 import { useState } from "react";
 
@@ -70,80 +71,87 @@ export const AdminErrorLogsPage = () => {
                 </p>
             )}
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-100 text-sm">
-                    <thead>
-                        <tr className="text-left text-xs font-semibold uppercase tracking-wider text-gray-400">
-                            <th className="px-5 py-3">Código</th>
-                            <th className="px-5 py-3">Fuente</th>
-                            <th className="px-5 py-3">Tipo</th>
-                            <th className="px-5 py-3">Mensaje</th>
-                            <th className="px-5 py-3">Ruta</th>
-                            <th className="px-5 py-3">Usuario</th>
-                            <th className="px-5 py-3">Fecha</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                        {loading && logs.length === 0 && (
-                            <tr>
-                                <td
-                                    colSpan={7}
-                                    className="px-5 py-10 text-center text-gray-400"
-                                >
-                                    Cargando errores...
-                                </td>
-                            </tr>
-                        )}
-                        {!loading && logs.length === 0 && (
-                            <tr>
-                                <td
-                                    colSpan={7}
-                                    className="px-5 py-10 text-center text-gray-400"
-                                >
-                                    No se encontraron errores registrados.
-                                </td>
-                            </tr>
-                        )}
-                        {logs.map((log) => (
-                            <tr
-                                key={log.id}
-                                className="hover:bg-indigo-50/40 transition"
+            <ResponsiveDataTable
+                ariaLabel="Errores registrados"
+                columns={[
+                    {
+                        key: "error_id",
+                        header: "Código",
+                        role: "primary",
+                        render: (log) => (
+                            <Link
+                                to={`/admin/errors/${log.id}`}
+                                className="font-mono text-xs text-indigo-600 hover:text-indigo-800 hover:underline"
                             >
-                                <td className="px-5 py-3">
-                                    <Link
-                                        to={`/admin/errors/${log.id}`}
-                                        className="font-mono text-xs text-indigo-600 hover:text-indigo-800 hover:underline"
-                                    >
-                                        {log.error_id}
-                                    </Link>
-                                </td>
-                                <td className="px-5 py-3">
-                                    <span
-                                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${sourceStyle(log.source)}`}
-                                    >
-                                        {sourceLabel(log.source)}
-                                    </span>
-                                </td>
-                                <td className="px-5 py-3 text-gray-800">
-                                    {log.kind || "—"}
-                                </td>
-                                <td className="px-5 py-3 text-gray-700 max-w-xs truncate">
-                                    {log.message || "—"}
-                                </td>
-                                <td className="px-5 py-3 text-gray-500 max-w-[10rem] truncate">
-                                    {log.path || "—"}
-                                </td>
-                                <td className="px-5 py-3 text-gray-600">
-                                    {log.user_id ?? "—"}
-                                </td>
-                                <td className="px-5 py-3 text-gray-600 whitespace-nowrap">
-                                    {formatDate(log.created_at)}
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+                                {log.error_id}
+                            </Link>
+                        ),
+                    },
+                    {
+                        key: "source",
+                        header: "Fuente",
+                        role: "secondary",
+                        render: (log) => (
+                            <span
+                                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${sourceStyle(log.source)}`}
+                            >
+                                {sourceLabel(log.source)}
+                            </span>
+                        ),
+                    },
+                    {
+                        key: "kind",
+                        header: "Tipo",
+                        role: "secondary",
+                        className: "text-gray-800",
+                        render: (log) => log.kind || "—",
+                    },
+                    {
+                        key: "message",
+                        header: "Mensaje",
+                        role: "secondary",
+                        className: "text-gray-700 max-w-xs truncate",
+                        render: (log) => log.message || "—",
+                    },
+                    {
+                        key: "path",
+                        header: "Ruta",
+                        role: "optional",
+                        className: "text-gray-500 max-w-[10rem] truncate",
+                        render: (log) => log.path || "—",
+                    },
+                    {
+                        key: "user_id",
+                        header: "Usuario",
+                        role: "optional",
+                        className: "text-gray-600",
+                        render: (log) => log.user_id ?? "—",
+                    },
+                    {
+                        key: "created_at",
+                        header: "Fecha",
+                        role: "primary",
+                        className: "text-gray-600 whitespace-nowrap",
+                        render: (log) => formatDate(log.created_at),
+                    },
+                ]}
+                rows={logs}
+                rowKey={(log) => log.id}
+                rowClassName={() => "hover:bg-indigo-50/40 transition"}
+                actions={() => [
+                    {
+                        key: "detail",
+                        label: "Ver detalle",
+                        href: (log) => `/admin/errors/${log.id}`,
+                        variant: "outline",
+                        size: "sm",
+                        tableVisibility: "mobile",
+                    },
+                ]}
+                loading={loading && logs.length === 0}
+                loadingContent="Cargando errores..."
+                emptyContent="No se encontraron errores registrados."
+            />
 
             {!loading && count > 0 && (
                 <div className="flex flex-wrap items-center justify-between gap-3">
