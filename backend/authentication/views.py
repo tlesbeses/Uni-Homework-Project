@@ -318,7 +318,9 @@ class AdminActivityView(APIView):
     """Historial de actividad (EventLog) para la consola de administración.
 
     Solo superusuarios. Filtros opcionales: action, entity_type, user_id
-    (actor o target) y rango de fechas (from/to en ISO).
+    (actor o target) y rango de fechas (from/to en ISO). Por defecto excluye
+    los eventos de login (métricas efímeras, se purgan a los 30 días); se
+    incluyen explícitamente pasando ``action=login``.
     """
 
     permission_classes = [IsSuperuser]
@@ -333,6 +335,8 @@ class AdminActivityView(APIView):
         action = request.query_params.get("action")
         if action:
             qs = qs.filter(action=action)
+        else:
+            qs = qs.exclude(action=EventLog.ACTION_LOGIN)
 
         entity_type = request.query_params.get("entity_type")
         if entity_type:

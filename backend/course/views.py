@@ -401,6 +401,7 @@ class DashboardView(APIView):
         recent_activity = (
             EventLog.objects.select_related("actor", "target")
             .prefetch_related("actor__groups", "target__groups")
+            .exclude(action=EventLog.ACTION_LOGIN)
             .order_by("-created_at")[:8]
         )
 

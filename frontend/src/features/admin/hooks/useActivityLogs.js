@@ -15,11 +15,12 @@ export const useActivityLogs = ({
     userId = "",
     from = "",
     to = "",
+    loginsOnly = false,
 } = {}) => {
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
     const params = {
-        action: action || undefined,
+        action: loginsOnly ? "login" : action || undefined,
         entityType: entityType || undefined,
         userId: userId || undefined,
         from: from || undefined,

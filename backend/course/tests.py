@@ -799,6 +799,13 @@ class SuperuserIsolationTests(BaseCourseTestCase):
             entity_id=self.student.id,
         )
         EventLog.objects.create(
+            actor=self.student,
+            action=EventLog.ACTION_LOGIN,
+            entity_type="user",
+            entity_id=self.student.id,
+            target=self.student,
+        )
+        EventLog.objects.create(
             actor=self.superuser,
             action=EventLog.ACTION_UPDATE,
             entity_type="grade",

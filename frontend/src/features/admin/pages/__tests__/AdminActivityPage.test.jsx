@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { AdminActivityPage } from "@/features/admin/pages/AdminActivityPage";
 
@@ -43,6 +43,10 @@ function renderPage() {
     );
 }
 
+function goToLogins() {
+    fireEvent.click(screen.getByRole("button", { name: "Accesos" }));
+}
+
 describe("AdminActivityPage", () => {
     beforeEach(() => {
         activityMock.logs = [];
@@ -54,7 +58,7 @@ describe("AdminActivityPage", () => {
         loginStatsMock.error = "";
     });
 
-    it("muestra la tarjeta de accesos con logins y usuarios unicos por dia", () => {
+    it("muestra la tarjeta de accesos con logins y usuarios unicos por dia en la pestana Accesos", () => {
         loginStatsMock.stats = {
             days: 7,
             totals: { logins: 4, unique_users: 3 },
@@ -65,6 +69,7 @@ describe("AdminActivityPage", () => {
         };
 
         renderPage();
+        goToLogins();
 
         expect(
             screen.getByText("Accesos (últimos 7 días)")
@@ -82,6 +87,7 @@ describe("AdminActivityPage", () => {
         loginStatsMock.loading = true;
 
         renderPage();
+        goToLogins();
 
         expect(
             screen.getByText("Cargando métricas de acceso...")
@@ -92,10 +98,55 @@ describe("AdminActivityPage", () => {
         loginStatsMock.error = "Error de red";
 
         renderPage();
+        goToLogins();
 
         expect(
             screen.getByText(/No se pudieron cargar las métricas/)
         ).toBeInTheDocument();
+    });
+
+    it("la pestana Actividad por defecto no ofrece 'Inicio de sesión' como filtro", () => {
+        renderPage();
+
+        expect(
+            screen.getByLabelText("Filtrar por acción")
+        ).toBeInTheDocument();
+        expect(
+            screen.queryByRole("option", { name: "Inicio de sesión" })
+        ).not.toBeInTheDocument();
+        expect(
+            screen.queryByText(/Logins totales/)
+        ).not.toBeInTheDocument();
+    });
+
+    it("muestra la tabla de accesos registrados en la pestana Accesos", () => {
+        activityMock.logs = [
+            {
+                id: 1,
+                action: "login",
+                entity_type: "user",
+                actor: {
+                    username: "ana",
+                    first_name: "Ana",
+                    last_name: "Pez",
+                },
+                target: {
+                    username: "ana",
+                    first_name: "Ana",
+                    last_name: "Pez",
+                },
+                metadata: { roles: ["Student"] },
+                created_at: "2026-09-12T10:00:00Z",
+            },
+        ];
+        activityMock.count = 1;
+
+        renderPage();
+        goToLogins();
+
+        expect(screen.getByText("Ana Pez")).toBeInTheDocument();
+        expect(screen.getByText("@ana")).toBeInTheDocument();
+        expect(screen.getByText("Estudiante")).toBeInTheDocument();
     });
 
     it("muestra el selector de registros por página cuando hay varias páginas", () => {

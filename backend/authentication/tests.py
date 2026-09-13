@@ -387,6 +387,42 @@ class AdminActivityTests(BaseAdminTestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["count"], 0)
 
+    def test_activity_excludes_logins_by_default(self):
+        EventLog.objects.create(
+            actor=self.admin,
+            action=EventLog.ACTION_IMPERSONATE,
+            entity_type="user",
+            entity_id=self.student.id,
+        )
+        EventLog.objects.create(
+            actor=self.student,
+            action=EventLog.ACTION_LOGIN,
+            entity_type="user",
+            entity_id=self.student.id,
+            target=self.student,
+        )
+        self.client.force_authenticate(self.admin)
+        response = self.client.get("/auth/admin/activity/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["action"], "impersonate")
+
+    def test_activity_includes_logins_when_filtered_by_action(self):
+        EventLog.objects.create(
+            actor=self.student,
+            action=EventLog.ACTION_LOGIN,
+            entity_type="user",
+            entity_id=self.student.id,
+            target=self.student,
+        )
+        self.client.force_authenticate(self.admin)
+        response = self.client.get(
+            "/auth/admin/activity/", {"action": EventLog.ACTION_LOGIN}
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["action"], "login")
+
 
 class SerializerRoleTests(BaseAdminTestCase):
     def test_me_exposes_admin_flags(self):
@@ -914,7 +950,7 @@ class AdminActivityFilterTests(BaseAdminTestCase):
     def test_valid_filters_still_filter(self):
         event = EventLog.objects.create(
             actor=self.student,
-            action=EventLog.ACTION_LOGIN,
+            action=EventLog.ACTION_IMPERSONATE,
             entity_type="user",
             entity_id=self.student.id,
             target=self.student,
