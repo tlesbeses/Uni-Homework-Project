@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useSnapshots } from "@/features/snapshots/hooks/useSnapshots";
+import { Button } from "@/shared/components/ui/Button";
 import { Pager } from "@/shared/components/Pager";
 
 function formatDate(value) {
@@ -61,16 +62,16 @@ export const SnapshotsPage = () => {
                     className="px-3 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none max-w-md"
                 />
                 {debouncedSearch && (
-                    <button
-                        type="button"
+                    <Button
+                        variant="link"
+                        size="sm"
                         onClick={() => {
                             setSearch("");
                             setPage(1);
                         }}
-                        className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
                     >
                         Limpiar búsqueda
-                    </button>
+                    </Button>
                 )}
             </div>
 

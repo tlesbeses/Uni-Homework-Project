@@ -40,14 +40,15 @@ export const MemberRow = ({
                     </span>
                 )}
                 {grade && (
-                    <button
-                        type="button"
+                    <Button
+                        variant="link"
+                        size="sm"
+                        className="text-[11px] px-1 py-0.5"
                         onClick={() => onOpenHistory(student, grade)}
-                        className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 hover:underline shrink-0"
                         title="Ver historial de notas"
                     >
                         Historial
-                    </button>
+                    </Button>
                 )}
             </span>
             <span className="flex items-center gap-2 shrink-0">

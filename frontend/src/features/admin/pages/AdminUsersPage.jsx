@@ -277,6 +277,7 @@ export const AdminUsersPage = () => {
                 rowKey={(u) => u.id}
                 rowClassName={(u) => (u.is_active ? "" : "bg-gray-50")}
                 noActionsLabel="Sin acciones"
+                actionsLabel="Ver acciones"
                 actions={(u) => {
                     if (u.is_superuser) {
                         return [];
@@ -287,11 +288,8 @@ export const AdminUsersPage = () => {
                             label: u.is_active ? "Desactivar" : "Activar",
                             onClick: handleToggleActive,
                             disabled: (row) => busyId === row.id,
-                            className: `inline-flex items-center justify-center gap-2 min-h-[2.75rem] px-3 py-1.5 rounded-lg text-xs font-semibold border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 ${
-                                u.is_active
-                                    ? "text-red-600 border-red-200 hover:bg-red-50"
-                                    : "text-emerald-600 border-emerald-200 hover:bg-emerald-50"
-                            }`,
+                            variant: u.is_active ? "dangerSoft" : "successSoft",
+                            size: "sm",
                         },
                         {
                             key: "change-role",
@@ -302,7 +300,6 @@ export const AdminUsersPage = () => {
                             disabled: (row) => busyId === row.id,
                             variant: "outline",
                             size: "sm",
-                            className: "!whitespace-normal min-h-[2.75rem]",
                         },
                         {
                             key: "impersonate",
@@ -316,7 +313,6 @@ export const AdminUsersPage = () => {
                                 impersonatingId === row.id,
                             variant: "secondary",
                             size: "sm",
-                            className: "!whitespace-normal min-h-[2.75rem]",
                         },
                     ];
                 }}

@@ -1,3 +1,5 @@
+import { Button } from "@/shared/components/ui/Button";
+
 export const CourseDetailHeader = ({ course, teacher, isOwner, onEdit }) => {
     return (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
@@ -20,13 +22,9 @@ export const CourseDetailHeader = ({ course, teacher, isOwner, onEdit }) => {
                         {course.visibility === "PUBLIC" ? "Público" : "Privado"}
                     </span>
                     {isOwner && (
-                        <button
-                            type="button"
-                            onClick={onEdit}
-                            className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
-                        >
+                        <Button variant="link" size="sm" onClick={onEdit}>
                             Editar
-                        </button>
+                        </Button>
                     )}
                 </div>
             </div>

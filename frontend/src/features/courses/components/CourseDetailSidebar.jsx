@@ -11,10 +11,10 @@ import {
   updateSection,
 } from "@/features/courses/services/courseService";
 import { getErrorMessage } from "@/shared/utils/getErrorMessage";
+import { Button } from "@/shared/components/ui/Button";
 import { Pager } from "@/shared/components/Pager";
 import { SearchInput } from "@/shared/components/SearchInput";
 import { ConfirmModal } from "@/shared/components/ConfirmModal";
-import { Button } from "@/shared/components/ui/Button";
 import { SelectField } from "@/shared/components/ui/SelectField";
 
 const DEFAULT_MEMBER_PAGE_SIZE = 5;
@@ -410,21 +410,21 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse, selectedS
                       </div>
                       {isOwner && (
                         <div className="flex items-center gap-2">
-                          <button
-                            type="button"
+                          <Button
+                            variant="link"
+                            size="sm"
                             onClick={startEditing}
-                            className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
                           >
                             Editar
-                          </button>
-                        <button
-                            type="button"
+                          </Button>
+                          <Button
+                            variant="linkDanger"
+                            size="sm"
                             onClick={() => setPendingDeleteSection(true)}
                             disabled={savingId === selectedSection.id}
-                            className="text-sm font-medium text-red-600 hover:text-red-800 disabled:opacity-50"
                           >
                             Eliminar
-                          </button>
+                          </Button>
                         </div>
                       )}
                     </div>
@@ -477,18 +477,18 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse, selectedS
                                   </span>
                                 )}
                                 {isOwner && (
-                                  <button
-                                    type="button"
+                                  <Button
+                                    variant="linkDanger"
+                                    size="sm"
                                     onClick={() =>
                                         setPendingRemoveEnrollment(member)
                                     }
                                     disabled={
                                       savingId === `enrollment-${member.id}`
                                     }
-                                    className="text-sm font-medium text-red-600 hover:text-red-800 disabled:opacity-50"
                                   >
                                     Eliminar
-                                  </button>
+                                  </Button>
                                 )}
                               </div>
                             </li>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "@/shared/components/ui/Button";
 
 const ToggleRow = ({
   title,
@@ -308,18 +309,17 @@ export const QuickSettingsBar = ({
                     ? `Suma: ${sum}% · Los porcentajes cuadran`
                     : `Suma: ${sum}% · Debe sumar 100`}
               </p>
-              <button
-                type="button"
+              <Button
                 onClick={handleSavePercentages}
                 disabled={
                   !percentagesValid ||
                   invalidFields.size > 0 ||
                   savingPonderacion
                 }
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50"
+                loading={savingPonderacion}
               >
                 {savingPonderacion ? "Guardando..." : "Guardar porcentajes"}
-              </button>
+              </Button>
             </div>
           </div>
         )}

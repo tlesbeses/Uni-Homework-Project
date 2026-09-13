@@ -1,3 +1,5 @@
+import { Button } from "./ui/Button";
+
 const DEFAULT_PAGE_SIZE = 10;
 const PAGE_SIZE_OPTIONS = [25, 50, 100];
 
@@ -131,25 +133,23 @@ export const Pager = ({
 
   return (
     <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
-      <button
-        type="button"
+      <Button
+        variant="secondary"
         onClick={() => onChange(page - 1)}
         disabled={page <= 1}
-        className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition disabled:opacity-50"
       >
         &larr; Anterior
-      </button>
+      </Button>
       <span className="text-sm text-gray-600">
         Página {page} de {totalPages}
       </span>
-      <button
-        type="button"
+      <Button
+        variant="secondary"
         onClick={() => onChange(page + 1)}
         disabled={page >= totalPages}
-        className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition disabled:opacity-50"
       >
         Siguiente &rarr;
-      </button>
+      </Button>
       {hasPageSize && (
         <div className="flex items-center gap-1">
           <PageSizeSelect

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useCourseProgress } from "@/features/courses/hooks/useCourseProgress";
+import { Button } from "@/shared/components/ui/Button";
 
 const formatScore = (value) =>
     value === null || value === undefined ? "—" : String(Number(value.toFixed(2)));
@@ -68,13 +69,14 @@ export const CourseProgress = ({ courseId }) => {
                         {progress?.course_title}
                     </p>
                 </div>
-                <button
-                    type="button"
+                <Button
+                    variant="link"
+                    size="sm"
+                    className="text-xs"
                     onClick={() => setIsOpen(false)}
-                    className="text-xs font-medium text-indigo-600 hover:text-indigo-800"
                 >
                     Ocultar ▲
-                </button>
+                </Button>
             </div>
 
             {loading && (

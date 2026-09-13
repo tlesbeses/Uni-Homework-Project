@@ -177,7 +177,7 @@ describe("AdminUsersPage", () => {
         );
     });
 
-    it("en móvil renderiza cards con las acciones disponibles sin modal", async () => {
+    it("en móvil renderiza cards con acciones plegables que se colapsan al perder el foco", async () => {
         mockMedia(false);
         renderPage();
 
@@ -190,15 +190,32 @@ describe("AdminUsersPage", () => {
             within(card).queryByText("Ana Pez")
         );
         expect(within(anaCard).getByText("@ana")).toBeInTheDocument();
-        expect(within(anaCard).getByText("Activar")).toBeInTheDocument();
+
+        const toggle = within(anaCard).getByRole("button", {
+            name: "Ver acciones",
+        });
+        expect(toggle).toHaveAttribute("aria-expanded", "false");
+        expect(toggle).toHaveAttribute("aria-controls");
+        expect(within(anaCard).queryByText("Activar")).not.toBeInTheDocument();
+        expect(
+            within(anaCard).queryByText("Hacer profesor")
+        ).not.toBeInTheDocument();
+
+        fireEvent.click(toggle);
+        expect(toggle).toHaveAttribute("aria-expanded", "true");
+        expect(within(anaCard).getByText("Activar")).toBeVisible();
         expect(
             within(anaCard).getByText("Hacer profesor")
-        ).toBeInTheDocument();
-        expect(
-            within(anaCard).getByText("Probar como")
-        ).toBeInTheDocument();
+        ).toBeVisible();
+        expect(within(anaCard).getByText("Probar como")).toBeVisible();
         expect(
             screen.queryByRole("button", { name: /Acciones de/ })
+        ).not.toBeInTheDocument();
+
+        fireEvent.focusOut(toggle, { relatedTarget: document.body });
+        expect(toggle).toHaveAttribute("aria-expanded", "false");
+        expect(
+            within(anaCard).queryByText("Activar")
         ).not.toBeInTheDocument();
     });
 });
