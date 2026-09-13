@@ -57,20 +57,21 @@ function OptionalFields({ fields, row, label = "Ver detalles" }) {
                 {label}
                 <Chevron open={open} />
             </button>
-            <dl
-                id={regionId}
-                className={`mt-1 space-y-1 ${open ? "" : "hidden"}`}
-            >
-                {fields.map((column) => (
-                    <div
-                        key={column.key}
-                        className="flex items-baseline justify-between gap-3 text-sm"
-                    >
-                        <dt className="text-gray-400">{column.header}</dt>
-                        <dd className="text-gray-700">{column.render(row)}</dd>
-                    </div>
-                ))}
-            </dl>
+            {open && (
+                <dl id={regionId} className="mt-1 space-y-1">
+                    {fields.map((column) => (
+                        <div
+                            key={column.key}
+                            className="flex items-baseline justify-between gap-3 text-sm"
+                        >
+                            <dt className="text-gray-400">{column.header}</dt>
+                            <dd className="text-gray-700">
+                                {column.render(row)}
+                            </dd>
+                        </div>
+                    ))}
+                </dl>
+            )}
         </div>
     );
 }

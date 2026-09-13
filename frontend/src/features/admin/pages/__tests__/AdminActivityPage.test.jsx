@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { AdminActivityPage } from "@/features/admin/pages/AdminActivityPage";
 
@@ -160,5 +160,80 @@ describe("AdminActivityPage", () => {
             screen.getByLabelText("Registros por página")
         ).toBeInTheDocument();
         expect(screen.getByText("Página 1 de 3")).toBeInTheDocument();
+    });
+
+    it("en móvil muestra la actividad como cards con el detalle plegable", () => {
+        activityMock.logs = [
+            {
+                id: 5,
+                action: "create",
+                entity_type: "course",
+                actor: {
+                    username: "pep",
+                    first_name: "Pepe",
+                    last_name: "Grillo",
+                },
+                target: {
+                    username: "ana",
+                    first_name: "Ana",
+                    last_name: "Pez",
+                },
+                metadata: { title: "Álgebra", visibility: "PUBLIC" },
+                created_at: "2026-09-12T10:00:00Z",
+            },
+        ];
+        activityMock.count = 1;
+
+        renderPage();
+
+        const card = screen.getAllByRole("listitem")[0];
+        expect(within(card).getByText("Creación")).toBeInTheDocument();
+        expect(within(card).getByText("Pepe Grillo")).toBeInTheDocument();
+        expect(within(card).getByText("Curso")).toBeInTheDocument();
+        expect(within(card).getByText("Ana Pez")).toBeInTheDocument();
+
+        const toggle = within(card).getByRole("button", {
+            name: /Ver detalles/,
+        });
+        expect(toggle).toHaveAttribute("aria-expanded", "false");
+        expect(
+            within(card).queryByText(/Título: Álgebra/)
+        ).not.toBeInTheDocument();
+
+        fireEvent.click(toggle);
+        expect(
+            within(card).getByText("Título: Álgebra")
+        ).toBeInTheDocument();
+        expect(
+            within(card).getByText("Visibilidad: Público")
+        ).toBeInTheDocument();
+    });
+
+    it("en móvil muestra los accesos como cards con los roles", () => {
+        activityMock.logs = [
+            {
+                id: 1,
+                action: "login",
+                entity_type: "user",
+                actor: {
+                    username: "ana",
+                    first_name: "Ana",
+                    last_name: "Pez",
+                },
+                target: null,
+                metadata: { roles: ["Student", "Admin"] },
+                created_at: "2026-09-12T10:00:00Z",
+            },
+        ];
+        activityMock.count = 1;
+
+        renderPage();
+        goToLogins();
+
+        const card = screen.getAllByRole("listitem")[0];
+        expect(within(card).getByText("Ana Pez")).toBeInTheDocument();
+        expect(within(card).getByText("@ana")).toBeInTheDocument();
+        expect(within(card).getByText("Estudiante")).toBeInTheDocument();
+        expect(within(card).getByText("Administrador")).toBeInTheDocument();
     });
 });
