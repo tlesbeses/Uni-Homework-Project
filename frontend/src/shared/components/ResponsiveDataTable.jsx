@@ -77,7 +77,50 @@ function OptionalFields({ fields, row, label = "Ver detalles" }) {
     );
 }
 
-const byRole = (role) => (column) => (column.role ?? "primary") === role;
+function SecondaryFields({ fields, row, limit }) {
+    const [open, setOpen] = useState(false);
+    const fieldsId = useId();
+    const pinned = fields.filter((column) => column.pinnedSecondary);
+    const normal = fields.filter((column) => !column.pinnedSecondary);
+    const visible = normal.slice(0, limit);
+    const hidden = normal.slice(limit);
+    const hasMore = hidden.length > 0;
+
+    const renderRow = (column) => (
+        <div
+            key={column.key}
+            className="flex items-baseline justify-between gap-3 text-sm"
+        >
+            <dt className="text-gray-400">{column.header}</dt>
+            <dd className="text-gray-700">{column.render(row)}</dd>
+        </div>
+    );
+
+    return (
+        <>
+            <dl id={fieldsId} className="mt-3 space-y-1">
+                {visible.map(renderRow)}
+                {open && hidden.map(renderRow)}
+                {pinned.map(renderRow)}
+            </dl>
+            {hasMore && (
+                <button
+                    type="button"
+                    aria-expanded={open}
+                    aria-controls={fieldsId}
+                    onClick={() => setOpen((prev) => !prev)}
+                    className="mt-3 inline-flex items-center gap-1 rounded text-sm font-medium text-indigo-600 hover:text-indigo-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                >
+                    {open ? "Ver menos" : "Ver más"}
+                    <Chevron open={open} />
+                </button>
+            )}
+        </>
+    );
+}
+
+const byRole = (role) => (column) =>
+        (column.role ?? "primary") === role && !column.desktopOnly;
 
 function Chevron({ open }) {
     return (
@@ -165,6 +208,7 @@ export const ResponsiveDataTable = ({
     loading = false,
     loadingContent = "Cargando...",
     emptyContent = "No hay datos.",
+    visibleSecondary = Infinity,
     ariaLabel,
     className = "",
     rowClassName,
@@ -185,7 +229,7 @@ export const ResponsiveDataTable = ({
         const colSpan = columns.length + (hasDesktopActions ? 1 : 0);
 
         return (
-            <div className={`bg-white rounded-xl shadow-sm border border-gray-100 ${className}`}>
+            <div className={`bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto ${className}`}>
                 <table className="min-w-full divide-y divide-gray-100 text-sm" aria-label={ariaLabel}>
                     <thead>
                         <tr className="text-left text-xs font-semibold uppercase tracking-wider text-gray-400">
@@ -292,19 +336,11 @@ export const ResponsiveDataTable = ({
                                 </div>
                             )}
                             {secondaryColumns.length > 0 && (
-                                <dl className="mt-3 space-y-1">
-                                    {secondaryColumns.map((column) => (
-                                        <div
-                                            key={column.key}
-                                            className="flex items-baseline justify-between gap-3 text-sm"
-                                        >
-                                            <dt className="text-gray-400">{column.header}</dt>
-                                            <dd className="text-gray-700">
-                                                {column.render(row)}
-                                            </dd>
-                                        </div>
-                                    ))}
-                                </dl>
+                                <SecondaryFields
+                                    fields={secondaryColumns}
+                                    row={row}
+                                    limit={visibleSecondary}
+                                />
                             )}
                             {optionalColumns.length > 0 && (
                                 <OptionalFields

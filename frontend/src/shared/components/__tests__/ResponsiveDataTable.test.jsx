@@ -109,6 +109,51 @@ describe("ResponsiveDataTable", () => {
         expect(screen.getByText("Fila 12")).toBeInTheDocument();
     });
 
+    it("limita las filas secundarias visibles y mantiene las ancladas", () => {
+        const secondary = Array.from({ length: 6 }, (_, i) => ({
+            key: `a${i}`,
+            header: `Asignación ${i + 1}`,
+            role: "secondary",
+            render: () => `nota ${i + 1}`,
+        }));
+        render(
+            <ResponsiveDataTable
+                columns={[
+                    {
+                        key: "name",
+                        header: "Nombre",
+                        role: "primary",
+                        render: (row) => row.name,
+                    },
+                    {
+                        key: "total",
+                        header: "Total",
+                        role: "secondary",
+                        pinnedSecondary: true,
+                        render: (row) => row.total,
+                    },
+                    ...secondary,
+                ]}
+                rows={[{ id: 1, name: "Fila 1", total: 90 }]}
+                rowKey={(row) => row.id}
+                ariaLabel="Lista de prueba"
+                visibleSecondary={4}
+            />
+        );
+
+        expect(screen.getByText("Asignación 1")).toBeInTheDocument();
+        expect(screen.getByText("Asignación 4")).toBeInTheDocument();
+        expect(screen.queryByText("Asignación 5")).not.toBeInTheDocument();
+        expect(screen.getByText("Total")).toBeInTheDocument();
+        expect(screen.getByText("90")).toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole("button", { name: /Ver más/ }));
+
+        expect(screen.getByText("Asignación 5")).toBeInTheDocument();
+        expect(screen.getByText("Asignación 6")).toBeInTheDocument();
+        expect(screen.getByText("Total")).toBeInTheDocument();
+    });
+
     it("muestra el contenido vacío sin filas", () => {
         renderTable(0);
 

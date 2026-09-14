@@ -391,6 +391,7 @@ export const GradesReportPage = () => {
                 key: "total",
                 header: "Total",
                 role: "secondary",
+                desktopOnly: true,
                 className: "text-center",
                 render: (student) => (
                     <span className="font-bold text-gray-800">
@@ -551,6 +552,7 @@ export const GradesReportPage = () => {
                             rows={filteredStudents}
                             rowKey={(student) => student.id}
                             ariaLabel="Calificaciones"
+                            visibleSecondary={4}
                         />
                     )}
                 </>

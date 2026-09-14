@@ -129,6 +129,7 @@ describe("GradesReportPage", () => {
 
         expect(screen.getByText("Math 101 — 1TS1")).toBeInTheDocument();
         expect(screen.getByText("Parcial")).toBeInTheDocument();
+        expect(screen.getByText("Total")).toBeInTheDocument();
         expect(screen.getByText("75 /100")).toBeInTheDocument();
     });
 
@@ -416,5 +417,59 @@ describe("GradesReportPage", () => {
         await waitFor(() =>
             expect(gradeServiceMock.gradeStudent).toHaveBeenCalledWith(10, 7, 90)
         );
+    });
+
+    it("en móvil muestra como máximo 4 asignaciones y permite ver las restantes", async () => {
+        mockViewport(false);
+        const manyAssignments = Array.from({ length: 5 }, (_, i) => ({
+            id: 10 + i,
+            title: `Tarea ${i + 1}`,
+            max_score: 100,
+            category: "ACUMULADO",
+            parcial: "PRIMERO",
+        }));
+        gradeServiceMock.getSectionGradesReport.mockResolvedValue({
+            ...report,
+            assignments: manyAssignments,
+            students: [
+                {
+                    id: 7,
+                    name: "Ana López",
+                    grades: Object.fromEntries(
+                        manyAssignments.map((a) => [String(a.id), 75])
+                    ),
+                    total: 75,
+                },
+            ],
+        });
+
+        renderPage();
+        await waitForReport();
+
+        const card = screen.getAllByRole("listitem")[0];
+        expect(
+            within(card).getByText("Tarea 1 (Acum. P1)")
+        ).toBeInTheDocument();
+        expect(
+            within(card).getByText("Tarea 4 (Acum. P1)")
+        ).toBeInTheDocument();
+        expect(
+            within(card).queryByText("Tarea 5 (Acum. P1)")
+        ).not.toBeInTheDocument();
+        expect(within(card).queryByText("Total")).not.toBeInTheDocument();
+        expect(
+            within(card).queryByRole("button", { name: /Ver menos/ })
+        ).not.toBeInTheDocument();
+
+        fireEvent.click(
+            within(card).getByRole("button", { name: /Ver más/ })
+        );
+
+        expect(
+            within(card).getByText("Tarea 5 (Acum. P1)")
+        ).toBeInTheDocument();
+        expect(
+            within(card).getByRole("button", { name: /Ver menos/ })
+        ).toBeInTheDocument();
     });
 });
