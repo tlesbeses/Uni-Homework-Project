@@ -20,6 +20,7 @@ import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 import { SearchInput } from "@/shared/components/SearchInput";
 import { Button } from "@/shared/components/ui/Button";
 import { SelectField } from "@/shared/components/ui/SelectField";
+import { ResponsiveDataTable } from "@/shared/components/ResponsiveDataTable";
 
 const formatParcialCell = (value) =>
     value !== undefined && value !== null ? `${value}%` : "—";
@@ -32,7 +33,7 @@ const assignmentPartialLabel = (assignment) => {
     return `${category} ${assignment.parcial === "SEGUNDO" ? "P2" : "P1"}`;
 };
 
-function EditableGradeCell({
+function EditableScore({
     score,
     maxScore,
     studentId,
@@ -93,35 +94,34 @@ function EditableGradeCell({
 
     if (editing) {
         return (
-            <td className="px-2 py-1 text-center">
-                <div className="flex items-center justify-center gap-0.5">
-                    <input
-                        ref={inputRef}
-                        type="text"
-                        inputMode="decimal"
-                        value={draft}
-                        onChange={(e) => setDraft(e.target.value)}
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter") { commit(); }
-                            if (e.key === "Escape") { setEditing(false); }
-                        }}
-                        onBlur={commit}
-                        disabled={saving}
-                        className="w-14 px-1 py-0.5 text-center text-sm text-gray-700 border border-indigo-400 rounded outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                    <span className="text-xs text-gray-400">/{maxScore}</span>
-                </div>
-            </td>
+            <div className="flex items-center justify-center gap-0.5">
+                <input
+                    ref={inputRef}
+                    type="text"
+                    inputMode="decimal"
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === "Enter") { commit(); }
+                        if (e.key === "Escape") { setEditing(false); }
+                    }}
+                    onBlur={commit}
+                    disabled={saving}
+                    className="w-14 px-1 py-0.5 text-center text-sm text-gray-700 border border-indigo-400 rounded outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                <span className="text-xs text-gray-400">/{maxScore}</span>
+            </div>
         );
     }
 
     return (
-        <td
-            className="px-4 py-3 text-center cursor-pointer hover:bg-indigo-50 transition rounded"
+        <button
+            type="button"
             onClick={() => {
                 setDraft(score !== undefined ? String(score) : "");
                 setEditing(true);
             }}
+            className="inline-flex items-center justify-center rounded transition cursor-pointer hover:bg-indigo-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
         >
             <span
                 className={`inline-block px-2 py-0.5 rounded text-sm ${
@@ -132,7 +132,7 @@ function EditableGradeCell({
             >
                 {display} /{maxScore}
             </span>
-        </td>
+        </button>
     );
 }
 
@@ -316,6 +316,106 @@ export const GradesReportPage = () => {
         return sorted;
     }, [report, search, orderBy]);
 
+    const columns = useMemo(() => {
+        if (!report) {
+            return [];
+        }
+        const assignmentColumns = report.assignments.map((a) => ({
+            key: `assignment-${a.id}`,
+            header: `${a.title} (${assignmentPartialLabel(a)})`,
+            headerRender: () => (
+                <>
+                    {a.title}
+                    <span className="block text-[11px] font-medium text-gray-400 mt-0.5">
+                        {assignmentPartialLabel(a)}
+                    </span>
+                </>
+            ),
+            role: "secondary",
+            className: "text-center",
+            render: (student) => (
+                <EditableScore
+                    score={student.grades[String(a.id)]}
+                    maxScore={a.max_score}
+                    studentId={student.id}
+                    assignmentId={a.id}
+                    onSaved={handleGradeSaved}
+                />
+            ),
+        }));
+
+        const partialColumns = report.ponderacion_enabled
+            ? [
+                  {
+                      key: "parcial1",
+                      header: "Parcial 1",
+                      role: "optional",
+                      className: "text-center whitespace-nowrap",
+                      render: (student) => (
+                          <span className="font-semibold text-gray-800">
+                              {formatParcialCell(
+                                  student.parcial_scores?.PRIMERO
+                              )}
+                          </span>
+                      ),
+                  },
+                  {
+                      key: "parcial2",
+                      header: "Parcial 2",
+                      role: "optional",
+                      className: "text-center whitespace-nowrap",
+                      render: (student) => (
+                          <span className="font-semibold text-gray-800">
+                              {formatParcialCell(
+                                  student.parcial_scores?.SEGUNDO
+                              )}
+                          </span>
+                      ),
+                  },
+              ]
+            : [];
+
+        return [
+            {
+                key: "student",
+                header: "Estudiante",
+                role: "primary",
+                render: (student) => (
+                    <span className="font-medium text-gray-800 whitespace-nowrap">
+                        {student.name}
+                    </span>
+                ),
+            },
+            ...assignmentColumns,
+            {
+                key: "total",
+                header: "Total",
+                role: "secondary",
+                className: "text-center",
+                render: (student) => (
+                    <span className="font-bold text-gray-800">
+                        {student.total}
+                    </span>
+                ),
+            },
+            ...partialColumns,
+            {
+                key: "final",
+                header: "Nota final",
+                role: "primary",
+                className: "text-center whitespace-nowrap",
+                render: (student) => (
+                    <span className="font-semibold text-indigo-700">
+                        {student.final !== undefined &&
+                        student.final !== null
+                            ? `${student.final}%`
+                            : "—"}
+                    </span>
+                ),
+            },
+        ];
+    }, [report, handleGradeSaved]);
+
     return (
         <div className="space-y-6 max-w-6xl">
             <Link
@@ -446,93 +546,12 @@ export const GradesReportPage = () => {
                             Ningún estudiante coincide con &laquo;{search.trim()}&raquo;.
                         </p>
                     ) : (
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="border-b border-gray-200">
-                                        <th className="px-4 py-3 text-left font-semibold text-gray-700 whitespace-nowrap">
-                                            Estudiante
-                                        </th>
-                                        {report.assignments.map((a) => (
-                                            <th
-                                                key={a.id}
-                                                className="px-4 py-3 text-center font-semibold text-gray-700 whitespace-nowrap"
-                                            >
-                                                {a.title}
-                                                <span className="block text-[11px] font-medium text-gray-400 mt-0.5">
-                                                    {assignmentPartialLabel(a)}
-                                                </span>
-                                            </th>
-                                        ))}
-                                        <th className="px-4 py-3 text-center font-semibold text-gray-700">
-                                            Total
-                                        </th>
-                                        {report.ponderacion_enabled && (
-                                            <>
-                                                <th className="px-4 py-3 text-center font-semibold text-gray-700 whitespace-nowrap">
-                                                    Parcial 1
-                                                </th>
-                                                <th className="px-4 py-3 text-center font-semibold text-gray-700 whitespace-nowrap">
-                                                    Parcial 2
-                                                </th>
-                                            </>
-                                        )}
-                                        <th className="px-4 py-3 text-center font-semibold text-gray-700 whitespace-nowrap">
-                                            Nota final
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredStudents.map((student) => (
-                                        <tr
-                                            key={student.id}
-                                            className="border-b border-gray-100 last:border-0"
-                                        >
-                                            <td className="px-4 py-3 text-gray-800 font-medium whitespace-nowrap">
-                                                {student.name}
-                                            </td>
-                                            {report.assignments.map((a) => (
-                                                <EditableGradeCell
-                                                    key={`${student.id}-${a.id}`}
-                                                    score={student.grades[String(a.id)]}
-                                                    maxScore={a.max_score}
-                                                    studentId={student.id}
-                                                    assignmentId={a.id}
-                                                    onSaved={handleGradeSaved}
-                                                />
-                                            ))}
-                                            <td className="px-4 py-3 text-center font-bold text-gray-800">
-                                                {student.total}
-                                            </td>
-                                            {report.ponderacion_enabled && (
-                                                <>
-                                                    <td className="px-4 py-3 text-center font-semibold text-gray-800 whitespace-nowrap">
-                                                        {formatParcialCell(
-                                                            student
-                                                                .parcial_scores
-                                                                ?.PRIMERO
-                                                        )}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-center font-semibold text-gray-800 whitespace-nowrap">
-                                                        {formatParcialCell(
-                                                            student
-                                                                .parcial_scores
-                                                                ?.SEGUNDO
-                                                        )}
-                                                    </td>
-                                                </>
-                                            )}
-                                            <td className="px-4 py-3 text-center font-semibold text-indigo-700 whitespace-nowrap">
-                                                {student.final !== undefined &&
-                                                student.final !== null
-                                                    ? `${student.final}%`
-                                                    : "—"}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                        <ResponsiveDataTable
+                            columns={columns}
+                            rows={filteredStudents}
+                            rowKey={(student) => student.id}
+                            ariaLabel="Calificaciones"
+                        />
                     )}
                 </>
             )}

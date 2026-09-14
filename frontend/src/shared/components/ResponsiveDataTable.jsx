@@ -4,6 +4,7 @@ import { Button } from "@/shared/components/ui/Button";
 import { useMediaQuery } from "@/shared/hooks/useMediaQuery";
 
 const DESKTOP_BREAKPOINT = "(min-width: 768px)";
+const MOBILE_PAGE_SIZE = 10;
 
 function renderAction(action, row) {
     const label =
@@ -169,6 +170,7 @@ export const ResponsiveDataTable = ({
     rowClassName,
 }) => {
     const isDesktop = useMediaQuery(DESKTOP_BREAKPOINT);
+    const [page, setPage] = useState(1);
     const primaryColumns = columns.filter(byRole("primary"));
     const secondaryColumns = columns.filter(byRole("secondary"));
     const optionalColumns = columns.filter(byRole("optional"));
@@ -192,7 +194,9 @@ export const ResponsiveDataTable = ({
                                     key={column.key}
                                     className={`px-5 py-3 ${column.headerClassName ?? ""}`}
                                 >
-                                    {column.header}
+                                    {column.headerRender
+                                        ? column.headerRender()
+                                        : column.header}
                                 </th>
                             ))}
                             {hasDesktopActions && (
@@ -256,15 +260,22 @@ export const ResponsiveDataTable = ({
         );
     }
 
+    const totalPages = Math.max(1, Math.ceil(rows.length / MOBILE_PAGE_SIZE));
+    const safePage = Math.min(page, totalPages);
+    const visibleRows =
+        rows.length > MOBILE_PAGE_SIZE
+            ? rows.slice((safePage - 1) * MOBILE_PAGE_SIZE, safePage * MOBILE_PAGE_SIZE)
+            : rows;
+
     return (
         <div className={`bg-white rounded-xl shadow-sm border border-gray-100 ${className}`}>
-            <ul role="list" className="grid gap-3 p-4" aria-label={ariaLabel}>
+            <ul role="list" className="grid gap-3 p-4" aria-label={ariaLabel}> 
                 {rows.length === 0 && (
                     <li className="col-span-full px-4 py-10 text-center text-gray-400">
                         {loading ? loadingContent : emptyContent}
                     </li>
                 )}
-                {rows.map((row) => {
+                {visibleRows.map((row) => {
                     const rowActions = actions?.(row) ?? [];
                     return (
                         <li
@@ -319,6 +330,30 @@ export const ResponsiveDataTable = ({
                     );
                 })}
             </ul>
+            {rows.length > MOBILE_PAGE_SIZE && (
+                <nav
+                    aria-label="Paginación"
+                    className="flex items-center justify-between border-t border-gray-100 px-4 py-3"
+                >
+                    <Button
+                        variant="link"
+                        disabled={safePage === 1}
+                        onClick={() => setPage(safePage - 1)}
+                    >
+                        « Anterior
+                    </Button>
+                    <span className="text-sm text-gray-500">
+                        Página {safePage} de {totalPages}
+                    </span>
+                    <Button
+                        variant="link"
+                        disabled={safePage === totalPages}
+                        onClick={() => setPage(safePage + 1)}
+                    >
+                        Siguiente »
+                    </Button>
+                </nav>
+            )}
         </div>
     );
 };

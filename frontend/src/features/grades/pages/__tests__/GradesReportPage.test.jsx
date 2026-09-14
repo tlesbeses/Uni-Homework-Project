@@ -4,6 +4,7 @@ import {
     render,
     screen,
     waitFor,
+    within,
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -77,6 +78,19 @@ async function waitForReport() {
     );
 }
 
+function mockViewport(isDesktop) {
+    window.matchMedia = vi.fn().mockImplementation((query) => ({
+        matches: isDesktop,
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+    }));
+}
+
 beforeEach(() => {
     useCoursesMock.mockReset();
     downloadBlobMock.mockReset();
@@ -109,6 +123,7 @@ beforeEach(() => {
 
 describe("GradesReportPage", () => {
     it("carga y muestra el reporte con estudiantes, columnas y notas", async () => {
+        mockViewport(true);
         renderPage();
         await waitForReport();
 
@@ -135,6 +150,7 @@ describe("GradesReportPage", () => {
     });
 
     it("guarda una nota válida y actualiza el total", async () => {
+        mockViewport(true);
         gradeServiceMock.getSectionGradesReport
             .mockResolvedValueOnce({
                 ...report,
@@ -235,6 +251,7 @@ describe("GradesReportPage", () => {
     });
 
     it("muestra columnas y notas por parcial cuando hay ponderación", async () => {
+        mockViewport(true);
         gradeServiceMock.getSectionGradesReport.mockResolvedValue({
             ...report,
             assignments: [
@@ -266,6 +283,7 @@ describe("GradesReportPage", () => {
     });
 
     it("oculta las columnas por parcial sin ponderación", async () => {
+        mockViewport(true);
         gradeServiceMock.getSectionGradesReport.mockResolvedValue({
             ...report,
             assignments: [
@@ -291,6 +309,7 @@ describe("GradesReportPage", () => {
     });
 
     it("muestra la etiqueta de parcial en el encabezado de cada asignación", async () => {
+        mockViewport(true);
         renderPage();
         await waitForReport();
 
@@ -298,6 +317,7 @@ describe("GradesReportPage", () => {
     });
 
     it("actualiza parcial y final al editar una nota tras refetchear el reporte", async () => {
+        mockViewport(true);
         gradeServiceMock.getSectionGradesReport
             .mockResolvedValueOnce({
                 ...report,
@@ -345,5 +365,56 @@ describe("GradesReportPage", () => {
             expect(screen.getByText("56%")).toBeInTheDocument()
         );
         expect(gradeServiceMock.getSectionGradesReport).toHaveBeenCalledTimes(2);
+    });
+
+    it("en móvil renderiza cards con la nota final y permite expandir los parciales", async () => {
+        mockViewport(false);
+        gradeServiceMock.getSectionGradesReport.mockResolvedValue({
+            ...report,
+            ponderacion_enabled: true,
+            students: [
+                {
+                    id: 7,
+                    name: "Ana López",
+                    grades: { "10": 75 },
+                    total: 75,
+                    final: 50,
+                    parcial_scores: { PRIMERO: "75.00", SEGUNDO: null },
+                },
+            ],
+        });
+
+        renderPage();
+        await waitForReport();
+
+        expect(screen.queryByRole("table")).not.toBeInTheDocument();
+        const card = screen.getAllByRole("listitem")[0];
+
+        expect(within(card).getByText("Ana López")).toBeInTheDocument();
+        expect(within(card).getByText("50%")).toBeInTheDocument();
+        expect(within(card).getByText("75 /100")).toBeInTheDocument();
+
+        expect(
+            within(card).queryByText("75.00%")
+        ).not.toBeInTheDocument();
+
+        const toggle = within(card).getByRole("button", {
+            name: /Ver detalles/,
+        });
+        expect(toggle).toHaveAttribute("aria-expanded", "false");
+
+        fireEvent.click(toggle);
+        expect(
+            within(card).getByText("75.00%")
+        ).toBeInTheDocument();
+
+        fireEvent.click(within(card).getByText("75 /100"));
+        const input = screen.getByDisplayValue("75");
+        fireEvent.change(input, { target: { value: "90" } });
+        fireEvent.keyDown(input, { key: "Enter" });
+
+        await waitFor(() =>
+            expect(gradeServiceMock.gradeStudent).toHaveBeenCalledWith(10, 7, 90)
+        );
     });
 });
