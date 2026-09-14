@@ -1,7 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useCourseProgress } from "@/features/courses/hooks/useCourseProgress";
+import { getSections } from "@/features/courses/services/courseService";
+import { useMediaQuery } from "@/shared/hooks/useMediaQuery";
 import { Button } from "@/shared/components/ui/Button";
+import { SelectField } from "@/shared/components/ui/SelectField";
 import { ResponsiveDataTable } from "@/shared/components/ResponsiveDataTable";
+
+const DESKTOP_BREAKPOINT = "(min-width: 768px)";
 
 const formatScore = (value) =>
     value === null || value === undefined ? "—" : String(Number(value.toFixed(2)));
@@ -91,12 +96,94 @@ const progressColumns = [
     },
 ];
 
-export const CourseProgress = ({ courseId, sectionId }) => {
+const studentColumns = [
+    {
+        key: "name",
+        header: "Estudiante",
+        role: "primary",
+        render: (student) => (
+            <span className="font-medium text-gray-800">
+                {student.name}
+            </span>
+        ),
+    },
+    {
+        key: "graded_count",
+        header: "Calificadas",
+        role: "secondary",
+        render: (student) => (
+            <span className="text-gray-600">{student.graded_count}</span>
+        ),
+    },
+    {
+        key: "final",
+        header: "Nota final",
+        role: "secondary",
+        render: (student) => (
+            <span
+                className={`font-semibold ${
+                    student.final === undefined || student.final === null
+                        ? "text-gray-400"
+                        : "text-indigo-700"
+                }`}
+            >
+                {formatScore(student.final)}
+                {student.final !== undefined &&
+                student.final !== null
+                    ? "%"
+                    : ""}
+            </span>
+        ),
+    },
+];
+
+export const CourseProgress = ({ courseId, sectionId, onSectionChange }) => {
     const { progress, loading, error } = useCourseProgress(
         courseId,
         sectionId
     );
+    const isMobile = !useMediaQuery(DESKTOP_BREAKPOINT);
     const [isOpen, setIsOpen] = useState(false);
+    const [sections, setSections] = useState([]);
+    const [sectionsLoading, setSectionsLoading] = useState(false);
+
+    useEffect(() => {
+        if (!courseId) {
+            setSections([]);
+            return;
+        }
+        let active = true;
+        setSectionsLoading(true);
+        getSections(courseId, { page_size: 100 })
+            .then((data) => {
+                const list = Array.isArray(data.results)
+                    ? data.results
+                    : Array.isArray(data)
+                        ? data
+                        : [];
+                if (active) {
+                    setSections(list);
+                }
+            })
+            .catch(() => {
+                if (active) {
+                    setSections([]);
+                }
+            })
+            .finally(() => {
+                if (active) {
+                    setSectionsLoading(false);
+                }
+            });
+        return () => {
+            active = false;
+        };
+    }, [courseId]);
+
+    const handleSectionChange = (e) => {
+        const value = e.target.value;
+        onSectionChange(value ? value : null);
+    };
 
     if (!isOpen) {
         return (
@@ -120,26 +207,49 @@ export const CourseProgress = ({ courseId, sectionId }) => {
 
     return (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden print:border-gray-300">
-            <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-gray-100">
-                <div>
-                    <h3 className="text-sm font-semibold text-gray-800">
-                        Progreso del curso
-                    </h3>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                        {progress?.course_title}
-                        {progress?.section_title
-                            ? ` · Sección ${progress.section_title}`
-                            : ""}
-                    </p>
+            <div className="px-5 py-4 border-b border-gray-100">
+                <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                        <h3 className="text-sm font-semibold text-gray-800">
+                            Progreso del curso
+                        </h3>
+                        <p className="text-xs text-gray-500 mt-0.5 break-words">
+                            {progress?.course_title}
+                            {progress?.section_title
+                                ? ` · Sección ${progress.section_title}`
+                                : ""}
+                        </p>
+                    </div>
+                    <Button
+                        variant="link"
+                        size="sm"
+                        className="text-xs shrink-0"
+                        onClick={() => setIsOpen(false)}
+                    >
+                        Ocultar ▲
+                    </Button>
                 </div>
-                <Button
-                    variant="link"
-                    size="sm"
-                    className="text-xs"
-                    onClick={() => setIsOpen(false)}
-                >
-                    Ocultar ▲
-                </Button>
+                {isMobile && onSectionChange && (
+                    <SelectField
+                        compact
+                        className="text-xs mt-3"
+                        aria-label="Seleccionar sección"
+                        value={sectionId ?? ""}
+                        onChange={handleSectionChange}
+                        disabled={sectionsLoading}
+                    >
+                        <option value="">
+                            {sectionsLoading
+                                ? "Cargando..."
+                                : "Todas las secciones"}
+                        </option>
+                        {sections.map((s) => (
+                            <option key={s.id} value={s.id}>
+                                {s.name}
+                            </option>
+                        ))}
+                    </SelectField>
+                )}
             </div>
 
             {loading && (
@@ -180,6 +290,21 @@ export const CourseProgress = ({ courseId, sectionId }) => {
                             emptyContent="El curso aún no tiene tareas publicadas."
                             ariaLabel="Progreso por tarea"
                         />
+                    )}
+
+                    {progress.students && progress.students.length > 0 && (
+                        <div>
+                            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 print:hidden">
+                                Progreso por estudiante
+                            </h4>
+                            <ResponsiveDataTable
+                                columns={studentColumns}
+                                rows={progress.students}
+                                rowKey={(student) => student.id}
+                                emptyContent="No hay estudiantes en esta sección."
+                                ariaLabel="Progreso por estudiante"
+                            />
+                        </div>
                     )}
                 </div>
             )}
