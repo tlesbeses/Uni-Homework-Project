@@ -55,6 +55,7 @@ Aplicación web de gestión académica para profesores y estudiantes: cursos, se
 - **Impersonación de superusuario** — Un superusuario puede **ver la aplicación como otro usuario** (banner de impersonación persistente), para depurar y revisar el sistema desde otras cuentas.
 - **Registro de actividad (auditoría)** — Cada acción relevante (login, impersonación, gestión de cursos/equipos/tareas/notas, cambios en usuarios) genera un **EventLog** con autor, acción, destino y metadatos.
 - **Panel de administración** — Los superusuarios gestionan usuarios (activar/desactivar, asignar roles) y revisan el **historial de actividad** con filtros.
+- **Responsive móvil** — Cada página migra a tablas que en móvil se vuelven **tarjetas** (`ResponsiveDataTable`): columnas primarias en la cabecera de la card, secundarias (limitadas con "Ver más"/"Ver menos"), detalles plegables y **paginación móvil** (10 filas/página) cuando la lista es larga. El **reporte de notas** funciona como tarjeta en el teléfono y como tabla completa en escritorio (el Total solo se muestra en desktop).
 
 ---
 
@@ -449,9 +450,15 @@ Por defecto el despliegue es same-origin (Django sirve `frontend/dist`). Si el f
 ## Tests
 
 ```bash
-# Backend
+# Backend (372 tests)
 cd backend
 python manage.py test
+
+# Frontend (189 tests)
+cd frontend
+npm run test
+npm run lint
+npm run build
 ```
 
 ---

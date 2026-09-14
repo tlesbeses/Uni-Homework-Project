@@ -3,6 +3,7 @@
   "short_name": "EduNotas",
   "id": "/",
   "description": "Plataforma de gestión académica",
+  "version": "1.1.0",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
