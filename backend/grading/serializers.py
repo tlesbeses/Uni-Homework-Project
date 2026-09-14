@@ -39,7 +39,7 @@ class AssignmentBriefSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Assignment
-        fields = ["id", "title", "max_score", "course"]
+        fields = ["id", "title", "max_score", "course", "category", "parcial"]
 
 
 class GradeSerializer(serializers.ModelSerializer):

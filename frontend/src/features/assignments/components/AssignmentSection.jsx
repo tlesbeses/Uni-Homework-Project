@@ -11,12 +11,15 @@ import {
 import { Pager } from "@/shared/components/Pager";
 import { SearchInput } from "@/shared/components/SearchInput";
 import { ConfirmModal } from "@/shared/components/ConfirmModal";
+import { useMediaQuery } from "@/shared/hooks/useMediaQuery";
 import { Button } from "@/shared/components/ui/Button";
 
 const DEFAULT_PAGE_SIZE = 6;
+const DESKTOP_BREAKPOINT = "(min-width: 768px)";
 
 export const AssignmentSection = ({ courseId, isTeacher, isOwner, selectedSectionId }) => {
     const navigate = useNavigate();
+    const isMobile = !useMediaQuery(DESKTOP_BREAKPOINT);
     const { assignments, loading, error, reload } = useAssignments(courseId);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [editingAssignment, setEditingAssignment] = useState(null);
@@ -164,6 +167,7 @@ export const AssignmentSection = ({ courseId, isTeacher, isOwner, selectedSectio
                         pageSize={pageSize}
                         onPageSizeChange={handlePageSizeChange}
                         defaultPageSize={DEFAULT_PAGE_SIZE}
+                        compact={isMobile}
                     />
                 </>
             )}

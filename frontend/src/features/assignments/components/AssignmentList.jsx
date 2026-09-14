@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { PublishBadge } from "@/features/assignments/components/PublishBadge";
 import { formatDateTime } from "@/features/assignments/utils/formatDate";
 import { Button } from "@/shared/components/ui/Button";
@@ -13,6 +14,11 @@ export const AssignmentList = ({
     deletingId,
     togglingId,
 }) => {
+    const [pressedId, setPressedId] = useState(null);
+    const isPressed = (id) => pressedId === id;
+
+    const clearPressed = () => setPressedId(null);
+
     if ((assignments ?? []).length === 0) {
         return (
             <p className="text-sm text-gray-500">
@@ -32,6 +38,10 @@ export const AssignmentList = ({
                     <li
                         key={assignment.id}
                         onClick={onOpen ? () => onOpen(assignment) : undefined}
+                        onPointerDown={() => setPressedId(assignment.id)}
+                        onPointerUp={clearPressed}
+                        onPointerLeave={clearPressed}
+                        onPointerCancel={clearPressed}
                         onKeyDown={
                             onOpen
                                 ? (e) => {
@@ -44,15 +54,20 @@ export const AssignmentList = ({
                         }
                         role={onOpen ? "button" : undefined}
                         tabIndex={onOpen ? 0 : undefined}
-                        className={`py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 ${
+                        className={`py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 select-none ${
                             onOpen ? "cursor-pointer" : ""
                         }`}
                     >
-                        <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
+                        <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-3">
                                 <p className="text-sm font-medium text-gray-800">
                                     {assignment.title}
                                 </p>
+                                <span className="text-xs text-gray-500 shrink-0 pt-0.5">
+                                    Puntaje máximo: {assignment.max_score}
+                                </span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2 mt-1.5">
                                 <PublishBadge published={assignment.is_published} />
                                 {assignment.category === "EXAMEN" && (
                                     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-100 text-amber-800">
@@ -72,15 +87,13 @@ export const AssignmentList = ({
                                     </span>
                                 )}
                             </div>
-                            {assignment.description && (
-                                <p className="text-sm text-gray-500 mt-1">
-                                    {assignment.description}
-                                </p>
-                            )}
+                            {assignment.description &&
+                                isPressed(assignment.id) && (
+                                    <p className="text-sm text-gray-500 mt-1">
+                                        {assignment.description}
+                                    </p>
+                                )}
                             <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-gray-500">
-                                <span>
-                                    Puntaje máximo: {assignment.max_score}
-                                </span>
                                 <span>Entrega: {formatDateTime(assignment.due_date)}</span>
                             </div>
                         </div>

@@ -59,6 +59,8 @@ beforeEach(() => {
                 id: 101,
                 title: "Parcial 1",
                 max_score: 100,
+                category: "EXAMEN",
+                parcial: "PRIMERO",
                 course: { id: 3, title: "Introduccion a la Programacion" },
             },
             score: 10,
@@ -138,7 +140,17 @@ describe("StudentCourseGrades", () => {
         ).toBeInTheDocument();
     });
 
-    it("no muestra 'Evaluada por' y apila la fila de nota en móvil al expandir", async () => {
+    it("no muestra el botón Imprimir / PDF", async () => {
+        renderPage();
+        expect(
+            await screen.findByText("Introduccion a la Programacion")
+        ).toBeInTheDocument();
+        expect(
+            screen.queryByText("Imprimir / PDF")
+        ).not.toBeInTheDocument();
+    });
+
+    it("no muestra 'Evaluada por' y mantiene el puntaje a la derecha con su parcial", async () => {
         mockViewport(false);
         renderPage();
 
@@ -150,7 +162,12 @@ describe("StudentCourseGrades", () => {
         const title = await screen.findByText("Parcial 1");
         expect(screen.queryByText(/Evaluada por:/)).not.toBeInTheDocument();
         const row = title.closest("li");
-        expect(row).toHaveClass("flex-col", "sm:flex-row");
-        expect(screen.getByText("10 / 100")).toBeInTheDocument();
+        expect(row).not.toHaveClass("flex-col");
+        expect(row).toHaveClass("justify-between");
+        const badge = screen.getByText("Exam. Parcial 1");
+        expect(badge).toBeInTheDocument();
+        expect(row).toHaveTextContent("10 / 100");
+        const score = screen.getByText("10 / 100");
+        expect(score).toHaveClass("shrink-0");
     });
 });

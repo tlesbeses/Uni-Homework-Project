@@ -28,6 +28,36 @@ const formatBreakdown = (components) =>
 
 const PARCIAL_LABELS = { PRIMERO: "Parcial 1", SEGUNDO: "Parcial 2" };
 
+const parseAssignmentBadge = (assignment) => {
+    const category = assignment?.category === "EXAMEN" ? "Exam." : "Acum.";
+    const parcial = PARCIAL_LABELS[assignment?.parcial];
+    if (!assignment?.category || !parcial) {
+        return "";
+    }
+    return `${category} ${parcial}`;
+};
+
+const GradeRow = ({ grade }) => {
+    const badge = parseAssignmentBadge(grade.assignment);
+    return (
+        <li className="py-3 flex items-start justify-between gap-3">
+            <div className="min-w-0">
+                <p className="text-sm font-medium text-gray-800">
+                    {grade.assignment.title}
+                </p>
+                {badge && (
+                    <span className="inline-flex items-center rounded-full bg-indigo-50 text-indigo-600 px-2 py-0.5 text-[11px] font-medium mt-1">
+                        {badge}
+                    </span>
+                )}
+            </div>
+            <p className="text-sm font-bold text-indigo-700 shrink-0 pt-0.5">
+                {grade.score} / {grade.assignment.max_score}
+            </p>
+        </li>
+    );
+};
+
 const formatParcialScores = (scores) =>
     Object.entries(scores ?? {})
         .map(([key, value]) => [
@@ -36,17 +66,6 @@ const formatParcialScores = (scores) =>
         ])
         .map(([label, value]) => `${label}: ${value}`)
         .join(" · ");
-
-const GradeRow = ({ grade }) => (
-    <li className="py-3 flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
-        <p className="text-sm font-medium text-gray-800 sm:mt-0.5">
-            {grade.assignment.title}
-        </p>
-        <p className="text-sm font-bold text-indigo-700 sm:shrink-0 sm:pt-0.5">
-            {grade.score} / {grade.assignment.max_score}
-        </p>
-    </li>
-);
 
 const EvolutionSeries = ({ courseId }) => {
     const { points, loading, error } = useGradeEvolution(courseId);
@@ -134,15 +153,6 @@ export const StudentCourseGrades = () => {
 
     return (
         <div className="space-y-4">
-            <div className="flex items-center justify-end">
-                <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => window.print()}
-                >
-                    Imprimir / PDF
-                </Button>
-            </div>
             {groups.map((group) => {
                 const key = `c:${group.course.id}`;
                 const isOpen = expandedKey === key;

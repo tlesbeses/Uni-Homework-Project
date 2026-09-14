@@ -14,6 +14,13 @@ const { useAssignmentsMock } = vi.hoisted(() => ({
     useAssignmentsMock: vi.fn(),
 }));
 
+const pagerProps = { current: null };
+const useMediaQueryMock = vi.fn(() => false);
+
+vi.mock("@/shared/hooks/useMediaQuery", () => ({
+    useMediaQuery: (query) => useMediaQueryMock(query),
+}));
+
 vi.mock("@/features/assignments/hooks/useAssignments", () => ({
     useAssignments: useAssignmentsMock,
 }));
@@ -40,7 +47,10 @@ vi.mock("@/shared/components/ConfirmModal", () => ({
 }));
 
 vi.mock("@/shared/components/Pager", () => ({
-    Pager: () => null,
+    Pager: (props) => {
+        pagerProps.current = props;
+        return null;
+    },
 }));
 
 vi.mock("@/shared/components/SearchInput", () => ({
@@ -63,6 +73,9 @@ function renderSection(props = {}) {
 
 beforeEach(() => {
     navigateMock.mockClear();
+    useMediaQueryMock.mockClear();
+    useMediaQueryMock.mockReturnValue(false);
+    pagerProps.current = null;
     useAssignmentsMock.mockReturnValue({
         assignments: [],
         loading: false,
@@ -92,5 +105,17 @@ describe("AssignmentSection", () => {
         renderSection({ selectedSectionId: "" });
         fireEvent.click(screen.getByText("Ver reporte"));
         expect(navigateMock).toHaveBeenCalledWith("/grades/report?course=1");
+    });
+
+    it("uses the compact pager on mobile", () => {
+        useMediaQueryMock.mockReturnValue(false);
+        renderSection();
+        expect(pagerProps.current.compact).toBe(true);
+    });
+
+    it("uses the wide pager on desktop", () => {
+        useMediaQueryMock.mockReturnValue(true);
+        renderSection();
+        expect(pagerProps.current.compact).toBe(false);
     });
 });
