@@ -51,6 +51,7 @@ export const AdminUsersPage = () => {
     const [impersonatingId, setImpersonatingId] = useState(null);
     const [pendingDeactivate, setPendingDeactivate] = useState(null);
     const [pendingRoleChange, setPendingRoleChange] = useState(null);
+    const [pendingImpersonation, setPendingImpersonation] = useState(null);
 
     const { users, count, totalPages, loading, error, reload, page, setPage, pageSize, handlePageSizeChange } =
         useAdminUsers({ search: debouncedSearch, role });
@@ -144,6 +145,12 @@ export const AdminUsersPage = () => {
         } else {
             navigate("/admin/users");
         }
+    };
+
+    const confirmImpersonation = async () => {
+        const targetUser = pendingImpersonation;
+        setPendingImpersonation(null);
+        await handleImpersonate(targetUser);
     };
 
     return (
@@ -288,7 +295,7 @@ export const AdminUsersPage = () => {
                     ) {
                         return;
                     }
-                    handleImpersonate(u);
+                    setPendingImpersonation(u);
                 }}
                 rowClassName={(u) => (u.is_active ? "" : "bg-gray-50")}
                 noActionsLabel="Sin acciones"
@@ -322,7 +329,7 @@ export const AdminUsersPage = () => {
                                 impersonatingId === u.id
                                     ? "Probando..."
                                     : "Probar como",
-                            onClick: handleImpersonate,
+                            onClick: setPendingImpersonation,
                             disabled: (row) =>
                                 busyId === row.id ||
                                 impersonatingId === row.id,
@@ -403,6 +410,23 @@ export const AdminUsersPage = () => {
                 onCancel={() => setPendingRoleChange(null)}
                 onConfirm={handleRoleChange}
                 busy={Boolean(busyId)}
+            />
+
+            <ConfirmModal
+                open={Boolean(pendingImpersonation)}
+                title="Probar como usuario"
+                description={
+                    pendingImpersonation
+                        ? `¿Ingresar como ${formatUser(
+                              pendingImpersonation
+                          )} para probar el sistema desde su perspectiva?`
+                        : ""
+                }
+                confirmLabel="Probar como"
+                confirmVariant="primary"
+                onCancel={() => setPendingImpersonation(null)}
+                onConfirm={confirmImpersonation}
+                busy={Boolean(impersonatingId)}
             />
         </div>
     );

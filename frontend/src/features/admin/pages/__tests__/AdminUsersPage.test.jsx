@@ -219,25 +219,51 @@ describe("AdminUsersPage", () => {
         ).not.toBeInTheDocument();
     });
 
-    it("impersona al hacer clic en la fila de un usuario no superusuario (desktop)", async () => {
+    it("pide confirmar y luego impersona al hacer clic en la fila de un usuario no superusuario (desktop)", async () => {
         mockMedia(true);
         renderPage();
 
         const anaRow = (await screen.findByText("Ana Pez")).closest("tr");
         fireEvent.click(anaRow);
+        expect(authMock.startImpersonation).not.toHaveBeenCalled();
+        expect(
+            screen.getByText(/¿Ingresar como Ana Pez para probar el sistema/)
+        ).toBeInTheDocument();
+
+        fireEvent.click(
+            within(screen.getByRole("dialog")).getByRole("button", {
+                name: "Probar como",
+            })
+        );
         expect(authMock.startImpersonation).toHaveBeenCalledTimes(1);
         expect(authMock.startImpersonation).toHaveBeenCalledWith(
             expect.objectContaining({ id: 3, username: "ana" })
         );
     });
 
-    it("no impersona al hacer clic en la fila de un superusuario (desktop)", async () => {
+    it("no impersona al cancelar la confirmación", async () => {
+        mockMedia(true);
+        renderPage();
+
+        const anaRow = (await screen.findByText("Ana Pez")).closest("tr");
+        fireEvent.click(anaRow);
+        fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+        expect(authMock.startImpersonation).not.toHaveBeenCalled();
+        expect(
+            screen.queryByText(/¿Ingresar como Ana Pez/)
+        ).not.toBeInTheDocument();
+    });
+
+    it("no abre confirmación al hacer clic en la fila de un superusuario (desktop)", async () => {
         mockMedia(true);
         renderPage();
 
         const rootRow = (await screen.findByText("Root Admin")).closest("tr");
         fireEvent.click(rootRow);
         expect(authMock.startImpersonation).not.toHaveBeenCalled();
+        expect(
+            screen.queryByText(/¿Ingresar como/)
+        ).not.toBeInTheDocument();
     });
 
     it("no impersona por duplicado al pulsar el botón interno 'Probar como' (desktop)", async () => {
@@ -249,15 +275,25 @@ describe("AdminUsersPage", () => {
             name: "Probar como",
         });
         fireEvent.click(impersonateBtn);
-        expect(authMock.startImpersonation).toHaveBeenCalledTimes(1);
+        expect(authMock.startImpersonation).not.toHaveBeenCalled();
+        expect(
+            screen.getByText(/¿Ingresar como Per Profesor/)
+        ).toBeInTheDocument();
     });
 
-    it("impersona al hacer clic en la card (móvil)", async () => {
+    it("pide confirmar y luego impersona al hacer clic en la card (móvil)", async () => {
         mockMedia(false);
         renderPage();
 
         const anaCard = (await screen.findByText("Ana Pez")).closest("li");
         fireEvent.click(anaCard);
+        expect(authMock.startImpersonation).not.toHaveBeenCalled();
+
+        fireEvent.click(
+            within(screen.getByRole("dialog")).getByRole("button", {
+                name: "Probar como",
+            })
+        );
         expect(authMock.startImpersonation).toHaveBeenCalledTimes(1);
         expect(authMock.startImpersonation).toHaveBeenCalledWith(
             expect.objectContaining({ id: 3, username: "ana" })
