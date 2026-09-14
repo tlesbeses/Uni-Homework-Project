@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useActivityLogs } from "@/features/admin/hooks/useActivityLogs";
 import { useLoginStats } from "@/features/admin/hooks/useLoginStats";
+import { useDebouncedValue } from "@/shared/hooks/useDebouncedValue";
 import {
     actionLabel,
     actionStyle,
@@ -70,17 +71,13 @@ export const AdminActivityPage = () => {
     const [userId, setUserId] = useState("");
     const [from, setFrom] = useState("");
     const [to, setTo] = useState("");
-    const [debouncedUser, setDebouncedUser] = useState("");
+
+    const debouncedUser = useDebouncedValue(userId);
 
     const loginsOnly = activeTab === "logins";
 
     const { stats: loginStats, loading: statsLoading, error: statsError } =
         useLoginStats(7);
-
-    useEffect(() => {
-        const timeout = setTimeout(() => setDebouncedUser(userId), 400);
-        return () => clearTimeout(timeout);
-    }, [userId]);
 
     const {
         logs,

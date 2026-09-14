@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useSnapshots } from "@/features/snapshots/hooks/useSnapshots";
+import { useDebouncedValue } from "@/shared/hooks/useDebouncedValue";
 import { Button } from "@/shared/components/ui/Button";
 import { Pager } from "@/shared/components/Pager";
 import { ResponsiveDataTable } from "@/shared/components/ResponsiveDataTable";
@@ -26,12 +27,8 @@ const reasonLabel = (reason) =>
 
 export const SnapshotsPage = () => {
     const [search, setSearch] = useState("");
-    const [debouncedSearch, setDebouncedSearch] = useState("");
 
-    useEffect(() => {
-        const timeout = setTimeout(() => setDebouncedSearch(search), 400);
-        return () => clearTimeout(timeout);
-    }, [search]);
+    const debouncedSearch = useDebouncedValue(search);
 
     const { snapshots, count, totalPages, loading, error, page, setPage, pageSize, handlePageSizeChange } =
         useSnapshots({

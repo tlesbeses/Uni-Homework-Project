@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useAuth } from "@/features/auth/providers/AuthProvider";
 import { useAdminUsers } from "@/features/admin/hooks/useAdminUsers";
+import { useDebouncedValue } from "@/shared/hooks/useDebouncedValue";
 import {
     setUserActive,
     setUserRole,
@@ -43,13 +44,16 @@ export const AdminUsersPage = () => {
     const { user: currentUser, startImpersonation } = useAuth();
     const [search, setSearch] = useState("");
     const [role, setRole] = useState("");
+
+    const debouncedSearch = useDebouncedValue(search);
+
     const [busyId, setBusyId] = useState(null);
     const [impersonatingId, setImpersonatingId] = useState(null);
     const [pendingDeactivate, setPendingDeactivate] = useState(null);
     const [pendingRoleChange, setPendingRoleChange] = useState(null);
 
     const { users, count, totalPages, loading, error, reload, page, setPage, pageSize, handlePageSizeChange } =
-        useAdminUsers({ search, role });
+        useAdminUsers({ search: debouncedSearch, role });
 
     const sortedUsers = useMemo(
         () =>
