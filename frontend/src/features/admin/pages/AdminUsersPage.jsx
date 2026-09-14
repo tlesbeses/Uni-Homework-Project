@@ -279,6 +279,17 @@ export const AdminUsersPage = () => {
                 ]}
                 rows={sortedUsers}
                 rowKey={(u) => u.id}
+                onRowClick={(u) => {
+                    if (
+                        u.is_superuser ||
+                        u.id === currentUser?.id ||
+                        impersonatingId === u.id ||
+                        busyId === u.id
+                    ) {
+                        return;
+                    }
+                    handleImpersonate(u);
+                }}
                 rowClassName={(u) => (u.is_active ? "" : "bg-gray-50")}
                 noActionsLabel="Sin acciones"
                 actionsLabel="Ver acciones"

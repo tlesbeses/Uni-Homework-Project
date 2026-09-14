@@ -218,4 +218,71 @@ describe("AdminUsersPage", () => {
             within(anaCard).queryByText("Activar")
         ).not.toBeInTheDocument();
     });
+
+    it("impersona al hacer clic en la fila de un usuario no superusuario (desktop)", async () => {
+        mockMedia(true);
+        renderPage();
+
+        const anaRow = (await screen.findByText("Ana Pez")).closest("tr");
+        fireEvent.click(anaRow);
+        expect(authMock.startImpersonation).toHaveBeenCalledTimes(1);
+        expect(authMock.startImpersonation).toHaveBeenCalledWith(
+            expect.objectContaining({ id: 3, username: "ana" })
+        );
+    });
+
+    it("no impersona al hacer clic en la fila de un superusuario (desktop)", async () => {
+        mockMedia(true);
+        renderPage();
+
+        const rootRow = (await screen.findByText("Root Admin")).closest("tr");
+        fireEvent.click(rootRow);
+        expect(authMock.startImpersonation).not.toHaveBeenCalled();
+    });
+
+    it("no impersona por duplicado al pulsar el botón interno 'Probar como' (desktop)", async () => {
+        mockMedia(true);
+        renderPage();
+
+        const perRow = (await screen.findByText("Per Profesor")).closest("tr");
+        const impersonateBtn = within(perRow).getByRole("button", {
+            name: "Probar como",
+        });
+        fireEvent.click(impersonateBtn);
+        expect(authMock.startImpersonation).toHaveBeenCalledTimes(1);
+    });
+
+    it("impersona al hacer clic en la card (móvil)", async () => {
+        mockMedia(false);
+        renderPage();
+
+        const anaCard = (await screen.findByText("Ana Pez")).closest("li");
+        fireEvent.click(anaCard);
+        expect(authMock.startImpersonation).toHaveBeenCalledTimes(1);
+        expect(authMock.startImpersonation).toHaveBeenCalledWith(
+            expect.objectContaining({ id: 3, username: "ana" })
+        );
+    });
+
+    it("no impersona al pulsar el toggle de acciones (móvil)", async () => {
+        mockMedia(false);
+        renderPage();
+
+        const anaCard = (await screen.findByText("Ana Pez")).closest("li");
+        const toggle = within(anaCard).getByRole("button", {
+            name: "Ver acciones",
+        });
+        fireEvent.click(toggle);
+        expect(authMock.startImpersonation).not.toHaveBeenCalled();
+        expect(toggle).toHaveAttribute("aria-expanded", "true");
+    });
+
+    it("no impersona al pulsar la card de un superusuario (móvil)", async () => {
+        mockMedia(false);
+        renderPage();
+
+        const rootCard = (await screen.findByText("Root Admin")).closest("li");
+        fireEvent.click(rootCard);
+        expect(authMock.startImpersonation).not.toHaveBeenCalled();
+    });
 });

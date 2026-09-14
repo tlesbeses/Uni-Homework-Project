@@ -6,11 +6,14 @@ import { useMediaQuery } from "@/shared/hooks/useMediaQuery";
 const DESKTOP_BREAKPOINT = "(min-width: 768px)";
 const MOBILE_PAGE_SIZE = 10;
 
-function renderAction(action, row) {
+function renderAction(action, row, stopPropagation) {
     const label =
         typeof action.label === "function" ? action.label(row) : action.label;
     const variant = action.variant ?? "primary";
     const size = action.size ?? "sm";
+    const buttonProps = stopPropagation
+        ? { onClick: (e) => e.stopPropagation() }
+        : {};
     if (action.href) {
         return (
             <Button
@@ -20,6 +23,7 @@ function renderAction(action, row) {
                 variant={variant}
                 size={size}
                 className={action.className}
+                {...buttonProps}
             >
                 {label}
             </Button>
@@ -28,7 +32,12 @@ function renderAction(action, row) {
     return (
         <Button
             key={action.key}
-            onClick={() => action.onClick(row)}
+            onClick={(event) => {
+                if (stopPropagation) {
+                    event.stopPropagation();
+                }
+                action.onClick(row);
+            }}
             disabled={
                 (typeof action.disabled === "function"
                     ? action.disabled(row)
@@ -139,7 +148,7 @@ function Chevron({ open }) {
     );
 }
 
-function MobileActions({ actions, row, label }) {
+function MobileActions({ actions, row, label, stopPropagation }) {
     const [open, setOpen] = useState(false);
     const regionId = useId();
     const wrapperRef = useRef(null);
@@ -180,7 +189,12 @@ function MobileActions({ actions, row, label }) {
                 type="button"
                 aria-expanded={open}
                 aria-controls={regionId}
-                onClick={() => setOpen((prev) => !prev)}
+                onClick={(event) => {
+                    if (stopPropagation) {
+                        event.stopPropagation();
+                    }
+                    setOpen((prev) => !prev);
+                }}
                 className="inline-flex items-center gap-1 rounded text-sm font-medium text-indigo-600 hover:text-indigo-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
             >
                 {label}
@@ -212,6 +226,7 @@ export const ResponsiveDataTable = ({
     ariaLabel,
     className = "",
     rowClassName,
+    onRowClick,
 }) => {
     const isDesktop = useMediaQuery(DESKTOP_BREAKPOINT);
     const [page, setPage] = useState(1);
@@ -268,7 +283,30 @@ export const ResponsiveDataTable = ({
                             return (
                                 <tr
                                     key={rowKey(row)}
-                                    className={rowClassName?.(row) ?? ""}
+                                    className={`${rowClassName?.(row) ?? ""}${
+                                        onRowClick
+                                            ? " cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500"
+                                            : ""
+                                    }`}
+                                    onClick={
+                                        onRowClick
+                                            ? () => onRowClick(row)
+                                            : undefined
+                                    }
+                                    onKeyDown={
+                                        onRowClick
+                                            ? (e) => {
+                                                  if (
+                                                      e.key === "Enter" ||
+                                                      e.key === " "
+                                                  ) {
+                                                      e.preventDefault();
+                                                      onRowClick(row);
+                                                  }
+                                              }
+                                            : undefined
+                                    }
+                                    tabIndex={onRowClick ? 0 : undefined}
                                 >
                                     {columns.map((column) => (
                                         <td
@@ -283,7 +321,11 @@ export const ResponsiveDataTable = ({
                                             {desktopActions.length > 0 ? (
                                                 <div className="flex items-center justify-end gap-2">
                                                     {desktopActions.map((action) =>
-                                                        renderAction(action, row),
+                                                        renderAction(
+                                                            action,
+                                                            row,
+                                                            Boolean(onRowClick),
+                                                        ),
                                                     )}
                                                 </div>
                                             ) : (
@@ -324,7 +366,28 @@ export const ResponsiveDataTable = ({
                     return (
                         <li
                             key={rowKey(row)}
-                            className={`rounded-xl border border-gray-100 bg-white p-4 shadow-sm ${rowClassName?.(row) ?? ""}`}
+                            className={`rounded-xl border border-gray-100 bg-white p-4 shadow-sm ${rowClassName?.(row) ?? ""}${
+                                onRowClick
+                                    ? " cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                                    : ""
+                            }`}
+                            onClick={
+                                onRowClick ? () => onRowClick(row) : undefined
+                            }
+                            onKeyDown={
+                                onRowClick
+                                    ? (e) => {
+                                          if (
+                                              e.key === "Enter" ||
+                                              e.key === " "
+                                          ) {
+                                              e.preventDefault();
+                                              onRowClick(row);
+                                          }
+                                      }
+                                    : undefined
+                            }
+                            tabIndex={onRowClick ? 0 : undefined}
                         >
                             {primaryColumns.length > 0 && (
                                 <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
@@ -354,11 +417,16 @@ export const ResponsiveDataTable = ({
                                         actions={rowActions}
                                         row={row}
                                         label={actionsLabel}
+                                        stopPropagation={Boolean(onRowClick)}
                                     />
                                 ) : (
                                     <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
                                         {rowActions.map((action) =>
-                                            renderAction(action, row),
+                                            renderAction(
+                                                action,
+                                                row,
+                                                Boolean(onRowClick),
+                                            ),
                                         )}
                                     </div>
                                 ))}
