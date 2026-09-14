@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StudentCourseGrades } from "@/features/grades/components/StudentCourseGrades";
@@ -17,6 +17,19 @@ const { courseServiceMock } = vi.hoisted(() => ({
 
 vi.mock("@/features/grades/services/gradeService", () => gradeServiceMock);
 vi.mock("@/features/courses/services/courseService", () => courseServiceMock);
+
+function mockViewport(isDesktop) {
+    window.matchMedia = vi.fn().mockImplementation((query) => ({
+        matches: isDesktop,
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+    }));
+}
 
 function renderPage() {
     const queryClient = new QueryClient({
@@ -105,5 +118,39 @@ describe("StudentCourseGrades", () => {
             await screen.findByText(/Nota final: 70.00%/)
         ).toBeInTheDocument();
         expect(screen.queryByText(/Parcial 1/)).not.toBeInTheDocument();
+    });
+
+    it("en móvil apila el título y los datos en filas completas", async () => {
+        mockViewport(false);
+        renderPage();
+
+        expect(
+            await screen.findByText("Introduccion a la Programacion")
+        ).toBeInTheDocument();
+        expect(await screen.findByText(/Nota final: 70.00%/)).toBeInTheDocument();
+
+        const header = screen
+            .getByText("Introduccion a la Programacion")
+            .closest("button");
+        expect(header).toHaveClass("flex-col", "sm:flex-row");
+        expect(
+            screen.getByText(/35\.00% Acum\. P1 \(100\.00%\)/)
+        ).toBeInTheDocument();
+    });
+
+    it("no muestra 'Evaluada por' y apila la fila de nota en móvil al expandir", async () => {
+        mockViewport(false);
+        renderPage();
+
+        const courseHeader = await screen.findByText(
+            "Introduccion a la Programacion"
+        );
+        fireEvent.click(courseHeader);
+
+        const title = await screen.findByText("Parcial 1");
+        expect(screen.queryByText(/Evaluada por:/)).not.toBeInTheDocument();
+        const row = title.closest("li");
+        expect(row).toHaveClass("flex-col", "sm:flex-row");
+        expect(screen.getByText("10 / 100")).toBeInTheDocument();
     });
 });

@@ -7,11 +7,6 @@ import { Button } from "@/shared/components/ui/Button";
 
 const formatPoints = (value) => String(Number(value.toFixed(2)));
 
-const formatGradedBy = (gradedBy) =>
-    `${gradedBy?.first_name || (gradedBy?.username ?? "")} ${
-        gradedBy?.last_name ?? ""
-    }`.trim();
-
 const BREAKDOWN_LABELS = {
     ACUMULADO: "Acum.",
     EXAMEN: "Exam.",
@@ -43,16 +38,11 @@ const formatParcialScores = (scores) =>
         .join(" · ");
 
 const GradeRow = ({ grade }) => (
-    <li className="py-3 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-            <p className="text-sm font-medium text-gray-800 mt-0.5">
-                {grade.assignment.title}
-            </p>
-            <p className="text-xs text-gray-500 mt-1">
-                Evaluada por: {formatGradedBy(grade.graded_by)}
-            </p>
-        </div>
-        <p className="text-sm font-bold text-indigo-700 shrink-0 pt-0.5">
+    <li className="py-3 flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+        <p className="text-sm font-medium text-gray-800 sm:mt-0.5">
+            {grade.assignment.title}
+        </p>
+        <p className="text-sm font-bold text-indigo-700 sm:shrink-0 sm:pt-0.5">
             {grade.score} / {grade.assignment.max_score}
         </p>
     </li>
@@ -165,7 +155,7 @@ export const StudentCourseGrades = () => {
                         <button
                             type="button"
                             onClick={() => toggle(key)}
-                            className={`w-full flex items-center justify-between gap-3 px-5 py-4 text-left transition ${
+                            className={`w-full flex flex-col gap-3 px-5 py-4 text-left transition sm:flex-row sm:items-center sm:justify-between ${
                                 isOpen ? "bg-indigo-50/60" : "hover:bg-gray-50"
                             }`}
                         >
@@ -190,7 +180,7 @@ export const StudentCourseGrades = () => {
                                 </span>
                             </span>
 
-                            <span className="shrink-0 text-right">
+                            <span className="w-full text-left sm:w-auto sm:shrink-0 sm:text-right">
                                 <span className="block text-lg font-bold text-indigo-700 leading-tight">
                                     {formatPoints(group.totalScore)}
                                     <span className="text-xs font-medium text-gray-400">
@@ -221,7 +211,7 @@ export const StudentCourseGrades = () => {
                                 )}
                                 {finalBreakdowns[`${group.course.id}`]
                                     ?.length > 0 && (
-                                        <span className="block text-[10px] text-gray-400 mt-0.5 leading-snug">
+                                        <span className="block text-[10px] text-gray-400 mt-0.5 leading-snug break-words">
                                             {formatBreakdown(
                                                 finalBreakdowns[
                                                     `${group.course.id}`
