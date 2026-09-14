@@ -1596,3 +1596,48 @@ class CourseProgressTests(BaseCourseTestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_progress_can_be_filtered_by_section(self):
+        # student2 approval moves to the second section.
+        Enrollment.objects.filter(
+            section=self.section,
+            student=self.student2,
+        ).update(section=self.section2)
+        self._grade(self.student, Decimal("80.00"))
+
+        self.client.force_authenticate(user=self.teacher)
+        response = self.client.get(
+            f"/api/courses/{self.course.id}/progress/",
+            {"section": self.section.id},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.data
+        self.assertEqual(data["section_id"], self.section.id)
+        self.assertEqual(data["section_title"], self.section.name)
+        self.assertEqual(data["student_count"], 1)
+        self.assertEqual(data["overall_avg_final"], 80.0)
+
+        assignment = data["assignments"][0]
+        self.assertEqual(assignment["graded"], 1)
+        self.assertEqual(assignment["pending"], 0)
+
+        students = {s["name"]: s for s in data["students"]}
+        self.assertEqual(set(students.keys()), {self.student.username})
+
+    def test_progress_rejects_section_from_another_course(self):
+        other = Course.objects.create(title="Other", teacher=self.teacher)
+        foreign_section = Section.objects.create(
+            course=other,
+            name="X1",
+        )
+
+        self.client.force_authenticate(user=self.teacher)
+        response = self.client.get(
+            f"/api/courses/{self.course.id}/progress/",
+            {"section": foreign_section.id},
+        )
+
+        self.assertEqual(
+            response.status_code, status.HTTP_400_BAD_REQUEST
+        )

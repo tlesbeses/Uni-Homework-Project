@@ -91,8 +91,11 @@ const progressColumns = [
     },
 ];
 
-export const CourseProgress = ({ courseId }) => {
-    const { progress, loading, error } = useCourseProgress(courseId);
+export const CourseProgress = ({ courseId, sectionId }) => {
+    const { progress, loading, error } = useCourseProgress(
+        courseId,
+        sectionId
+    );
     const [isOpen, setIsOpen] = useState(false);
 
     if (!isOpen) {
@@ -107,7 +110,7 @@ export const CourseProgress = ({ courseId }) => {
                         Progreso del curso
                     </span>
                     <span className="text-xs text-gray-500">
-                        estadísticas por tarea y por estudiante
+                        por sección · estadísticas por tarea y por estudiante
                     </span>
                 </span>
                 <span className="text-sm text-indigo-500">▼</span>
@@ -124,6 +127,9 @@ export const CourseProgress = ({ courseId }) => {
                     </h3>
                     <p className="text-xs text-gray-500 mt-0.5">
                         {progress?.course_title}
+                        {progress?.section_title
+                            ? ` · Sección ${progress.section_title}`
+                            : ""}
                     </p>
                 </div>
                 <Button

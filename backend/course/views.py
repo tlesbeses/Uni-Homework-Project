@@ -175,13 +175,26 @@ class CourseViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get"])
     def progress(self, request, pk=None):
-        """Per-assignment and per-student aggregates of a course (teacher)."""
+        """Per-assignment and per-student aggregates of a course (teacher).
+
+        When ``?section=<id>`` is provided, aggregates are computed only for
+        the students enrolled in that section.
+        """
         if not self.is_teacher(request.user):
             raise PermissionDenied(
                 "Only the teacher of the course can view its progress."
             )
         course = self.get_object()
-        return Response(course_progress(course))
+        section = None
+        section_param = request.query_params.get("section")
+        if section_param:
+            section = course.sections.filter(pk=section_param).first()
+            if section is None:
+                return Response(
+                    {"detail": "Section not found in this course."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        return Response(course_progress(course, section))
 
     @action(detail=True, methods=["get"])
     def sections(self, request, pk=None):

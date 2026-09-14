@@ -10,8 +10,11 @@ const { progressMock } = vi.hoisted(() => ({
     },
 }));
 
+const useCourseProgressMock = vi.fn(() => progressMock);
+
 vi.mock("@/features/courses/hooks/useCourseProgress", () => ({
-    useCourseProgress: () => progressMock,
+    useCourseProgress: (courseId, sectionId) =>
+        useCourseProgressMock(courseId, sectionId),
 }));
 
 function mockMedia(matches) {
@@ -34,6 +37,10 @@ function openPanel() {
 }
 
 describe("CourseProgress", () => {
+    beforeEach(() => {
+        useCourseProgressMock.mockClear();
+    });
+
     it("muestra el trigger cuando el panel está cerrado", () => {
         progressMock.progress = {
             course_title: "Álgebra",
@@ -140,6 +147,28 @@ describe("CourseProgress", () => {
 
         expect(
             screen.getByText("El curso aún no tiene tareas publicadas.")
+        ).toBeInTheDocument();
+    });
+
+    it("pasa el sectionId al hook de progreso", () => {
+        render(<CourseProgress courseId={5} sectionId={42} />);
+        expect(useCourseProgressMock).toHaveBeenCalledWith(5, 42);
+    });
+
+    it("muestra el nombre de la sección en el encabezado", () => {
+        progressMock.progress = {
+            course_title: "Álgebra",
+            section_title: "1TS1",
+            student_count: 4,
+            overall_avg_final: 75,
+            assignments: [],
+        };
+
+        render(<CourseProgress courseId={5} sectionId={42} />);
+        openPanel();
+
+        expect(
+            screen.getByText("Álgebra · Sección 1TS1")
         ).toBeInTheDocument();
     });
 });

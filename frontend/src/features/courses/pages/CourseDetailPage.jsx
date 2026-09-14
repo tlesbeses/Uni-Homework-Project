@@ -58,7 +58,7 @@ export const CourseDetailPage = () => {
       {isTeacher ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
           <div className="lg:col-span-2 space-y-6">
-            <CourseProgress courseId={id} />
+            <CourseProgress courseId={id} sectionId={selectedSectionId} />
             <QuickSettingsBar
               course={course}
               savingField={savingField}

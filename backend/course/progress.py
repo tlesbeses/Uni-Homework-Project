@@ -5,6 +5,9 @@ the teacher needs to see how the course is going: how many students were
 graded, the score distribution, each student's final grade and the
 course average. Reuses the same ``scores_by_pair`` pattern as the exporters
 so all aggregate views agree on the data.
+
+The aggregates can be narrowed to a single section of the course, so the
+teacher sees each section's numbers instead of a course-wide picture.
 """
 
 from statistics import fmean
@@ -22,8 +25,19 @@ def _student_name(user) -> str:
     )
 
 
-def course_progress(course) -> dict:
-    """Return the progress payload of ``course`` for its teacher."""
+def course_progress(course, section=None) -> dict:
+    """Return the progress payload of ``course`` for its teacher.
+
+    If ``section`` is given, only enrollments that belong to that section are
+    taken into account; otherwise the whole course is aggregated.
+    """
+    enrollments = Enrollment.objects.filter(
+        section__course=course,
+        status=Status.APPROVED,
+    )
+    if section is not None:
+        enrollments = enrollments.filter(section=section)
+
     assignments = list(
         Assignment.objects.filter(
             course=course,
@@ -32,13 +46,7 @@ def course_progress(course) -> dict:
     )
 
     student_ids = list(
-        Enrollment.objects.filter(
-            section__course=course,
-            status=Status.APPROVED,
-        )
-        .order_by()
-        .values_list("student_id", flat=True)
-        .distinct()
+        enrollments.order_by().values_list("student_id", flat=True).distinct()
     )
     users = (
         User.objects.filter(id__in=student_ids)
@@ -49,6 +57,7 @@ def course_progress(course) -> dict:
     if student_ids and assignments:
         for grade in Grade.objects.filter(
             assignment__course=course,
+            assignment__is_published=True,
             student_id__in=student_ids,
         ).only("student_id", "assignment_id", "score"):
             scores[(grade.student_id, grade.assignment_id)] = float(grade.score)
@@ -98,7 +107,7 @@ def course_progress(course) -> dict:
         if final is not None:
             finals.append(float(final))
 
-    return {
+    payload = {
         "course_id": course.id,
         "course_title": course.title,
         "student_count": len(users),
@@ -108,3 +117,7 @@ def course_progress(course) -> dict:
         "assignments": assignment_stats,
         "students": student_stats,
     }
+    if section is not None:
+        payload["section_id"] = section.id
+        payload["section_title"] = section.name
+    return payload

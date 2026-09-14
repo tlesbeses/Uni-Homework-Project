@@ -2,10 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { getCourseProgress } from "@/features/courses/services/courseService";
 import { queryKeys } from "@/lib/queryKeys";
 
-export const useCourseProgress = (courseId) => {
+export const useCourseProgress = (courseId, sectionId) => {
     const { data, isLoading, error } = useQuery({
-        queryKey: queryKeys.courses.progress(courseId),
-        queryFn: ({ signal }) => getCourseProgress(courseId, signal),
+        queryKey: queryKeys.courses.progress(courseId, sectionId),
+        queryFn: ({ signal }) =>
+            getCourseProgress(courseId, { signal, sectionId }),
         enabled: Boolean(courseId),
     });
 

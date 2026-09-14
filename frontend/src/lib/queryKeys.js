@@ -8,10 +8,11 @@ export const queryKeys = {
 
         detail: (courseId) => [...queryKeys.courses.all, "detail", courseId],
 
-        progress: (courseId) => [
+        progress: (courseId, sectionId) => [
             ...queryKeys.courses.all,
             "progress",
             courseId,
+            sectionId ?? "all",
         ],
 
         sections: (courseId) => [...queryKeys.courses.all, "sections", courseId],

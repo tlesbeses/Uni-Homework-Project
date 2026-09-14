@@ -16,10 +16,10 @@ export const getCourse = async (courseId, opts) => {
     return response.data;
 };
 
-export const getCourseProgress = async (courseId, signal) => {
+export const getCourseProgress = async (courseId, { signal, sectionId } = {}) => {
     const response = await queryApi.get(
         `/api/courses/${courseId}/progress/`,
-        { signal }
+        { params: sectionId ? { section: sectionId } : undefined, signal }
     );
     return response.data;
 };
