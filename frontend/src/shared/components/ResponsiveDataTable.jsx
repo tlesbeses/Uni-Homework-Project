@@ -236,7 +236,7 @@ export const ResponsiveDataTable = ({
                             {columns.map((column) => (
                                 <th
                                     key={column.key}
-                                    className={`px-5 py-3 ${column.headerClassName ?? ""}`}
+                                    className={`px-5 py-3 whitespace-nowrap ${column.headerClassName ?? ""}`}
                                 >
                                     {column.headerRender
                                         ? column.headerRender()

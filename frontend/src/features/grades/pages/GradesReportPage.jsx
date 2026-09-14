@@ -325,8 +325,10 @@ export const GradesReportPage = () => {
             header: `${a.title} (${assignmentPartialLabel(a)})`,
             headerRender: () => (
                 <>
-                    {a.title}
-                    <span className="block text-[11px] font-medium text-gray-400 mt-0.5">
+                    <span className="block max-w-[7rem] truncate" title={a.title}>
+                        {a.title}
+                    </span>
+                    <span className="block text-[11px] font-medium text-gray-400 mt-0.5 truncate">
                         {assignmentPartialLabel(a)}
                     </span>
                 </>
