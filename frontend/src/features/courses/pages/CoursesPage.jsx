@@ -144,7 +144,7 @@ export const CoursesPage = () => {
             <ConfirmModal
                 open={Boolean(pendingDelete)}
                 title="Eliminar curso"
-                description="¿Eliminar este curso y todas sus inscripciones? Esta acción no se puede deshacer."
+                description="¿Eliminar este curso? Se eliminarán sus inscripciones, equipos y notas. Quedarán archivados en el historial de grupos borrados. Esta acción no se puede deshacer."
                 confirmLabel="Eliminar"
                 onCancel={() => setPendingDelete(null)}
                 onConfirm={confirmDelete}

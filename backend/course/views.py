@@ -42,6 +42,7 @@ from course.services import (
     approve_enrollment,
     create_enrollment,
     delete_enrollment,
+    delete_section,
     reject_enrollment,
 )
 from django_filters.rest_framework import DjangoFilterBackend
@@ -717,6 +718,16 @@ class SectionViewSet(viewsets.ModelViewSet):
                     "You can only create sections for your own courses."
                 )
         return super().create(request, *args, **kwargs)
+
+    def perform_destroy(self, instance):
+        """Delete the section and the data bound to it (teams and grades).
+
+        The ``pre_delete`` snapshot captures everything first, then the
+        cascades remove the enrollments, teams and team members, and the
+        service deletes the section's grades explicitly (they reference the
+        assignment + student pair, not the section).
+        """
+        delete_section(section=instance, actor=self.request.user)
 
 
 class SectionSnapshotViewSet(viewsets.ReadOnlyModelViewSet):

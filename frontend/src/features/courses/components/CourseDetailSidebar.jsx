@@ -558,7 +558,7 @@ export const CourseDetailSidebar = ({ courseId, isOwner, reloadCourse, selectedS
     <ConfirmModal
       open={pendingDeleteSection}
       title="Eliminar sección"
-      description="¿Eliminar esta sección? Sus inscripciones y equipos también se eliminarán. Esta acción no se puede deshacer."
+      description="¿Eliminar esta sección? Sus inscripciones, equipos y notas también se eliminarán. Quedarán archivados en el historial de grupos borrados. Esta acción no se puede deshacer."
       confirmLabel="Eliminar"
       onCancel={() => setPendingDeleteSection(false)}
       onConfirm={confirmDeleteSection}

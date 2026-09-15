@@ -27,9 +27,9 @@ from course.services import (
     delete_enrollment,
     reject_enrollment,
 )
-from grading.models import Grade
+from grading.models import FinalScoreSnapshot, Grade, GradeHistory
 from notifications.models import Notification, NotificationType
-from teams.models import Team
+from teams.models import Team, TeamMember
 
 User = get_user_model()
 
@@ -1134,6 +1134,115 @@ class SectionSnapshotTests(BaseCourseTestCase):
             all(s.reason == SectionSnapshot.REASON_COURSE_DELETE for s in snapshots)
         )
         self.assertEqual({s.section_name for s in snapshots}, {"1TS1", "2TS2"})
+
+    def test_section_delete_removes_teams_and_grades(self):
+        team = Team.objects.create(
+            section=self.section,
+            name="Team A",
+            leader=self.student,
+        )
+        grade = Grade.objects.get(assignment=self.assignment, student=self.student)
+        GradeHistory.objects.create(
+            grade=grade,
+            first_record=True,
+            new_score=grade.score,
+            graded_by=self.teacher,
+        )
+        FinalScoreSnapshot.objects.create(
+            course=self.course,
+            student=self.student,
+            score=Decimal("80.00"),
+        )
+
+        other = User.objects.create_user(
+            username="student3",
+            email="student3@example.com",
+            password="pass",
+        )
+        other.groups.add(self.student_group)
+        Enrollment.objects.create(
+            section=self.section2,
+            student=other,
+            status=Status.APPROVED,
+        )
+        other_grade = Grade.objects.create(
+            assignment=self.assignment,
+            student=other,
+            score=Decimal("90.00"),
+            graded_by=self.teacher,
+        )
+
+        self.client.force_authenticate(self.teacher)
+        response = self.client.delete(f"/api/sections/{self.section.id}/")
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+        self.assertFalse(Team.objects.filter(pk=team.pk).exists())
+        self.assertFalse(TeamMember.objects.filter(team=team).exists())
+        self.assertFalse(
+            self.student.team_memberships.filter(course=self.course).exists()
+        )
+        self.assertFalse(Grade.objects.filter(pk=grade.pk).exists())
+        self.assertFalse(GradeHistory.objects.filter(grade=grade).exists())
+        self.assertFalse(
+            FinalScoreSnapshot.objects.filter(
+                course=self.course,
+                student=self.student,
+            ).exists()
+        )
+        self.assertFalse(
+            Enrollment.objects.filter(section=self.section).exists()
+        )
+        self.assertTrue(Grade.objects.filter(pk=other_grade.pk).exists())
+
+        snapshot = SectionSnapshot.objects.get(section_id=self.section.id)
+        self.assertEqual(snapshot.reason, SectionSnapshot.REASON_SECTION_DELETE)
+        self.assertEqual(snapshot.payload["teams"][0]["name"], "Team A")
+        self.assertEqual(snapshot.payload["grades"][0]["score"], "80.00")
+
+    def test_course_delete_removes_teams_and_grades_and_keeps_snapshots(self):
+        team = Team.objects.create(
+            section=self.section,
+            name="Team A",
+            leader=self.student,
+        )
+        grade = Grade.objects.get(assignment=self.assignment, student=self.student)
+        GradeHistory.objects.create(
+            grade=grade,
+            first_record=True,
+            new_score=grade.score,
+            graded_by=self.teacher,
+        )
+        FinalScoreSnapshot.objects.create(
+            course=self.course,
+            student=self.student,
+            score=Decimal("80.00"),
+        )
+
+        self.client.force_authenticate(self.teacher)
+        response = self.client.delete(f"/api/courses/{self.course.id}/")
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+        self.assertFalse(Team.objects.filter(pk=team.pk).exists())
+        self.assertFalse(TeamMember.objects.filter(team=team).exists())
+        self.assertFalse(Grade.objects.filter(pk=grade.pk).exists())
+        self.assertFalse(GradeHistory.objects.filter(grade=grade).exists())
+        self.assertFalse(
+            FinalScoreSnapshot.objects.filter(course=self.course).exists()
+        )
+        self.assertFalse(
+            Enrollment.objects.filter(section__course_id=self.course.id).exists()
+        )
+
+        snapshots = SectionSnapshot.objects.filter(
+            course_id=self.course.id
+        ).order_by("section_name")
+        self.assertEqual(snapshots.count(), 2)
+        self.assertTrue(
+            all(s.reason == SectionSnapshot.REASON_COURSE_DELETE for s in snapshots)
+        )
+        section_snapshot = snapshots.get(section_name="1TS1")
+        self.assertEqual(section_snapshot.payload["teams"][0]["name"], "Team A")
+        self.assertEqual(section_snapshot.payload["grades"][0]["score"], "80.00")
 
     def test_empty_section_still_captures_header(self):
         self.client.force_authenticate(self.teacher)
