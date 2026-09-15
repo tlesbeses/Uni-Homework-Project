@@ -11,6 +11,7 @@ from django.db import IntegrityError, transaction
 from authentication.models import EventLog
 from authentication.services import log_event
 from course.models import Course, CourseSettings, Enrollment, Status
+from grading.models import FinalScoreSnapshot, Grade
 from notifications.services import (
     notify_enrollment_approved,
     notify_enrollment_requested,
@@ -180,5 +181,52 @@ def delete_enrollment(*, enrollment, actor):
             "course_id": course_id,
             "student_id": student_id,
             "status": status_before,
+        },
+    )
+
+
+def delete_section(*, section, actor):
+    """Delete a section and all the data bound to it.
+
+    ``section.delete()`` triggers the ``pre_delete`` snapshot capture (the
+    enrollments, teams, grades and final grades of the section are frozen in a
+    ``SectionSnapshot`` first) and cascades the enrollments, teams and team
+    members. Grades are then removed explicitly: they reference the
+    assignment + student pair instead of the section, so they survive the
+    ORM cascade and would otherwise stay orphaned in the database.
+    """
+    course = section.course
+    section_id = section.pk
+    section_name = section.name
+
+    approved_student_ids = list(
+        Enrollment.objects.filter(
+            section=section,
+            status=Status.APPROVED,
+        ).values_list("student_id", flat=True)
+    )
+
+    with transaction.atomic():
+        section.delete()
+
+        if approved_student_ids:
+            Grade.objects.filter(
+                assignment__course=course,
+                student_id__in=approved_student_ids,
+            ).delete()
+            FinalScoreSnapshot.objects.filter(
+                course=course,
+                student_id__in=approved_student_ids,
+            ).delete()
+
+    log_event(
+        actor=actor,
+        action=EventLog.ACTION_DELETE,
+        entity_type="section",
+        entity_id=section_id,
+        metadata={
+            "course_id": course.pk,
+            "section_name": section_name,
+            "students": approved_student_ids,
         },
     )
