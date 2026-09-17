@@ -95,6 +95,36 @@ describe("QuickSettingsBar — ponderación", () => {
         expect(first.value).toBe("25.00");
     });
 
+    it("no colapsa al perder el foco sin relatedTarget (p. ej. switch deshabilitado al guardar)", () => {
+        renderBar();
+        enablePonderacion();
+        expect(
+            screen.queryAllByDisplayValue("25.00")
+        ).toHaveLength(4);
+
+        fireEvent.blur(screen.getAllByDisplayValue("25.00")[0], {
+            relatedTarget: null,
+        });
+        expect(
+            screen.queryAllByDisplayValue("25.00")
+        ).toHaveLength(4);
+    });
+
+    it("colapsa al perder el foco hacia fuera de la tarjeta", () => {
+        renderBar();
+        enablePonderacion();
+        expect(
+            screen.queryAllByDisplayValue("25.00")
+        ).toHaveLength(4);
+
+        fireEvent.blur(screen.getAllByDisplayValue("25.00")[0], {
+            relatedTarget: document.body,
+        });
+        expect(
+            screen.queryAllByDisplayValue("25.00")
+        ).toHaveLength(0);
+    });
+
     it("colapsa al salir de la tarjeta y se reabre al clicar la cabecera", () => {
         renderBar();
         enablePonderacion();

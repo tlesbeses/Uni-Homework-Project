@@ -143,7 +143,10 @@ export const QuickSettingsBar = ({
   };
 
   const handleCardBlur = (event) => {
-    if (!event.currentTarget.contains(event.relatedTarget)) {
+    if (
+      event.relatedTarget &&
+      !event.currentTarget.contains(event.relatedTarget)
+    ) {
       setOpen(false);
     }
   };
