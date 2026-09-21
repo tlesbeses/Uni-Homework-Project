@@ -11,6 +11,14 @@ const DESKTOP_BREAKPOINT = "(min-width: 768px)";
 const formatScore = (value) =>
     value === null || value === undefined ? "—" : String(Number(value.toFixed(2)));
 
+const averagePercent = (assignment) => {
+    const { avg, max_score } = assignment;
+    if (avg === null || avg === undefined || !max_score) {
+        return 0;
+    }
+    return (Number(avg) / Number(max_score)) * 100;
+};
+
 const StatCard = ({ label, value, suffix = "" }) => (
     <div className="bg-gray-50 rounded-xl border border-gray-100 px-4 py-3">
         <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">
@@ -67,7 +75,7 @@ const progressColumns = [
         role: "secondary",
         render: (assignment) => (
             <div className="flex items-center gap-2">
-                <ProgressBar value={assignment.avg} />
+                <ProgressBar value={averagePercent(assignment)} />
                 <span className="text-xs text-gray-600">
                     {formatScore(assignment.avg)}
                 </span>

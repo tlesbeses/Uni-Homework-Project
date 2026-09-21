@@ -82,8 +82,9 @@ describe("CourseProgress", () => {
                     graded: 8,
                     pending: 2,
                     avg: 90,
-                    max: 10,
-                    min: 5,
+                    max_score: 100,
+                    max: 100,
+                    min: 50,
                 },
             ],
         };
@@ -96,8 +97,9 @@ describe("CourseProgress", () => {
         });
         expect(within(table).getByText("TP1")).toBeInTheDocument();
         expect(within(table).getByText("8/10")).toBeInTheDocument();
-        expect(within(table).getByText("10")).toBeInTheDocument();
-        expect(within(table).getByText("5")).toBeInTheDocument();
+        expect(within(table).getByText("90")).toBeInTheDocument();
+        expect(within(table).getByText("100")).toBeInTheDocument();
+        expect(within(table).getByText("50")).toBeInTheDocument();
         expect(screen.getByText("Ocultar ▲")).toBeInTheDocument();
     });
 
@@ -113,7 +115,8 @@ describe("CourseProgress", () => {
                     title: "TP1",
                     graded: 8,
                     pending: 2,
-                    avg: 90,
+                    avg: 9,
+                    max_score: 10,
                     max: 10,
                     min: 5,
                 },
@@ -129,7 +132,7 @@ describe("CourseProgress", () => {
         const card = cards[0];
         expect(within(card).getByText("TP1")).toBeInTheDocument();
         expect(within(card).getByText("8/10")).toBeInTheDocument();
-        expect(within(card).getByText("90")).toBeInTheDocument();
+        expect(within(card).getByText("9")).toBeInTheDocument();
 
         const toggle = within(card).getByRole("button", {
             name: /Ver detalles/,
