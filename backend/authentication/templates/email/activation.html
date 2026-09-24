@@ -1,0 +1,31 @@
+{% block subject %}
+Activa tu cuenta en {{ site_name }}
+{% endblock subject %}
+
+{% block text_body %}
+¡Hola {{ user.get_username }}!
+
+Necesitas completar la activación de tu cuenta en {{ site_name }}.
+Ingresa a la siguiente página para activarla:
+
+{{ protocol }}://{{ domain }}/{{ url|safe }}
+
+Si no creaste una cuenta en {{ site_name }}, ignora este correo.
+
+Saludos,
+El equipo de {{ site_name }}
+{% endblock text_body %}
+
+{% block html_body %}
+<p>¡Hola {{ user.get_username }}!</p>
+
+<p>Necesitas completar la activación de tu cuenta en <strong>{{ site_name }}</strong>.</p>
+
+<p>Ingresa a la siguiente página para activarla:</p>
+<p><a href="{{ protocol }}://{{ domain }}/{{ url|safe }}">Activar mi cuenta</a></p>
+
+<p>Si no creaste una cuenta en {{ site_name }}, ignora este correo.</p>
+
+<p>Saludos,<br>El equipo de {{ site_name }}</p>
+
+{% endblock html_body %}

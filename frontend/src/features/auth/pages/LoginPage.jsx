@@ -11,6 +11,15 @@ export const LoginPage = () => (
 
             <LoginForm />
 
+            <div className="px-8 -mt-3 text-center">
+                <Link
+                    to="/forgot-password"
+                    className="text-sm text-indigo-600 font-medium hover:underline"
+                >
+                    ¿Olvidaste tu contraseña?
+                </Link>
+            </div>
+
             <div className="bg-gray-50 border-t border-gray-100 px-8 py-4 text-center">
                 <p className="text-sm text-gray-600">
                     ¿Aún no tienes una cuenta?{" "}

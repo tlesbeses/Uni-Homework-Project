@@ -1,13 +1,12 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { registerSchema } from "@/features/auth/schemas/authSchemas";
 import { registerUser } from "@/features/auth/services/authService";
 import { toast } from "react-toastify";
 
 export const useRegister = () => {
-    const navigate = useNavigate();
+    const [registered, setRegistered] = useState(false);
     const [serverError, setServerError] = useState("");
 
     const {
@@ -25,8 +24,10 @@ export const useRegister = () => {
             const payload = { ...data };
             delete payload.confirmPassword;
             await registerUser(payload);
-            toast.success("Usuario registrado con éxito");
-            navigate("/login");
+            setRegistered(true);
+            toast.success(
+                "Usuario registrado. Revisá tu correo para activar tu cuenta."
+            );
         } catch (error) {
             const serverData = error.response?.data;
             if (serverData && typeof serverData === 'object') {
@@ -49,6 +50,7 @@ export const useRegister = () => {
         errors,
         isSubmitting,
         serverError,
+        registered,
         onSubmit
     };
 };

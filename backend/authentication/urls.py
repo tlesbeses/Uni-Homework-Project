@@ -1,13 +1,16 @@
 from django.urls import include, path
-from djoser.views import UserViewSet
 from . import views
+from .views import UsersViewSet
 
-# Solo los 4 endpoints de Djoser que necesitamos, en vez de incluir todos.
+# Solo los endpoints de Djoser que necesitamos, en vez de incluir todos.
 djoser_patterns = [
-    path("users/", UserViewSet.as_view({"get": "list", "post": "create"}), name="user-list"),
-    path("users/me/", UserViewSet.as_view({"get": "me", "put": "me", "patch": "me"}), name="user-me"),
-    path("users/set_password/", UserViewSet.as_view({"post": "set_password"}), name="user-set-password"),
-    path("users/activation/", UserViewSet.as_view({"post": "activation"}), name="user-activation"),
+    path("users/", UsersViewSet.as_view({"get": "list", "post": "create"}), name="user-list"),
+    path("users/me/", UsersViewSet.as_view({"get": "me", "put": "me", "patch": "me"}), name="user-me"),
+    path("users/set_password/", UsersViewSet.as_view({"post": "set_password"}), name="user-set-password"),
+    path("users/activation/", UsersViewSet.as_view({"post": "activation"}), name="user-activation"),
+    path("users/resend_activation/", UsersViewSet.as_view({"post": "resend_activation"}), name="user-resend-activation"),
+    path("users/reset_password/", UsersViewSet.as_view({"post": "reset_password"}), name="user-reset-password"),
+    path("users/reset_password_confirm/", UsersViewSet.as_view({"post": "reset_password_confirm"}), name="user-reset-password-confirm"),
 ]
 
 urlpatterns = [
@@ -25,6 +28,11 @@ urlpatterns = [
         "admin/users/<int:pk>/",
         views.AdminUserViewSet.as_view({"patch": "partial_update"}),
         name="admin-user-detail",
+    ),
+    path(
+        "admin/users/<int:pk>/reset-password/",
+        views.AdminUserViewSet.as_view({"post": "reset_password"}),
+        name="admin-user-reset-password",
     ),
     path("admin/impersonate/", views.ImpersonateView.as_view(), name="admin-impersonate"),
     path("admin/activity/", views.AdminActivityView.as_view(), name="admin-activity"),

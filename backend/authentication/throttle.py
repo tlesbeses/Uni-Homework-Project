@@ -62,3 +62,40 @@ class ErrorThrottle(_ConditionalThrottleMixin, SimpleRateThrottle):
         else:
             ident = request.META.get("REMOTE_ADDR") or "-"
         return self.cache_format % {"scope": self.scope, "ident": ident}
+
+
+class ResetThrottle(_ConditionalThrottleMixin, SimpleRateThrottle):
+    """Limita solicitudes de restablecimiento de contraseña.
+
+    Evita que un atacante bombardee correos de reset a un email (o use el
+    endpoint para enumerar usuarios). Se clavea por IP para los anónimos.
+    """
+
+    scope = "reset"
+
+    def get_cache_key(self, request, view):
+        user = getattr(request, "user", None)
+        if user is not None and user.is_authenticated:
+            ident = f"user-{user.pk}"
+        else:
+            ident = request.META.get("REMOTE_ADDR") or "-"
+        return self.cache_format % {"scope": self.scope, "ident": ident}
+
+
+class TokenThrottle(_ConditionalThrottleMixin, SimpleRateThrottle):
+    """Limita los intentos de activación y confirmación de reset (uid+token).
+
+    Frenan la fuerza bruta sobre tokens adivinables reutilizando un scope
+    propio ("token") para no compartir cuota con ``AuthThrottle`` — usado
+    por el refresh del frontend — y evitar falsos 429 al activar una cuenta.
+    """
+
+    scope = "token"
+
+    def get_cache_key(self, request, view):
+        user = getattr(request, "user", None)
+        if user is not None and user.is_authenticated:
+            ident = f"user-{user.pk}"
+        else:
+            ident = request.META.get("REMOTE_ADDR") or "-"
+        return self.cache_format % {"scope": self.scope, "ident": ident}

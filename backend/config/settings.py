@@ -56,6 +56,21 @@ ALLOWED_HOSTS = os.getenv(
 ).split(",")
 
 AUTH_USER_MODEL = "authentication.User"
+
+# Proveedor de correo (Resend): toda la configuración vive en
+# config/email_config.py; del entorno solo se lee la API key
+# (EMAIL_HOST_PASSWORD). Este import va antes del override de tests
+# (EMAIL_BACKEND = locmem) que aparece más abajo.
+from config.email_config import (
+    DEFAULT_FROM_EMAIL,
+    EMAIL_BACKEND,
+    EMAIL_HOST,
+    EMAIL_HOST_PASSWORD,
+    EMAIL_HOST_USER,
+    EMAIL_PORT,
+    EMAIL_USE_TLS,
+)
+
 # Application definition
 
 SIMPLE_JWT = {
@@ -214,6 +229,8 @@ REST_FRAMEWORK = {
         "admin": "20/minute",
         "grade": "60/minute",
         "error": "10/minute",
+        "reset": "5/minute",
+        "token": "10/minute",
     },
 
     "DEFAULT_PAGINATION_CLASS":
@@ -242,6 +259,11 @@ if "test" in sys.argv or os.getenv("DISABLE_THROTTLE", "0").lower() in (
 ):
     REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"] = []
     DISABLE_THROTTLE = True
+
+# En tests, capturar los correos en memoria (django.core.mail.outbox) para
+# poder verificarlos sin depender de un servidor SMTP real.
+if "test" in sys.argv:
+    EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 
 # Orígenes del frontend autorizados para CORS con credenciales. En desarrollo
 # Vite corre en :5173; si el frontend se despliega en otro origen, agreguelo
@@ -360,10 +382,38 @@ if _CSP_APPLY or _csp_report_uri:
     if _csp_report_uri:
         CSP_REPORT_ONLY = _CSP_POLICY
 
+# Envío de correo (activación de cuenta, confirmación y recuperación de
+# contraseña). La configuración del proveedor (Resend) se importó arriba
+# desde config/email_config.py; allí conviven los valores fijos del relay
+# SMTP y solo la API key se lee del entorno.
+
+# Objetos útiles para el email backend: esperar a que un email "del sitio"
+# que el usuario recibió sea válido (verificación de cuenta) o no sea
+# legible por un script (recuperación). No se tocan aquí; ver settings de
+# autenticación.
+
+# Verificación de email obligatoria: los usuarios nuevos se crean inactivos
+# y no pueden iniciar sesión hasta activar su cuenta desde el correo.
+# Los superusuarios/usuarios existentes no se ven afectados.
+REQUIRE_EMAIL_VERIFICATION = os.getenv(
+    "REQUIRE_EMAIL_VERIFICATION", "True"
+).lower() in ("true", "1", "yes")
+
 DJOSER = {
+    'SEND_ACTIVATION_EMAIL': True,
+    'SEND_CONFIRMATION_EMAIL': True,
+    'PASSWORD_CHANGED_EMAIL_CONFIRMATION': True,
+    # URL del SPA que Djoser incrusta en los correos (uid + token en el path).
+    'ACTIVATION_URL': 'activate/{uid}/{token}/',
+    'PASSWORD_RESET_CONFIRM_URL': 'password/reset/confirm/{uid}/{token}/',
+    # No revelar si un email está registrado (anti-enumeración).
+    'PASSWORD_RESET_SHOW_EMAIL_NOT_FOUND': False,
     'SERIALIZERS': {
         'user_create': 'authentication.serializers.UserCreateSerializer',
         'current_user': 'authentication.serializers.UserSerializer',
+        'activation': 'djoser.serializers.ActivationSerializer',
+        'password_reset': 'djoser.serializers.SendEmailResetSerializer',
+        'password_reset_confirm': 'djoser.serializers.PasswordResetConfirmSerializer',
     },
 }
 
