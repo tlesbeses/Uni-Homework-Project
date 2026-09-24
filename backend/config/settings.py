@@ -230,6 +230,7 @@ REST_FRAMEWORK = {
         "grade": "60/minute",
         "error": "10/minute",
         "reset": "5/minute",
+        "token": "10/minute",
     },
 
     "DEFAULT_PAGINATION_CLASS":

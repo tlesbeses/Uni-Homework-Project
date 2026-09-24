@@ -16,12 +16,18 @@ export const useActivate = () => {
                 if (!cancelled) {
                     setState("success");
                 }
-            } catch {
+            } catch (error) {
                 if (!cancelled) {
                     setState("error");
-                    setErrorMessage(
-                        "El enlace de activación es inválido o ya fue utilizado."
-                    );
+                    if (error.response?.status === 429) {
+                        setErrorMessage(
+                            "Demasiados intentos. Espera un momento e inténtalo de nuevo."
+                        );
+                    } else {
+                        setErrorMessage(
+                            "El enlace de activación es inválido o ya fue utilizado."
+                        );
+                    }
                 }
             }
         })();

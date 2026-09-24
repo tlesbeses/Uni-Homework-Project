@@ -4,6 +4,7 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.core import mail
+from django.core.cache import cache
 from django.contrib.auth.models import AnonymousUser, Group
 from django.test import RequestFactory, TestCase, override_settings
 from django.utils import timezone
@@ -762,6 +763,83 @@ class RefreshThrottleTests(APITestCase):
             last_status,
             status.HTTP_429_TOO_MANY_REQUESTS,
         )
+
+
+class RecoveryThrottleTests(APITestCase):
+    """Los endpoints anónimos del flujo de recuperación/activación tienen
+    throttles propios (scopes "reset" y "token"), claveados por IP o usuario.
+
+    El cache de throttles es compartido entre tests, así que se limpia en
+    cada setUp para no contaminar el history de un scope entre casos.
+    """
+
+    def setUp(self):
+        cache.clear()
+        self.payloads = {
+            "/auth/users/reset_password/": {"email": "nadie@example.com"},
+            "/auth/users/resend_activation/": {"email": "nadie@example.com"},
+            "/auth/users/activation/": {"uid": "MQ", "token": "x" * 40},
+            "/auth/users/reset_password_confirm/": {
+                "uid": "MQ",
+                "token": "x" * 40,
+                "new_password": "ClaveNueva123",
+            },
+        }
+        self.routes = {
+            "reset": ["/auth/users/reset_password/", "/auth/users/resend_activation/"],
+            "token": ["/auth/users/activation/", "/auth/users/reset_password_confirm/"],
+        }
+
+    @override_settings(DISABLE_THROTTLE=False)
+    def test_recovery_throttles_apply_when_not_disabled(self):
+        for route in self.routes["reset"] + self.routes["token"]:
+            last_status = None
+            for _ in range(12):
+                response = self.client.post(
+                    route,
+                    self.payloads[route],
+                    format="json",
+                )
+                last_status = response.status_code
+                if last_status == status.HTTP_429_TOO_MANY_REQUESTS:
+                    break
+            self.assertEqual(
+                last_status,
+                status.HTTP_429_TOO_MANY_REQUESTS,
+                msg=f"{route} debería limitarse con 429",
+            )
+
+    def test_recovery_throttles_disabled_when_disable_throttle_flag_on(self):
+        for route in self.routes["reset"] + self.routes["token"]:
+            last_status = None
+            for _ in range(12):
+                response = self.client.post(
+                    route,
+                    self.payloads[route],
+                    format="json",
+                )
+                last_status = response.status_code
+            self.assertNotEqual(
+                last_status,
+                status.HTTP_429_TOO_MANY_REQUESTS,
+                msg=f"{route} no debería limitarse con el flag activo",
+            )
+
+    @override_settings(DISABLE_THROTTLE=False)
+    def test_resend_capping_does_not_share_cuota_with_reset_password(self):
+        """Los scopes son independientes: gastar "token" no consume "reset"."""
+        for _ in range(12):
+            self.client.post(
+                "/auth/users/activation/",
+                self.payloads["/auth/users/activation/"],
+                format="json",
+            )
+        response = self.client.post(
+            "/auth/users/reset_password/",
+            self.payloads["/auth/users/reset_password/"],
+            format="json",
+        )
+        self.assertNotEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
 
 
 class ClientErrorReportTests(APITestCase):

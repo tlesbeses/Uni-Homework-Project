@@ -66,4 +66,20 @@ describe("ActivatePage", () => {
             )
         ).toBeInTheDocument();
     });
+
+    it("muestra mensaje de reintento si el servidor responde 429", async () => {
+        activateUser.mockRejectedValue({
+            response: { status: 429 },
+        });
+        renderPage();
+
+        expect(
+            await screen.findByText("No se pudo verificar la cuenta")
+        ).toBeInTheDocument();
+        expect(
+            screen.getByText(
+                "Demasiados intentos. Espera un momento e inténtalo de nuevo."
+            )
+        ).toBeInTheDocument();
+    });
 });

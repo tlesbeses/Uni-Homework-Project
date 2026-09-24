@@ -377,7 +377,7 @@ Reglas de negocio clave:
 - **Reenvío de activación:** el registro con email ya usado devuelve 400 sin revelar si la cuenta existe; hay endpoint `resend_activation/` para reenviar el enlace a una cuenta inactiva.
 - **Restauración de sesión:** la cookie de refresh genera un nuevo access token y se recarga `/auth/users/me/` al recargar la página.
 - **Roles:** grupos de Django (`Student`, `Teacher`, `Admin`). Los nuevos usuarios se asignan automáticamente al grupo `Student` (signal post-save). `User.me` devuelve `roles` y `permissions`.
-- **Throttling:** `LoginThrottle` (5/min), `AuthThrottle` (10/min), `ResetThrottle` (5/min) y throttles globales anónimos/autenticados (50/min). El frontend maneja los errores `429` con UI dedicada.
+- **Throttling:** `LoginThrottle` (5/min), `AuthThrottle` (10/min), `ResetThrottle` (5/min, envíos de correo: `reset_password` y `resend_activation`), `TokenThrottle` (10/min, `activation` y `reset_password_confirm`), `AdminThrottle` (20/min) y throttles globales anónimos/autenticados (10/50 por min). El frontend maneja los errores `429` con UI dedicada.
 - **Caché de permisos:** comprobación de pertenencia a grupo cacheada (TTL 5 min) con invalidación vía señal al cambiar grupos.
 - **Impersonación restringida a superusuarios:** solo `is_superuser` puede ver como otro usuario; nunca se registra como la identidad real y se muestra un **banner** persistente mientras dure la impersonación.
 
@@ -463,11 +463,11 @@ Por defecto el despliegue es same-origin (Django sirve `frontend/dist`). Si el f
 ## Tests
 
 ```bash
-# Backend (397 tests)
+# Backend (400 tests)
 cd backend
 python manage.py test
 
-# Frontend (228 tests)
+# Frontend (229 tests)
 cd frontend
 npm run test
 npm run lint

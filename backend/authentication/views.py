@@ -44,6 +44,7 @@ from .throttle import (
     ErrorThrottle,
     LoginThrottle,
     ResetThrottle,
+    TokenThrottle,
 )
 from authentication.models import ErrorLog, EventLog, User
 
@@ -96,17 +97,24 @@ class CsrfView(APIView):
 
 
 class UsersViewSet(DjoserUserViewSet):
-    """Endpoints de Djoser con rate limit propio en el restablecimiento.
+    """Endpoints de Djoser con rate limits propios en el flujo de verificación
+    y recuperación de contraseña.
 
     Reutiliza todas las acciones de Djoser (registro, me, set_password,
-    activation, resend_activation, reset_password, reset_password_confirm)
-    y solo aplica el throttle del scope "reset" al envío del correo de
-    recuperación para evitar abuso.
+    activation, resend_activation, reset_password, reset_password_confirm).
+    Como las rutas se enlazan con ``as_view(...)`` en urls.py (sin router),
+    los kwargs de ``@action`` no aplican; por eso el throttle se elige acá por
+    ``self.action``: "reset" (5/min) para los envíos de correo y "token"
+    (10/min) para los endpoints que consumen uid+token.
     """
 
-    @action(["post"], detail=False, throttle_classes=[ResetThrottle])
-    def reset_password(self, request, *args, **kwargs):
-        return super().reset_password(request, *args, **kwargs)
+    def get_throttles(self):
+        throttles = []
+        if self.action in ("reset_password", "resend_activation"):
+            throttles.append(ResetThrottle())
+        elif self.action in ("activation", "reset_password_confirm"):
+            throttles.append(TokenThrottle())
+        return throttles + [throttle() for throttle in self.throttle_classes]
 
 
 class LoginView(TokenObtainPairView):
