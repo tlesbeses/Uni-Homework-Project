@@ -2,11 +2,14 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth.models import Group
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Count, Q
 from django.db.models.functions import TruncDate
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from rest_framework import status, viewsets
+from rest_framework.decorators import action
 from rest_framework.filters import SearchFilter
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -19,6 +22,7 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
+from djoser.views import UserViewSet as DjoserUserViewSet
 
 from config.pagination import ListPagination
 from course.permissions import is_teacher
@@ -34,7 +38,13 @@ from .serializers import (
     LoginSerializer,
 )
 from .services import log_event
-from .throttle import AdminThrottle, AuthThrottle, ErrorThrottle, LoginThrottle
+from .throttle import (
+    AdminThrottle,
+    AuthThrottle,
+    ErrorThrottle,
+    LoginThrottle,
+    ResetThrottle,
+)
 from authentication.models import ErrorLog, EventLog, User
 
 REFRESH_COOKIE_NAME = "refresh_token"
@@ -83,6 +93,20 @@ class CsrfView(APIView):
         csrf_token = set_csrf_cookie(response)
         response.data = {"csrfToken": csrf_token}
         return response
+
+
+class UsersViewSet(DjoserUserViewSet):
+    """Endpoints de Djoser con rate limit propio en el restablecimiento.
+
+    Reutiliza todas las acciones de Djoser (registro, me, set_password,
+    activation, resend_activation, reset_password, reset_password_confirm)
+    y solo aplica el throttle del scope "reset" al envío del correo de
+    recuperación para evitar abuso.
+    """
+
+    @action(["post"], detail=False, throttle_classes=[ResetThrottle])
+    def reset_password(self, request, *args, **kwargs):
+        return super().reset_password(request, *args, **kwargs)
 
 
 class LoginView(TokenObtainPairView):
@@ -178,7 +202,7 @@ class AdminUserViewSet(viewsets.ModelViewSet):
     serializer_class = AdminUserSerializer
     filter_backends = [SearchFilter]
     search_fields = ["username", "email", "first_name", "last_name"]
-    http_method_names = ["get", "patch", "head", "options"]
+    http_method_names = ["get", "patch", "post", "head", "options"]
     throttle_classes = [AdminThrottle]
 
     def get_queryset(self):
@@ -245,6 +269,46 @@ class AdminUserViewSet(viewsets.ModelViewSet):
             )
 
         return Response(AdminUserSerializer(instance).data)
+
+    @action(detail=True, methods=["post"], url_path="reset-password")
+    def reset_password(self, request, *args, **kwargs):
+        """Asigna una contraseña nueva a un usuario (solo superusuario).
+
+        Pensado para usuarios que perdieron la contraseña y no tienen (o no
+        pueden) usar la recuperación por email: el superusuario les entrega
+        una contraseña temporal por otro canal.
+        """
+        instance = self.get_object()
+
+        if instance.is_superuser:
+            raise PermissionDenied(
+                "No se puede restablecer la contraseña de un superusuario."
+            )
+
+        new_password = request.data.get("new_password")
+        if not new_password:
+            raise ValidationError(
+                {"new_password": "Este campo es obligatorio."}
+            )
+
+        try:
+            validate_password(new_password, user=instance)
+        except DjangoValidationError as e:
+            raise ValidationError({"new_password": list(e.messages)})
+
+        instance.set_password(new_password)
+        instance.save(update_fields=["password"])
+
+        log_event(
+            actor=request.user,
+            action=EventLog.ACTION_PASSWORD_RESET,
+            entity_type="user",
+            entity_id=instance.id,
+            target=instance,
+            metadata={"by": "admin"},
+        )
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class ImpersonateView(APIView):

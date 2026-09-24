@@ -3,10 +3,24 @@ import { Button } from "@/shared/components/ui/Button";
 import { useRegister } from "../hooks/useRegister";
 
 export const RegisterForm = () => {
-    const { register, handleSubmit, errors, isSubmitting, onSubmit } = useRegister();
+    const { register, handleSubmit, errors, isSubmitting, registered, onSubmit } = useRegister();
+
+    if (registered) {
+        return (
+            <div className="space-y-4 text-center">
+                <p className="text-lg font-semibold text-gray-800">
+                    Revisá tu correo
+                </p>
+                <p className="text-sm text-gray-600">
+                    Te enviamos un enlace para activar tu cuenta. Ingresá en él
+                    antes de iniciar sesión y revisá también la carpeta de spam.
+                </p>
+            </div>
+        );
+    }
 
     return (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-3" noValidate>
 
             <InputField
                 label="Nombre de usuario"

@@ -20,6 +20,23 @@ export const registerUser = async (userData) => {
     return response.data;
 };
 
+// La cuenta nace inactiva hasta que el usuario active el link del correo.
+export const activateUser = async (uid, token) => {
+    await api.post("/auth/users/activation/", { uid, token });
+};
+
+export const requestPasswordReset = async (email) => {
+    await api.post("/auth/users/reset_password/", { email });
+};
+
+export const confirmPasswordReset = async (uid, token, newPassword) => {
+    await api.post("/auth/users/reset_password_confirm/", {
+        uid,
+        token,
+        new_password: newPassword,
+    });
+};
+
 // El refresh token viaja en la cookie HttpOnly; no se envía en el cuerpo.
 export const logoutUser = async () => {
     const response = await api.post("/auth/jwt/blacklist/");

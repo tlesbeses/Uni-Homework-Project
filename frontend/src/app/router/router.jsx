@@ -12,6 +12,9 @@ const lazyPage = (importFn, name) =>
 const LandingPage = lazyPage(() => import("@/app/pages/LandingPage"), "LandingPage");
 const LoginPage = lazyPage(() => import("@/features/auth/pages/LoginPage"), "LoginPage");
 const RegisterPage = lazyPage(() => import("@/features/auth/pages/RegisterPage"), "RegisterPage");
+const ForgotPasswordPage = lazyPage(() => import("@/features/auth/pages/ForgotPasswordPage"), "ForgotPasswordPage");
+const ResetPasswordPage = lazyPage(() => import("@/features/auth/pages/ResetPasswordPage"), "ResetPasswordPage");
+const ActivatePage = lazyPage(() => import("@/features/auth/pages/ActivatePage"), "ActivatePage");
 const DashboardPage = lazyPage(() => import("@/app/pages/DashboardPage"), "DashboardPage");
 const NotFoundPage = lazyPage(() => import("@/app/pages/NotFoundPage"), "NotFoundPage");
 const UnauthorizedPage = lazyPage(() => import("@/app/pages/UnauthorizedPage"), "UnauthorizedPage");
@@ -77,6 +80,30 @@ export const router = createBrowserRouter([
         element: (
           <SuspenseWrapper>
             <RegisterPage />
+          </SuspenseWrapper>
+        ),
+      },
+      {
+        path: "/forgot-password",
+        element: (
+          <SuspenseWrapper>
+            <ForgotPasswordPage />
+          </SuspenseWrapper>
+        ),
+      },
+      {
+        path: "/password/reset/confirm/:uid/:token",
+        element: (
+          <SuspenseWrapper>
+            <ResetPasswordPage />
+          </SuspenseWrapper>
+        ),
+      },
+      {
+        path: "/activate/:uid/:token",
+        element: (
+          <SuspenseWrapper>
+            <ActivatePage />
           </SuspenseWrapper>
         ),
       },

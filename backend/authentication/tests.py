@@ -2,6 +2,8 @@ from datetime import timedelta
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.tokens import default_token_generator
+from django.core import mail
 from django.contrib.auth.models import AnonymousUser, Group
 from django.test import RequestFactory, TestCase, override_settings
 from django.utils import timezone
@@ -10,12 +12,14 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
+from djoser import utils as djoser_utils
 
 from authentication.models import ErrorLog, EventLog
 
 from config.errors import api_exception_handler
 
 User = get_user_model()
+encode_uid = djoser_utils.encode_uid
 
 
 class BaseAdminTestCase(APITestCase):
@@ -1009,8 +1013,21 @@ class AccountFlowTests(APITestCase):
         self.assertNotEqual(user.password, "StrongPass123")
         self.assertTrue(user.check_password("StrongPass123"))
 
-    def test_register_user_can_login(self):
+    def test_register_user_can_login_after_activation(self):
         self._register()
+
+        user = User.objects.get(username="nuevo")
+        uid = encode_uid(user.pk)
+        token = default_token_generator.make_token(user)
+        response = self.client.post(
+            "/auth/users/activation/",
+            {"uid": uid, "token": token},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+        user.refresh_from_db()
+        self.assertTrue(user.is_active)
 
         csrf_response = self.client.get("/auth/csrf/")
         response = self.client.post(
@@ -1102,3 +1119,315 @@ class AccountFlowTests(APITestCase):
 
         user.refresh_from_db()
         self.assertTrue(user.check_password("oldPass1"))
+
+
+class AccountActivationTests(APITestCase):
+    """Verificación de email obligatoria en los registros nuevos.
+
+    Con REQUIRE_EMAIL_VERIFICATION=True el usuario nace inactivo y solo
+    puede iniciar sesión después de activar la cuenta desde el correo.
+    """
+
+    def setUp(self):
+        self.student_group = Group.objects.get_or_create(name="Student")[0]
+        mail.outbox = []
+
+    def _register(self, **overrides):
+        payload = {
+            "username": "nuevo",
+            "email": "nuevo@example.com",
+            "first_name": "Nuevo",
+            "last_name": "Estudiante",
+            "password": "StrongPass123",
+        }
+        payload.update(overrides)
+        return self.client.post("/auth/users/", payload, format="json")
+
+    def _activation_payload(self, user):
+        return {
+            "uid": encode_uid(user.pk),
+            "token": default_token_generator.make_token(user),
+        }
+
+    def test_register_creates_inactive_user_and_sends_activation_email(self):
+        response = self._register()
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        user = User.objects.get(username="nuevo")
+        self.assertFalse(user.is_active)
+
+        self.assertEqual(len(mail.outbox), 1)
+        sent = mail.outbox[0]
+        self.assertIn("Activa tu cuenta", sent.subject)
+
+    def test_inactive_user_cannot_login(self):
+        self._register()
+        csrf_response = self.client.get("/auth/csrf/")
+        response = self.client.post(
+            "/auth/login/",
+            {"username": "nuevo", "password": "StrongPass123"},
+            HTTP_X_CSRFTOKEN=csrf_response.data["csrfToken"],
+        )
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_activation_activates_user_and_allows_login(self):
+        self._register()
+        user = User.objects.get(username="nuevo")
+
+        response = self.client.post(
+            "/auth/users/activation/", self._activation_payload(user), format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+        user.refresh_from_db()
+        self.assertTrue(user.is_active)
+
+        csrf_response = self.client.get("/auth/csrf/")
+        response = self.client.post(
+            "/auth/login/",
+            {"username": "nuevo", "password": "StrongPass123"},
+            HTTP_X_CSRFTOKEN=csrf_response.data["csrfToken"],
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_activation_sends_confirmation_email(self):
+        self._register()
+        user = User.objects.get(username="nuevo")
+        mail.outbox = []
+
+        self.client.post(
+            "/auth/users/activation/", self._activation_payload(user), format="json"
+        )
+
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("fue activada", mail.outbox[0].subject)
+
+    def test_activation_with_invalid_token_rejected(self):
+        self._register()
+        user = User.objects.get(username="nuevo")
+
+        response = self.client.post(
+            "/auth/users/activation/",
+            {"uid": encode_uid(user.pk), "token": "token-invalido"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        user.refresh_from_db()
+        self.assertFalse(user.is_active)
+
+    def test_resend_activation_sends_email_again(self):
+        self._register()
+        mail.outbox = []
+
+        response = self.client.post(
+            "/auth/users/resend_activation/", {"email": "nuevo@example.com"}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_resend_activation_hides_unregistered_email(self):
+        response = self.client.post(
+            "/auth/users/resend_activation/", {"email": "noexiste@example.com"}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_register_without_email_is_rejected(self):
+        response = self._register(email="")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class PasswordResetFlowTests(APITestCase):
+    """Recuperación de contraseña por email (Djoser reset_password)."""
+
+    def setUp(self):
+        self.student_group = Group.objects.get_or_create(name="Student")[0]
+        mail.outbox = []
+
+    def _user(self, **overrides):
+        params = {
+            "username": "perdida",
+            "email": "perdida@example.com",
+            "password": "OldPass123",
+        }
+        params.update(overrides)
+        return User.objects.create_user(**params)
+
+    def test_reset_password_sends_email_with_confirm_url(self):
+        user = self._user()
+
+        response = self.client.post(
+            "/auth/users/reset_password/", {"email": "perdida@example.com"}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+        self.assertEqual(len(mail.outbox), 1)
+        sent = mail.outbox[0]
+        self.assertIn("Restablecimiento de contraseña", sent.subject)
+        self.assertIn("password/reset/confirm/", sent.body)
+        self.assertIn(encode_uid(user.pk), sent.body)
+
+    def test_reset_password_hides_whether_email_exists(self):
+        response = self.client.post(
+            "/auth/users/reset_password/", {"email": "noexiste@example.com"}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_reset_password_confirm_changes_password(self):
+        user = self._user()
+        uid = encode_uid(user.pk)
+        token = default_token_generator.make_token(user)
+
+        response = self.client.post(
+            "/auth/users/reset_password_confirm/",
+            {"uid": uid, "token": token, "new_password": "NuevaPass456"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+        user.refresh_from_db()
+        self.assertFalse(user.check_password("OldPass123"))
+        self.assertTrue(user.check_password("NuevaPass456"))
+
+    def test_reset_password_confirm_with_invalid_token_rejected(self):
+        user = self._user()
+
+        response = self.client.post(
+            "/auth/users/reset_password_confirm/",
+            {"uid": encode_uid(user.pk), "token": "token-invalido", "new_password": "NuevaPass456"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        user.refresh_from_db()
+        self.assertTrue(user.check_password("OldPass123"))
+
+    def test_login_works_with_new_password_after_reset(self):
+        user = self._user()
+        token = default_token_generator.make_token(user)
+
+        self.client.post(
+            "/auth/users/reset_password_confirm/",
+            {
+                "uid": encode_uid(user.pk),
+                "token": token,
+                "new_password": "NuevaPass456",
+            },
+            format="json",
+        )
+
+        csrf_response = self.client.get("/auth/csrf/")
+        response = self.client.post(
+            "/auth/login/",
+            {"username": "perdida", "password": "NuevaPass456"},
+            HTTP_X_CSRFTOKEN=csrf_response.data["csrfToken"],
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+class RequireVerificationDisabledTests(APITestCase):
+    """Con REQUIRE_EMAIL_VERIFICATION=False el registro activa de inmediato."""
+
+    def setUp(self):
+        self.student_group = Group.objects.get_or_create(name="Student")[0]
+
+    @override_settings(REQUIRE_EMAIL_VERIFICATION=False)
+    def test_register_creates_active_user(self):
+        response = self.client.post(
+            "/auth/users/",
+            {
+                "username": "directo",
+                "email": "directo@example.com",
+                "first_name": "Directo",
+                "last_name": "Usuario",
+                "password": "StrongPass123",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        user = User.objects.get(username="directo")
+        self.assertTrue(user.is_active)
+
+
+class AdminResetPasswordTests(BaseAdminTestCase):
+    """Reset manual de contraseña por superusuario (usuarios sin email)."""
+
+    def test_superuser_resets_user_password(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            f"/auth/admin/users/{self.student.id}/reset-password/",
+            {"new_password": "TempPass456"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+        self.student.refresh_from_db()
+        self.assertTrue(self.student.check_password("TempPass456"))
+
+    def test_user_can_login_with_new_password(self):
+        self.client.force_authenticate(self.admin)
+        self.client.post(
+            f"/auth/admin/users/{self.student.id}/reset-password/",
+            {"new_password": "TempPass456"},
+            format="json",
+        )
+
+        csrf_response = self.client.get("/auth/csrf/")
+        response = self.client.post(
+            "/auth/login/",
+            {"username": "student", "password": "TempPass456"},
+            HTTP_X_CSRFTOKEN=csrf_response.data["csrfToken"],
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_reset_registers_event_log(self):
+        self.client.force_authenticate(self.admin)
+        self.client.post(
+            f"/auth/admin/users/{self.student.id}/reset-password/",
+            {"new_password": "TempPass456"},
+            format="json",
+        )
+
+        log = EventLog.objects.filter(
+            action=EventLog.ACTION_PASSWORD_RESET, target_id=self.student.id
+        ).first()
+        self.assertIsNotNone(log)
+        self.assertEqual(log.actor_id, self.admin.id)
+
+    def test_cannot_reset_superuser_password(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            f"/auth/admin/users/{self.admin.id}/reset-password/",
+            {"new_password": "TempPass456"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_non_superuser_forbidden(self):
+        self.client.force_authenticate(self.student)
+        response = self.client.post(
+            f"/auth/admin/users/{self.teacher.id}/reset-password/",
+            {"new_password": "TempPass456"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_missing_new_password_rejected(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            f"/auth/admin/users/{self.student.id}/reset-password/",
+            {},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_weak_password_rejected(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            f"/auth/admin/users/{self.student.id}/reset-password/",
+            {"new_password": "123"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

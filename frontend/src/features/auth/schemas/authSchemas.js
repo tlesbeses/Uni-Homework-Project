@@ -16,3 +16,15 @@ export const loginSchema = z.object({
     username: z.string().min(1, "El usuario es obligatorio"),
     password: z.string().min(1, "La contraseña es obligatoria")
 });
+
+export const forgotPasswordSchema = z.object({
+    email: z.string().email("Correo inválido")
+});
+
+export const resetPasswordSchema = z.object({
+    newPassword: z.string().min(6, "Mínimo 6 caracteres"),
+    confirmPassword: z.string()
+}).refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Las contraseñas no coinciden",
+    path: ["confirmPassword"]
+});

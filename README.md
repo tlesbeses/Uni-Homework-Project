@@ -1,6 +1,6 @@
 # EduNotas
 
-Aplicación web de gestión académica para profesores y estudiantes: cursos, secciones, equipos, tareas y calificaciones. Incluye soporte PWA, exportación de notas a Excel y CSV, autenticación por roles (Estudiante / Profesor / Admin), **impersonación de superusuario**, **registro de actividad**, **notificaciones**, **snapshots** (historial inmodificable de secciones eliminadas) y un **panel de administración** de usuarios, errores y eventos.
+Aplicación web de gestión académica para profesores y estudiantes: cursos, secciones, equipos, tareas y calificaciones. Incluye soporte PWA, exportación de notas a Excel y CSV, autenticación por roles (Estudiante / Profesor / Admin), **verificación de email y recuperación de contraseña**, **impersonación de superusuario**, **registro de actividad**, **notificaciones**, **snapshots** (historial inmodificable de secciones eliminadas) y un **panel de administración** de usuarios, errores y eventos.
 
 **Frontend:** React 19 + Vite + Tailwind CSS 4 + TanStack Query (SPA en español)
 
@@ -52,6 +52,8 @@ Aplicación web de gestión académica para profesores y estudiantes: cursos, se
 - **Paneles de control** — Paneles específicos por rol (profesor vs. estudiante) con cursos, inscripciones, notas, tareas y una **evolución de la nota final** con gráfico.
 - **PWA** — Progressive Web App con banner de instalación, splash screen, manifest personalizado y service worker servido por Django.
 - **Control de acceso por roles** — Los usuarios pertenecen a grupos de Django (`Student`, `Teacher`, `Admin`). Los superusuarios omiten todas las comprobaciones de permisos.
+- **Verificación de email** — Los registros nuevos nacen **inactivos** hasta activar la cuenta desde el enlace que llega por correo; el email es obligatorio al registrarse. El panel envía correos de confirmación y de cambio de contraseña (todo en español, vía el relay SMTP de **Resend**; la config del proveedor está fija en `config/email_config.py` y solo la API key va por entorno; `console` en desarrollo).
+- **Recuperación de contraseña** — Flujo "¿Olvidaste tu contraseña?" con enlace por email y límite de **5 intentos/minuto**. Los superusuarios pueden además **restablecer la contraseña de cualquier usuario** desde el panel de administración (útil para cuentas sin email).
 - **Impersonación de superusuario** — Un superusuario puede **ver la aplicación como otro usuario** (banner de impersonación persistente), para depurar y revisar el sistema desde otras cuentas.
 - **Registro de actividad (auditoría)** — Cada acción relevante (login, impersonación, gestión de cursos/equipos/tareas/notas, cambios en usuarios) genera un **EventLog** con autor, acción, destino y metadatos.
 - **Panel de administración** — Los superusuarios gestionan usuarios (activar/desactivar, asignar roles) y revisan el **historial de actividad** con filtros.
@@ -244,11 +246,16 @@ Pasos que ejecuta:
 | `CSRF_TRUSTED_ORIGINS`                             | No                 | localhost + hostname Render                     | Orígenes de confianza para validación CSRF, separados por comas                                                                                              |
 | `AUTH_COOKIE_SAMESITE`                             | No                 | `Lax`                                           | `None` solo si frontend y API están en sitios distintos (fuerza Secure)                                                                                      |
 | `REDIS_URL`                                        | No                 | `(LocMemCache)`                                 | Caché en producción. Al desplegar un servicio Redis se obtiene caché compartida entre workers                                                                |
+| `REQUIRE_EMAIL_VERIFICATION`                       | No                 | `True`                                          | `False` desactiva la verificación de email: los registros nacen activos sin enviar correo                                                                   |
+| `EMAIL_HOST_PASSWORD`                              | No                 | —                                               | Única credencial de correo: la **API key de Resend** (relay SMTP). Sin ella se usa el backend `console` (dev)                                                  |
+| `DEFAULT_FROM_EMAIL`                               | No                 | `EduNotas <no-reply@local.edunotas>`            | Remitente de los correos de activación / recuperación. Debe ser un dominio verificado en Resend (o `onboarding@resend.dev` para pruebas)                      |
 | `CSP_APPLY`                                         | No                 | `True`                                          | Emite `Content-Security-Policy` (modo bloqueo) en producción; `False` para desactivarla                                                                            |
 | `CSP_REPORT_URI`                                   | No                 | —                                               | Emite además `Content-Security-Policy-Report-Only` con la misma política para monitorizar violaciones                                                            |
 | `DJANGO_SUPERUSER_USERNAME` / `EMAIL` / `PASSWORD` | para `createadmin` | `admin` / — / —                                 | Usados por `python manage.py createadmin`                                                                                                                    |
 
 Nunca hagas commit del `.env` real (está en `.gitignore`).
+
+> **Correo:** el proveedor es **Resend** y su configuración está fija en `backend/config/email_config.py` (`smtp.resend.com:587`, usuario `resend`, TLS). Solo la API key (`EMAIL_HOST_PASSWORD`) y el remitente (`DEFAULT_FROM_EMAIL`) se leen del entorno.
 
 ### Frontend (`frontend/.env`)
 
@@ -264,16 +271,19 @@ En desarrollo el proxy de Vite elimina la necesidad de esta variable.
 
 ### Autenticación (`/auth/`)
 
-| Método            | Ruta                        | Propósito                                           |
-| ----------------- | --------------------------- | --------------------------------------------------- |
-| GET / POST        | `/auth/users/`              | Listar / crear usuarios (Djoser)                    |
-| GET / PUT / PATCH | `/auth/users/me/`           | Perfil del usuario actual                           |
-| POST              | `/auth/users/set_password/` | Cambiar contraseña                                  |
-| POST              | `/auth/users/activation/`   | Activación de usuario                               |
-| GET               | `/auth/csrf/`               | Obtener token CSRF (cuerpo + cookie)                |
-| POST              | `/auth/jwt/refresh/`        | Refrescar access token (lee cookie HttpOnly)        |
-| POST              | `/auth/jwt/blacklist/`      | Logout (invalida refresh, limpia cookies)           |
-| POST              | `/auth/login/`              | Login (devuelve access token + usuario + csrfToken) |
+| Método            | Ruta                                  | Propósito                                           |
+| ----------------- | ------------------------------------- | --------------------------------------------------- |
+| GET / POST        | `/auth/users/`                        | Listar / crear usuarios (Djoser)                    |
+| GET / PUT / PATCH | `/auth/users/me/`                     | Perfil del usuario actual                           |
+| POST              | `/auth/users/set_password/`           | Cambiar contraseña                                  |
+| POST              | `/auth/users/activation/`             | Activación de usuario                               |
+| POST              | `/auth/users/reset_password/`         | Solicitar enlace de recuperación por email          |
+| POST              | `/auth/users/reset_password_confirm/` | Confirmar nueva contraseña con uid + token          |
+| POST              | `/auth/users/resend_activation/`      | Reenviar el correo de activación                    |
+| GET               | `/auth/csrf/`                         | Obtener token CSRF (cuerpo + cookie)                |
+| POST              | `/auth/jwt/refresh/`                  | Refrescar access token (lee cookie HttpOnly)        |
+| POST              | `/auth/jwt/blacklist/`                | Logout (invalida refresh, limpia cookies)           |
+| POST              | `/auth/login/`                        | Login (devuelve access token + usuario + csrfToken) |
 
 ### Administración e impersonación (`/auth/admin/`)
 
@@ -281,6 +291,7 @@ En desarrollo el proxy de Vite elimina la necesidad de esta variable.
 | -------- | --------------------------- | ----------------------------------------------------- |
 | GET      | `/auth/admin/users/`        | Listar usuarios (superusuario)                        |
 | PATCH    | `/auth/admin/users/{id}/`   | Activar/desactivar y asignar roles (superusuario)     |
+| POST     | `/auth/admin/users/{id}/reset-password/` | Restablecer contraseña de un usuario (superusuario) |
 | POST     | `/auth/admin/impersonate/`  | Iniciar/terminar impersonación (superusuario)         |
 | GET      | `/auth/admin/activity/`     | Historial de eventos (EventLog), filtrar sin paginar  |
 
@@ -361,10 +372,12 @@ Reglas de negocio clave:
 - **JWT (SimpleJWT):** access token de **15 min**, refresh de **1 día**, con rotación en cada refresh y blacklisting tras rotar.
 - **Refresh en cookie HttpOnly** llamada `refresh_token`, acotada a `/auth/`. El **access token solo vive en memoria** del frontend (no en localStorage), evitando exfiltración por XSS.
 - **CSRF double-submit:** token en la cookie `csrftoken` + cabecera `X-CSRFToken`. El token también se devuelve en el cuerpo de `/auth/csrf/`, login y refresh para soporte cross-origin.
-- **Djoser** gestiona registro/`me`/`set_password`/activación.
+- **Djoser** gestiona registro/`me`/`set_password`/activación, **verificación de email** y **recuperación de contraseña** (correos en español). El registro exige email y crea la cuenta **inactiva** hasta activarla desde el enlace; si `REQUIRE_EMAIL_VERIFICATION=False` los registros nacen activos sin enviar correo.
+- **Recuperación de contraseña:** `POST /auth/users/reset_password/` (siempre responde 204 para no revelar qué correos existen) seguido de `reset_password_confirm/` con `uid` + `token`. El enlace lleva al SPA (`/password/reset/confirm/:uid/:token`) con la nueva contraseña. Throttling de **5 intentos/minuto** (`ResetThrottle`).
+- **Reenvío de activación:** el registro con email ya usado devuelve 400 sin revelar si la cuenta existe; hay endpoint `resend_activation/` para reenviar el enlace a una cuenta inactiva.
 - **Restauración de sesión:** la cookie de refresh genera un nuevo access token y se recarga `/auth/users/me/` al recargar la página.
 - **Roles:** grupos de Django (`Student`, `Teacher`, `Admin`). Los nuevos usuarios se asignan automáticamente al grupo `Student` (signal post-save). `User.me` devuelve `roles` y `permissions`.
-- **Throttling:** `LoginThrottle` (5/min), `AuthThrottle` (10/min) y throttles globales anónimos/autenticados (50/min). El frontend maneja los errores `429` con UI dedicada.
+- **Throttling:** `LoginThrottle` (5/min), `AuthThrottle` (10/min), `ResetThrottle` (5/min) y throttles globales anónimos/autenticados (50/min). El frontend maneja los errores `429` con UI dedicada.
 - **Caché de permisos:** comprobación de pertenencia a grupo cacheada (TTL 5 min) con invalidación vía señal al cambiar grupos.
 - **Impersonación restringida a superusuarios:** solo `is_superuser` puede ver como otro usuario; nunca se registra como la identidad real y se muestra un **banner** persistente mientras dure la impersonación.
 
@@ -450,11 +463,11 @@ Por defecto el despliegue es same-origin (Django sirve `frontend/dist`). Si el f
 ## Tests
 
 ```bash
-# Backend (372 tests)
+# Backend (397 tests)
 cd backend
 python manage.py test
 
-# Frontend (189 tests)
+# Frontend (228 tests)
 cd frontend
 npm run test
 npm run lint

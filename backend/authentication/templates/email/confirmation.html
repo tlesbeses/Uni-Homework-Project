@@ -1,0 +1,23 @@
+{% block subject %}
+Tu cuenta en {{ site_name }} fue activada
+{% endblock subject %}
+
+{% block text_body %}
+¡Hola {{ user.get_username }}!
+
+Tu cuenta en {{ site_name }} fue activada correctamente. Ya podés iniciar sesión
+con tu nombre de usuario y contraseña.
+
+Saludos,
+El equipo de {{ site_name }}
+{% endblock text_body %}
+
+{% block html_body %}
+<p>¡Hola {{ user.get_username }}!</p>
+
+<p>Tu cuenta en <strong>{{ site_name }}</strong> fue activada correctamente.
+Ya podés iniciar sesión con tu nombre de usuario y contraseña.</p>
+
+<p>Saludos,<br>El equipo de {{ site_name }}</p>
+
+{% endblock html_body %}

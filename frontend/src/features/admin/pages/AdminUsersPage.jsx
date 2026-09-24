@@ -5,6 +5,7 @@ import { useAuth } from "@/features/auth/providers/AuthProvider";
 import { useAdminUsers } from "@/features/admin/hooks/useAdminUsers";
 import { useDebouncedValue } from "@/shared/hooks/useDebouncedValue";
 import {
+    resetUserPassword,
     setUserActive,
     setUserRole,
 } from "@/features/admin/services/adminService";
@@ -52,6 +53,9 @@ export const AdminUsersPage = () => {
     const [pendingDeactivate, setPendingDeactivate] = useState(null);
     const [pendingRoleChange, setPendingRoleChange] = useState(null);
     const [pendingImpersonation, setPendingImpersonation] = useState(null);
+    const [pendingReset, setPendingReset] = useState(null);
+    const [resetPasswordValue, setResetPasswordValue] = useState("");
+    const [resetPasswordError, setResetPasswordError] = useState("");
 
     const { users, count, totalPages, loading, error, reload, page, setPage, pageSize, handlePageSizeChange } =
         useAdminUsers({ search: debouncedSearch, role });
@@ -151,6 +155,38 @@ export const AdminUsersPage = () => {
         const targetUser = pendingImpersonation;
         setPendingImpersonation(null);
         await handleImpersonate(targetUser);
+    };
+
+    const openResetPassword = (targetUser) => {
+        setResetPasswordValue("");
+        setResetPasswordError("");
+        setPendingReset(targetUser);
+    };
+
+    const confirmResetPassword = async () => {
+        const targetUser = pendingReset;
+        if (!targetUser) {
+            return;
+        }
+        const value = resetPasswordValue.trim();
+        if (value.length < 6) {
+            setResetPasswordError("La contraseña debe tener al menos 6 caracteres.");
+            return;
+        }
+        setPendingReset(null);
+        setBusyId(targetUser.id);
+        try {
+            await resetUserPassword(targetUser.id, value);
+            toast.success(
+                `Contraseña de ${formatUser(targetUser)} restablecida. Compartila por un canal seguro.`
+            );
+        } catch (err) {
+            toast.error(getErrorMessage(err));
+        } finally {
+            setBusyId(null);
+            setResetPasswordValue("");
+            setResetPasswordError("");
+        }
     };
 
     return (
@@ -324,6 +360,14 @@ export const AdminUsersPage = () => {
                             size: "sm",
                         },
                         {
+                            key: "reset-password",
+                            label: "Restablecer contraseña",
+                            onClick: (row) => openResetPassword(row),
+                            disabled: (row) => busyId === row.id,
+                            variant: "outline",
+                            size: "sm",
+                        },
+                        {
                             key: "impersonate",
                             label:
                                 impersonatingId === u.id
@@ -428,6 +472,67 @@ export const AdminUsersPage = () => {
                 onConfirm={confirmImpersonation}
                 busy={Boolean(impersonatingId)}
             />
+
+            {pendingReset && (
+                <Modal
+                    open
+                    title="Restablecer contraseña"
+                    onClose={() => setPendingReset(null)}
+                    size="md"
+                >
+                    <div className="p-6 space-y-4">
+                        <p className="text-sm text-gray-600">
+                            Asigná una contraseña temporal a{" "}
+                            <strong>{formatUser(pendingReset)}</strong>. El
+                            usuario podrá iniciar sesión con ella y luego
+                            cambiarla desde su perfil.
+                        </p>
+                        <div>
+                            <label
+                                htmlFor="admin-reset-password"
+                                className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2"
+                            >
+                                Contraseña nueva
+                            </label>
+                            <input
+                                id="admin-reset-password"
+                                type="password"
+                                value={resetPasswordValue}
+                                onChange={(event) => {
+                                    setResetPasswordValue(event.target.value);
+                                    setResetPasswordError("");
+                                }}
+                                placeholder="••••••••"
+                                className={`w-full px-4 py-3 rounded-lg border outline-none transition text-gray-700 text-sm ${
+                                    resetPasswordError
+                                        ? "border-red-400 focus:ring-2 focus:ring-red-200 focus:border-red-400"
+                                        : "border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                }`}
+                            />
+                            {resetPasswordError && (
+                                <p className="text-red-500 text-xs mt-1">
+                                    {resetPasswordError}
+                                </p>
+                            )}
+                        </div>
+                        <div className="flex justify-end gap-3 pt-2">
+                            <Button
+                                variant="ghost"
+                                onClick={() => setPendingReset(null)}
+                            >
+                                Cancelar
+                            </Button>
+                            <Button
+                                variant="primary"
+                                onClick={confirmResetPassword}
+                                disabled={Boolean(busyId)}
+                            >
+                                Restablecer
+                            </Button>
+                        </div>
+                    </div>
+                </Modal>
+            )}
         </div>
     );
 };

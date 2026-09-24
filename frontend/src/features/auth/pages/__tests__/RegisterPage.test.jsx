@@ -73,7 +73,7 @@ describe("RegisterPage", () => {
         ).toHaveAttribute("href", "/login");
     });
 
-    it("registra al usuario sin confirmPassword y navega al login", async () => {
+    it("registra al usuario sin confirmPassword y muestra el aviso de verificación", async () => {
         registerUser.mockResolvedValue({});
         const user = userEvent.setup();
         renderPage();
@@ -91,9 +91,14 @@ describe("RegisterPage", () => {
             })
         );
         expect(toastMock.success).toHaveBeenCalledWith(
-            "Usuario registrado con éxito"
+            "Usuario registrado. Revisá tu correo para activar tu cuenta."
         );
-        expect(await screen.findByText("Login Stub")).toBeInTheDocument();
+        expect(
+            await screen.findByText("Revisá tu correo")
+        ).toBeInTheDocument();
+        expect(
+            screen.getByText(/Te enviamos un enlace para activar tu cuenta/)
+        ).toBeInTheDocument();
     });
 
     it("rechaza el registro si las contrasenas no coinciden", async () => {

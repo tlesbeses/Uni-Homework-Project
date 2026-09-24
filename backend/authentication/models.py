@@ -30,6 +30,7 @@ class EventLog(models.Model):
     ACTION_CREATE = "create"
     ACTION_UPDATE = "update"
     ACTION_DELETE = "delete"
+    ACTION_PASSWORD_RESET = "password_reset"
 
     actor = models.ForeignKey(
         "authentication.User",

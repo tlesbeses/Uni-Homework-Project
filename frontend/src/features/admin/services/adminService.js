@@ -32,6 +32,14 @@ export const setUserRole = async (userId, role) => {
     return response.data;
 };
 
+export const resetUserPassword = async (userId, newPassword) => {
+    const response = await api.post(
+        `/auth/admin/users/${userId}/reset-password/`,
+        { new_password: newPassword }
+    );
+    return response.data;
+};
+
 export const getActivityLogs = async (params) => {
     const { signal, action, entityType, userId, from, to, page, pageSize, ...queryParams } = params ?? {};
     const query = { ...queryParams };

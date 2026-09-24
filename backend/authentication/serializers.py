@@ -58,9 +58,27 @@ class UserCreateSerializer(DjoserUserCreateSerializer):
         # Agregamos first_name y last_name para que Djoser los capture del JSON
         fields = ('id', 'username', 'email', 'first_name', 'last_name', 'password')
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # El email es obligatorio al registrarse: sin email no se puede
+        # enviar el correo de activación ni recuperar la contraseña. Se
+        # mantiene el UniqueValidator que genera el ModelSerializer.
+        if self.fields.get("email"):
+            self.fields["email"].required = True
+            self.fields["email"].allow_blank = False
+
     def perform_create(self, validated_data):
-        # Guarda el usuario usando la lógica nativa de Django
-        user = User.objects.create_user(**validated_data)
+        # Guarda el usuario usando la lógica nativa de Django.
+        # Con verificación de email obligatoria (REQUIRE_EMAIL_VERIFICATION)
+        # el usuario nace inactivo y solo puede iniciar sesión tras activar
+        # su cuenta desde el correo. Los superusuarios existentes no se ven
+        # afectados (no pasan por acá).
+        from django.conf import settings
+
+        if getattr(settings, "REQUIRE_EMAIL_VERIFICATION", True):
+            user = User.objects.create_user(is_active=False, **validated_data)
+        else:
+            user = User.objects.create_user(**validated_data)
         return user
 
 class UserSerializer(DjoserUserSerializer):

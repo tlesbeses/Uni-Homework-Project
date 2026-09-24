@@ -61,6 +61,9 @@ describe("LoginPage", () => {
         expect(
             screen.getByRole("link", { name: "Registrarme gratis" })
         ).toHaveAttribute("href", "/signup");
+        expect(
+            screen.getByRole("link", { name: "¿Olvidaste tu contraseña?" })
+        ).toHaveAttribute("href", "/forgot-password");
     });
 
     it("envia credenciales, avisa y navega al dashboard", async () => {

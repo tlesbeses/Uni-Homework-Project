@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { render, screen, fireEvent, within, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AdminUsersPage } from "@/features/admin/pages/AdminUsersPage";
@@ -9,6 +9,7 @@ const { adminServiceMock } = vi.hoisted(() => ({
         getAdminUsers: vi.fn(),
         setUserActive: vi.fn(),
         setUserRole: vi.fn(),
+        resetUserPassword: vi.fn(),
     },
 }));
 
@@ -115,6 +116,7 @@ describe("AdminUsersPage", () => {
         adminServiceMock.getAdminUsers.mockReset();
         adminServiceMock.setUserActive.mockReset();
         adminServiceMock.setUserRole.mockReset();
+        adminServiceMock.resetUserPassword.mockReset();
         toastMock.success.mockReset();
         toastMock.error.mockReset();
         authMock.startImpersonation.mockReset();
@@ -320,5 +322,65 @@ describe("AdminUsersPage", () => {
         const rootCard = (await screen.findByText("Root Admin")).closest("li");
         fireEvent.click(rootCard);
         expect(authMock.startImpersonation).not.toHaveBeenCalled();
+    });
+
+    it("restablece la contraseña de un usuario desde el modal", async () => {
+        mockMedia(true);
+        adminServiceMock.resetUserPassword.mockResolvedValue({});
+        renderPage();
+
+        const anaRow = (await screen.findByText("Ana Pez")).closest("tr");
+        fireEvent.click(
+            within(anaRow).getByRole("button", {
+                name: "Restablecer contraseña",
+            })
+        );
+
+        const dialog = screen.getByRole("dialog");
+        fireEvent.change(
+            within(dialog).getByLabelText("Contraseña nueva"),
+            { target: { value: "Temporal123" } }
+        );
+        fireEvent.click(
+            within(dialog).getByRole("button", { name: "Restablecer" })
+        );
+
+        await waitFor(() =>
+            expect(adminServiceMock.resetUserPassword).toHaveBeenCalledWith(
+                3,
+                "Temporal123"
+            )
+        );
+        expect(toastMock.success).toHaveBeenCalledWith(
+            expect.stringContaining("Ana Pez")
+        );
+    });
+
+    it("rechaza una contraseña corta en el modal de restablecimiento", async () => {
+        mockMedia(true);
+        renderPage();
+
+        const anaRow = (await screen.findByText("Ana Pez")).closest("tr");
+        fireEvent.click(
+            within(anaRow).getByRole("button", {
+                name: "Restablecer contraseña",
+            })
+        );
+
+        const dialog = screen.getByRole("dialog");
+        fireEvent.change(
+            within(dialog).getByLabelText("Contraseña nueva"),
+            { target: { value: "123" } }
+        );
+        fireEvent.click(
+            within(dialog).getByRole("button", { name: "Restablecer" })
+        );
+
+        expect(
+            await screen.findByText(
+                "La contraseña debe tener al menos 6 caracteres."
+            )
+        ).toBeInTheDocument();
+        expect(adminServiceMock.resetUserPassword).not.toHaveBeenCalled();
     });
 });
