@@ -40,6 +40,16 @@ def report_exception(*, exc, request=None, error_id_ref="", source=ErrorLog.SOUR
     except Exception:  # pragma: no cover - defensive
         tb = ""
 
+    # El error también sale por stderr (logs del servicio en el deploy), para
+    # que sea visible aunque el persistido en ErrorLog falle.
+    if source == ErrorLog.SOURCE_SERVER:
+        logger.error(
+            "Error de servidor (%s): %s",
+            type(exc).__name__,
+            exc,
+            exc_info=exc,
+        )
+
     payload = {
         "error_id_ref": error_id_ref or "",
         "source": source,

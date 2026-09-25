@@ -418,3 +418,36 @@ DJOSER = {
     },
 }
 
+# Logging. En producción Render captura stderr, así que cualquier error del
+# proveedor de correo o de la API se vuelve visible en los logs del servicio
+# sin depender de una shell. "edunotas.errors" escribe ERROR+ con traceback;
+# django.request también registra los 5xx que Django matchea por URL.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "[{asctime}] {levelname} {name}: {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+    },
+    "loggers": {
+        "edunotas": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": False,
+        },
+        "django.request": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": False,
+        },
+    },
+}
+
