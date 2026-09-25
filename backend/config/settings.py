@@ -57,10 +57,11 @@ ALLOWED_HOSTS = os.getenv(
 
 AUTH_USER_MODEL = "authentication.User"
 
-# Proveedor de correo (Resend): toda la configuración vive en
-# config/email_config.py; del entorno solo se lee la API key
-# (EMAIL_HOST_PASSWORD). Este import va antes del override de tests
-# (EMAIL_BACKEND = locmem) que aparece más abajo.
+# Proveedor de correo (Gmail SMTP): toda la configuración vive en
+# config/email_config.py; del entorno solo se leen la cuenta
+# (EMAIL_HOST_USER) y la app password (EMAIL_HOST_PASSWORD). Este import
+# va antes del override de tests (EMAIL_BACKEND = locmem) que aparece más
+# abajo.
 from config.email_config import (
     DEFAULT_FROM_EMAIL,
     EMAIL_BACKEND,
@@ -383,9 +384,9 @@ if _CSP_APPLY or _csp_report_uri:
         CSP_REPORT_ONLY = _CSP_POLICY
 
 # Envío de correo (activación de cuenta, confirmación y recuperación de
-# contraseña). La configuración del proveedor (Resend) se importó arriba
+# contraseña). La configuración del proveedor (Gmail SMTP) se importó arriba
 # desde config/email_config.py; allí conviven los valores fijos del relay
-# SMTP y solo la API key se lee del entorno.
+# SMTP y solo la cuenta y la app password se leen del entorno.
 
 # Objetos útiles para el email backend: esperar a que un email "del sitio"
 # que el usuario recibió sea válido (verificación de cuenta) o no sea
