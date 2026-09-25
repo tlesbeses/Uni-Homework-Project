@@ -69,6 +69,7 @@ from config.email_config import (
     EMAIL_HOST_PASSWORD,
     EMAIL_HOST_USER,
     EMAIL_PORT,
+    EMAIL_TIMEOUT,
     EMAIL_USE_TLS,
 )
 
