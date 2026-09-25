@@ -25,6 +25,12 @@ export const activateUser = async (uid, token) => {
     await api.post("/auth/users/activation/", { uid, token });
 };
 
+// Solo cuentas que nunca activaron reciben un link nuevo (back-end filtró
+// el resto para que un desactivado por admin no se re-active solo).
+export const resendUserActivation = async (email) => {
+    await api.post("/auth/users/resend_activation/", { email });
+};
+
 export const requestPasswordReset = async (email) => {
     await api.post("/auth/users/reset_password/", { email });
 };

@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useActivate } from "@/features/auth/hooks/useActivate";
+import { ResendActivationBlock } from "@/features/auth/components/ResendActivationBlock";
 import { Button } from "@/shared/components/ui/Button";
 
 export const ActivatePage = () => {
@@ -61,6 +62,10 @@ export const ActivatePage = () => {
                             >
                                 Volver al inicio de sesión
                             </Link>
+                            <ResendActivationBlock
+                                triggerText="¿El enlace venció? Reenviar"
+                                className="p-4"
+                            />
                         </>
                     )}
                 </div>

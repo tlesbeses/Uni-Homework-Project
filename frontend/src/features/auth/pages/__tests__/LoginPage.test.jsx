@@ -29,6 +29,11 @@ vi.mock("react-toastify", () => ({ toast: toastMock }));
 vi.mock("@/features/auth/providers/AuthProvider", () => ({
     useAuth: () => authMock,
 }));
+vi.mock("@/features/auth/services/authService", () => ({
+    resendUserActivation: vi.fn(),
+}));
+
+import { resendUserActivation } from "@/features/auth/services/authService";
 
 function renderPage() {
     return render(
@@ -46,6 +51,7 @@ describe("LoginPage", () => {
         toastMock.success.mockReset();
         toastMock.error.mockReset();
         authMock.login.mockReset();
+        resendUserActivation.mockReset();
     });
 
     it("muestra el formulario y el vinculo al registro", () => {
@@ -128,5 +134,61 @@ describe("LoginPage", () => {
             )
         );
         expect(authMock.login).toHaveBeenCalled();
+    });
+
+    it("reenvía el correo de activación desde el login", async () => {
+        resendUserActivation.mockResolvedValue({});
+        const user = userEvent.setup();
+        renderPage();
+
+        await user.click(
+            screen.getByRole("button", {
+                name: "¿No te llegó el correo? Reenviar",
+            })
+        );
+        await user.type(
+            screen.getByLabelText("Correo electrónico"),
+            "nuevo@example.com"
+        );
+        await user.click(
+            screen.getByRole("button", { name: "Reenviar enlace" })
+        );
+
+        await waitFor(() =>
+            expect(resendUserActivation).toHaveBeenCalledWith(
+                "nuevo@example.com"
+            )
+        );
+        expect(
+            screen.getByText(/Si existe una cuenta sin activar/)
+        ).toBeInTheDocument();
+    });
+
+    it("muestra el aviso de reintento si el reenvío responde 429", async () => {
+        resendUserActivation.mockRejectedValue({
+            response: { status: 429 },
+        });
+        const user = userEvent.setup();
+        renderPage();
+
+        await user.click(
+            screen.getByRole("button", {
+                name: "¿No te llegó el correo? Reenviar",
+            })
+        );
+        await user.type(
+            screen.getByLabelText("Correo electrónico"),
+            "nuevo@example.com"
+        );
+        await user.click(
+            screen.getByRole("button", { name: "Reenviar enlace" })
+        );
+
+        expect(
+            await screen.findByText(
+                "Demasiados intentos. Espera un momento e inténtalo de nuevo."
+            )
+        ).toBeInTheDocument();
+        expect(resendUserActivation).toHaveBeenCalled();
     });
 });

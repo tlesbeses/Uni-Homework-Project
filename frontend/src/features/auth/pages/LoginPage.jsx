@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { LoginForm } from "@/features/auth/components/LoginForm";
+import { ResendActivationBlock } from "@/features/auth/components/ResendActivationBlock";
 
 export const LoginPage = () => (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
@@ -19,6 +20,8 @@ export const LoginPage = () => (
                     ¿Olvidaste tu contraseña?
                 </Link>
             </div>
+
+            <ResendActivationBlock />
 
             <div className="bg-gray-50 border-t border-gray-100 px-8 py-4 text-center">
                 <p className="text-sm text-gray-600">

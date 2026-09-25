@@ -1,13 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { ActivatePage } from "@/features/auth/pages/ActivatePage";
 
 vi.mock("@/features/auth/services/authService", () => ({
     activateUser: vi.fn(),
+    resendUserActivation: vi.fn(),
 }));
 
-import { activateUser } from "@/features/auth/services/authService";
+import {
+    activateUser,
+    resendUserActivation,
+} from "@/features/auth/services/authService";
 
 const UID = "MQ";
 const TOKEN = "token-de-prueba";
@@ -29,6 +34,7 @@ function renderPage() {
 describe("ActivatePage", () => {
     beforeEach(() => {
         activateUser.mockReset();
+        resendUserActivation.mockReset();
     });
 
     it("activa la cuenta y muestra el éxito con botón al login", async () => {
@@ -80,6 +86,37 @@ describe("ActivatePage", () => {
             screen.getByText(
                 "Demasiados intentos. Espera un momento e inténtalo de nuevo."
             )
+        ).toBeInTheDocument();
+    });
+
+    it("ofrece reenviar la activación cuando el enlace falla", async () => {
+        activateUser.mockRejectedValue({
+            response: { status: 400 },
+        });
+        resendUserActivation.mockResolvedValue({});
+        const user = userEvent.setup();
+        renderPage();
+
+        const resendButton = await screen.findByRole("button", {
+            name: "¿El enlace venció? Reenviar",
+        });
+        await user.click(resendButton);
+
+        await user.type(
+            screen.getByLabelText("Correo electrónico"),
+            "nuevo@example.com"
+        );
+        await user.click(
+            screen.getByRole("button", { name: "Reenviar enlace" })
+        );
+
+        await waitFor(() =>
+            expect(resendUserActivation).toHaveBeenCalledWith(
+                "nuevo@example.com"
+            )
+        );
+        expect(
+            screen.getByText(/Si existe una cuenta sin activar/)
         ).toBeInTheDocument();
     });
 });
