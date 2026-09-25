@@ -1587,6 +1587,37 @@ class EmailFailureCaptureTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertEqual(ErrorLog.objects.count(), 0)
 
+    def test_reset_password_failure_exposes_trace_to_superuser(self):
+        admin = User.objects.create_superuser(
+            username="diagnostico",
+            email="diagnostico@example.com",
+            password="RootPass123",
+        )
+        User.objects.create_user(
+            username="perdida2",
+            email="perdida2@example.com",
+            password="OldPass123",
+        )
+        self.client.force_authenticate(admin)
+
+        with override_settings(EMAIL_BACKEND="authentication.tests._FailingEmailBackend"):
+            response = self.client.post(
+                "/auth/users/reset_password/",
+                {"email": "perdida2@example.com"},
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("email_error", response.data)
+        self.assertEqual(
+            response.data["email_error"]["error_type"], "builtins.OSError"
+        )
+        self.assertIn(
+            "smtp no disponible",
+            response.data["email_error"]["error_message"],
+        )
+        self.assertTrue(response.data["email_error"]["error_id"])
+
 
 class TestEmailEndpointTests(BaseAdminTestCase):
     """POST /auth/admin/test-email/: diagnóstico del SMTP sin shell."""

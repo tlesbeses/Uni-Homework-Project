@@ -105,3 +105,11 @@ export const getErrorLog = async (errorId, opts) => {
     });
     return response.data;
 };
+
+export const testEmail = async (toEmail = "") => {
+    const response = await api.post(
+        "/auth/admin/test-email/",
+        toEmail ? { to: toEmail } : {}
+    );
+    return response.data;
+};
