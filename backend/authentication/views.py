@@ -230,12 +230,21 @@ class UsersViewSet(DjoserUserViewSet):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     def resend_activation(self, request, *args, **kwargs):
+        """Reenvía la activación SOLO a cuentas que nunca activaron.
+
+        Una cuenta creada sin activar (``activated_at`` NULL) recibe un nuevo
+        correo con su uid+token. Si el usuario ya activó alguna vez y luego un
+        admin lo deshabilitó, NO se reenvía nada: el token nuevo sería válido
+        y permitiría a un usuario deshabilitado re-activarse solo. En ambos
+        casos el endpoint responde 204 para no revelar si el correo existe
+        (anti-enumeración).
+        """
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.get_user(is_active=False)
         if not djoser_settings.SEND_ACTIVATION_EMAIL:
             return Response(status=status.HTTP_400_BAD_REQUEST)
-        if user:
+        if user and user.activated_at is None:
             error_info = self._send_djoser_email(request, "activation", user)
             if (
                 error_info
@@ -246,6 +255,31 @@ class UsersViewSet(DjoserUserViewSet):
                     {"email_error": error_info},
                     status=status.HTTP_200_OK,
                 )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def activation(self, request, *args, **kwargs):
+        """Activa la cuenta replicando Djoser pero con la confirmación capturada.
+
+        Djoser activa al usuario, emite ``user_activated`` (nuestra señal
+        marca ``activated_at``) y envía el correo de confirmación directo: si
+        Brevo fallara en ese envío, el endpoint respondería 500 aunque la
+        cuenta ya quedó activada. Acá la confirmación va por
+        ``_send_djoser_email`` para que la activación responda 204 siempre y
+        el fallo quede en ErrorLog, igual que en registro/reenvío/reset.
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.user
+        user.is_active = True
+        user.save()
+
+        signals.user_activated.send(
+            sender=self.__class__, user=user, request=self.request
+        )
+
+        if djoser_settings.SEND_CONFIRMATION_EMAIL:
+            self._send_djoser_email(request, "confirmation", user)
+
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

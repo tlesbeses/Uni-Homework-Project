@@ -10,6 +10,14 @@ class User(AbstractUser):
         null=True,
         blank=True,
     )
+    activated_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=(
+            "Momento en el que el usuario activó su cuenta por email. "
+            "NULL = nunca activó (puede pedir reenvío)."
+        ),
+    )
 
     def save(self, *args, **kwargs):
         if not self.email:

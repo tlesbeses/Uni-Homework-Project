@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
+from django.conf import settings
 from django.core import mail
 from django.core.cache import cache
 from django.contrib.auth.models import AnonymousUser, Group
@@ -22,6 +23,26 @@ from config.errors import api_exception_handler
 
 User = get_user_model()
 encode_uid = djoser_utils.encode_uid
+
+
+def _djoser_override(**params):
+    """DJOSER completo con dominio/productivo en los correos de los tests.
+
+    ``override_settings(DJOSER=...)`` reemplaza el dict entero, así que se
+    parte de la config real y solo se ajustan las claves pedidas.
+    """
+    overrides = {
+        "EMAIL_FRONTEND_DOMAIN": "uni-homework-project.onrender.com",
+        "EMAIL_FRONTEND_PROTOCOL": "https",
+        "EMAIL_FRONTEND_SITE_NAME": "EduNotas",
+        "DOMAIN": "uni-homework-project.onrender.com",
+        "PROTOCOL": "https",
+        "SITE_NAME": "EduNotas",
+    }
+    overrides.update(params)
+    djoser = dict(settings.DJOSER)
+    djoser.update(overrides)
+    return djoser
 
 
 class BaseAdminTestCase(APITestCase):
@@ -1311,6 +1332,74 @@ class AccountActivationTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertEqual(len(mail.outbox), 0)
 
+    def test_activation_email_link_uses_configured_domain(self):
+        with override_settings(DJOSER=_djoser_override()):
+            self._register()
+
+        user = User.objects.get(username="nuevo")
+        sent = mail.outbox[0]
+        self.assertIn(
+            "https://uni-homework-project.onrender.com/activate/",
+            sent.body,
+        )
+        self.assertIn(encode_uid(user.pk), sent.body)
+
+    def test_activation_stamps_activated_at(self):
+        self._register()
+        user = User.objects.get(username="nuevo")
+        self.assertIsNone(user.activated_at)
+
+        self.client.post(
+            "/auth/users/activation/", self._activation_payload(user), format="json"
+        )
+
+        user.refresh_from_db()
+        self.assertIsNotNone(user.activated_at)
+        self.assertTrue(user.is_active)
+
+    def test_resend_activation_link_still_activates_never_activated_user(self):
+        self._register()
+        user = User.objects.get(username="nuevo")
+        mail.outbox = []
+
+        response = self.client.post(
+            "/auth/users/resend_activation/", {"email": "nuevo@example.com"}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn(encode_uid(user.pk), mail.outbox[0].body)
+
+        self.client.post(
+            "/auth/users/activation/", self._activation_payload(user), format="json"
+        )
+
+        user.refresh_from_db()
+        self.assertTrue(user.is_active)
+        self.assertIsNotNone(user.activated_at)
+
+    def test_resend_activation_does_not_resend_to_admin_disabled_user(self):
+        self._register()
+        user = User.objects.get(username="nuevo")
+        self.client.post(
+            "/auth/users/activation/", self._activation_payload(user), format="json"
+        )
+        user.refresh_from_db()
+        self.assertTrue(user.is_active)
+        self.assertIsNotNone(user.activated_at)
+
+        # Un admin deshabilita la cuenta después de la activación inicial.
+        user.is_active = False
+        user.save(update_fields=["is_active"])
+
+        mail.outbox = []
+        response = self.client.post(
+            "/auth/users/resend_activation/", {"email": "nuevo@example.com"}, format="json"
+        )
+        # 204 siempre (anti-enumeración), pero sin correo: un reenvío
+        # permitiría al usuario deshabilitado re-activarse solo.
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(len(mail.outbox), 0)
+
     def test_register_without_email_is_rejected(self):
         response = self._register(email="")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -1335,15 +1424,19 @@ class PasswordResetFlowTests(APITestCase):
     def test_reset_password_sends_email_with_confirm_url(self):
         user = self._user()
 
-        response = self.client.post(
-            "/auth/users/reset_password/", {"email": "perdida@example.com"}, format="json"
-        )
+        with override_settings(DJOSER=_djoser_override()):
+            response = self.client.post(
+                "/auth/users/reset_password/", {"email": "perdida@example.com"}, format="json"
+            )
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 
         self.assertEqual(len(mail.outbox), 1)
         sent = mail.outbox[0]
         self.assertIn("Restablecimiento de contraseña", sent.subject)
-        self.assertIn("password/reset/confirm/", sent.body)
+        self.assertIn(
+            "https://uni-homework-project.onrender.com/password/reset/confirm/",
+            sent.body,
+        )
         self.assertIn(encode_uid(user.pk), sent.body)
 
     def test_reset_password_hides_whether_email_exists(self):
@@ -1612,6 +1705,46 @@ class EmailFailureCaptureTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertEqual(ErrorLog.objects.count(), 0)
+
+    def test_activation_succeeds_even_if_confirmation_email_fails(self):
+        response = self.client.post(
+            "/auth/users/",
+            {
+                "username": "activa_fallo",
+                "email": "activafallo@example.com",
+                "first_name": "Activa",
+                "last_name": "Fallo",
+                "password": "StrongPass123",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        user = User.objects.get(username="activa_fallo")
+        self.assertFalse(user.is_active)
+
+        payload = {
+            "uid": encode_uid(user.pk),
+            "token": default_token_generator.make_token(user),
+        }
+
+        with override_settings(
+            EMAIL_BACKEND="authentication.tests._FailingEmailBackend"
+        ):
+            response = self.client.post(
+                "/auth/users/activation/", payload, format="json"
+            )
+
+        # La cuenta queda activa aunque el correo de confirmación falle, y el
+        # fallo queda en ErrorLog en vez de responder 500.
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        user.refresh_from_db()
+        self.assertTrue(user.is_active)
+        self.assertIsNotNone(user.activated_at)
+        log = ErrorLog.objects.get(
+            source=ErrorLog.SOURCE_SERVER, kind="builtins.OSError"
+        )
+        self.assertIn("smtp no disponible", log.message)
+        self.assertEqual(log.path, "/auth/users/activation/")
 
     def test_reset_password_failure_exposes_trace_to_superuser(self):
         admin = User.objects.create_superuser(

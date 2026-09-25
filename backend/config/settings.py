@@ -413,6 +413,19 @@ DJOSER = {
     # URL del SPA que Djoser incrusta en los correos (uid + token en el path).
     'ACTIVATION_URL': 'activate/{uid}/{token}/',
     'PASSWORD_RESET_CONFIRM_URL': 'password/reset/confirm/{uid}/{token}/',
+    # Dominio/protocolo con el que Djoser arma los links de los correos
+    # (activación y reset de contraseña). Djoser usa EMAIL_FRONTEND_*; sin
+    # ellos caería a RequestSite (Host del request), que es implícito y poco
+    # robusto. Aquí se fuerza el host real de Render con HTTPS en producción
+    # y el dev server en local. DOMAIN/PROTOCOL/SITE_NAME quedan como
+    # fallback para mensajes sin request. Override por entorno solo si el
+    # despliegue usa un dominio propio.
+    'EMAIL_FRONTEND_DOMAIN': os.getenv('DJOSER_DOMAIN', 'uni-homework-project.onrender.com' if not DEBUG else 'localhost:8000'),
+    'EMAIL_FRONTEND_PROTOCOL': os.getenv('DJOSER_PROTOCOL', 'https' if not DEBUG else 'http'),
+    'EMAIL_FRONTEND_SITE_NAME': os.getenv('DJOSER_SITE_NAME', 'EduNotas'),
+    'DOMAIN': os.getenv('DJOSER_DOMAIN', 'uni-homework-project.onrender.com' if not DEBUG else 'localhost:8000'),
+    'SITE_NAME': os.getenv('DJOSER_SITE_NAME', 'EduNotas'),
+    'PROTOCOL': os.getenv('DJOSER_PROTOCOL', 'https' if not DEBUG else 'http'),
     # No revelar si un email está registrado (anti-enumeración).
     'PASSWORD_RESET_SHOW_EMAIL_NOT_FOUND': False,
     'SERIALIZERS': {
