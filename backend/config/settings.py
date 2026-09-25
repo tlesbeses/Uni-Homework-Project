@@ -443,6 +443,16 @@ LOGGING = {
             "level": "ERROR",
             "propagate": False,
         },
+        "django.core.mail": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+        "smtplib": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
         "django.request": {
             "handlers": ["console"],
             "level": "ERROR",

@@ -1,4 +1,5 @@
 import logging
+import smtplib
 from datetime import timedelta
 
 from django.conf import settings
@@ -85,6 +86,35 @@ def _clear_auth_cookies(response):
     response.delete_cookie(REFRESH_COOKIE_NAME, path=REFRESH_COOKIE_PATH)
 
 
+def _email_error_info(exc):
+    """Detalle estructurado de un fallo del SMTP para logs y diagnóstico."""
+    error_type = f"{type(exc).__module__}.{type(exc).__name__}"
+
+    if isinstance(exc, smtplib.SMTPAuthenticationError):
+        server_reply = exc.smtp_error
+        if isinstance(server_reply, bytes):
+            server_reply = server_reply.decode("utf-8", "replace").strip()
+        message = (
+            f"Autenticación SMTP rechazada (código {exc.smtp_code}): "
+            f"{server_reply}"
+        )
+    elif isinstance(exc, smtplib.SMTPRecipientsRefused):
+        message = f"Destinatario rechazado por el servidor SMTP: {exc}"
+    elif isinstance(exc, smtplib.SMTPServerDisconnected):
+        message = f"El servidor SMTP cerró la conexión: {exc}"
+    elif isinstance(exc, smtplib.SMTPResponseException):
+        message = (
+            f"Respuesta de error del SMTP (código {exc.smtp_code}): {exc.smtp_error}"
+        )
+    else:
+        message = str(exc) or error_type
+
+    return {
+        "error_type": error_type,
+        "error_message": message[:2000],
+    }
+
+
 class CsrfView(APIView):
     """Entrega el token CSRF para habilitar el patrón double-submit.
 
@@ -130,6 +160,9 @@ class UsersViewSet(DjoserUserViewSet):
         (con ``error_id`` visible en la consola admin). El endpoint responde
         como si el envío hubiera tenido éxito para no revelar si el correo
         existe (anti-enumeración); el fallo queda visible por otro canal.
+
+        Devuelve un dict con ``error_type``, ``error_message`` y ``error_id``
+        cuando el envío falla, o ``None`` si terminó con éxito.
         """
         context = {"user": user}
         email_class = (
@@ -140,21 +173,38 @@ class UsersViewSet(DjoserUserViewSet):
         to = [get_user_email(user)]
         try:
             email_class(request, context).send(to)
+            return None
         except Exception as exc:
+            error_info = _email_error_info(exc)
             logger.exception(
-                "Fallo el envío de correo (%s) para %s",
+                "Fallo el envío de correo (%s) para %s: %s",
                 email_kind,
                 getattr(user, "email", "<sin email>"),
+                error_info["error_message"],
             )
             error_id = report_exception(exc=exc, request=request)
-            logger.error("Error de correo capturado en ErrorLog con error_id=%s", error_id)
+            logger.error(
+                "Error de correo capturado en ErrorLog con error_id=%s (%s)",
+                error_id,
+                error_info["error_type"],
+            )
+            return {"error_id": error_id, **error_info}
 
     def reset_password(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.get_user()
         if user:
-            self._send_djoser_email(request, "password_reset", user)
+            error_info = self._send_djoser_email(request, "password_reset", user)
+            if (
+                error_info
+                and request.user.is_authenticated
+                and request.user.is_superuser
+            ):
+                return Response(
+                    {"email_error": error_info},
+                    status=status.HTTP_200_OK,
+                )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     def resend_activation(self, request, *args, **kwargs):
@@ -164,7 +214,16 @@ class UsersViewSet(DjoserUserViewSet):
         if not djoser_settings.SEND_ACTIVATION_EMAIL:
             return Response(status=status.HTTP_400_BAD_REQUEST)
         if user:
-            self._send_djoser_email(request, "activation", user)
+            error_info = self._send_djoser_email(request, "activation", user)
+            if (
+                error_info
+                and request.user.is_authenticated
+                and request.user.is_superuser
+            ):
+                return Response(
+                    {"email_error": error_info},
+                    status=status.HTTP_200_OK,
+                )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
