@@ -1,56 +1,24 @@
-"""Proveedor de correo: Gmail SMTP.
+"""Proveedor de correo ACTIVO.
 
-Toda la configuración del proveedor está fija en este módulo. Lo único
-que se lee del entorno es la cuenta Gmail (``EMAIL_HOST_USER``), su app
-password (``EMAIL_HOST_PASSWORD``) y, opcionalmente, el remitente
-(``DEFAULT_FROM_EMAIL``).
+Cada proveedor vive en ``config/providers/`` (``gmail.py``, ``brevo.py``)
+con TODA su configuración fija en código (host, puerto, TLS, backend, y el
+fallback a ``console`` cuando faltan credenciales). Del entorno solo se lee
+la credencial secreta de cada proveedor — Gmail: ``EMAIL_HOST_USER`` y
+``EMAIL_HOST_PASSWORD``; Brevo: ``BREVO_API_KEY`` — que nunca se commitea.
 
-La app password se genera en Google (cuenta → Seguridad → Verificación
-en 2 pasos → Contraseñas de aplicación) y se define como variable de
-entorno ``EMAIL_HOST_PASSWORD`` en ``backend/.env`` (local) o en las
-variables de entorno del deploy (Render). Nunca debe ir en el código ni
-subirse al repositorio.
-
-Con Gmail, la dirección del remitente debe ser la cuenta que se
-autentica (Google lo fuerza); el nombre mostrado ("EduNotas") sí puede
-ser cualquiera.
+Para cambiar de proveedor solo se edita UNA línea: la importación de abajo.
 """
 
-import os
-
-# Backend SMTP de Django usando el relay de Gmail. Fijo.
-_EMAIL_BACKEND_SMTP = "django.core.mail.backends.smtp.EmailBackend"
-_EMAIL_BACKEND_CONSOLE = "django.core.mail.backends.console.EmailBackend"
-
-# Parámetros del relay SMTP de Gmail (valores fijos del proveedor).
-EMAIL_HOST = "smtp.gmail.com"
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-
-# Timeout (segundos) por fase de la conexión SMTP. Sin él, un proveedor que
-# "absorbe" la conexión sin responder (p. ej. Google bloqueando una IP de
-# datacenter) deja colgado al worker de gunicorn y Render responde con su
-# propia página "Internal Server Error". Con timeout el fallo se convierte en
-# una excepción capturable (socket.timeout) que el endpoint de diagnóstico
-# devuelve como JSON con error_type/error_id.
-EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "20"))
-
-# Credenciales dinámicas: la cuenta Gmail y su app password.
-EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
-EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
-
-# Remitente por defecto. Con Gmail la dirección debe ser la cuenta que
-# se autentica (EMAIL_HOST_USER); el nombre mostrado es libre.
-DEFAULT_FROM_EMAIL = os.getenv(
-    "DEFAULT_FROM_EMAIL",
-    f"EduNotas <{EMAIL_HOST_USER}>" if EMAIL_HOST_USER else "EduNotas <no-reply@local.edunotas>",
-)
-
-# Sin credenciales (por ejemplo, desarrollo local sin configurar) se cae
-# al backend "console", que imprime cada correo en la terminal, para no
-# romper el flujo de envío.
-EMAIL_BACKEND = (
-    _EMAIL_BACKEND_SMTP
-    if EMAIL_HOST_USER and EMAIL_HOST_PASSWORD
-    else _EMAIL_BACKEND_CONSOLE
-)
+# ==================== PROVEEDOR ACTIVO ====================
+# Cambiá ESTA línea para cambiar de proveedor:
+#
+#   - from config.providers.brevo import *   -> REST API de Brevo (HTTPS/443).
+#     Recomendado para PRODUCCIÓN: Render free bloquea el SMTP saliente
+#     (puertos 25/465/587 desde sept/2025), así que Gmail no puede enviar.
+#     Credencial: BREVO_API_KEY (clave v3). Remitente verificado en Brevo.
+#
+#   - from config.providers.gmail import *   -> Gmail SMTP (smtp.gmail.com:587,
+#     TLS). Para dev o entornos con SMTP habilitado. Credenciales:
+#     EMAIL_HOST_USER y EMAIL_HOST_PASSWORD (app password con 2FA).
+# ===========================================================
+from config.providers.brevo import *  # noqa: F401,F403

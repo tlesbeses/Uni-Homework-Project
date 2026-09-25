@@ -52,7 +52,7 @@ Aplicación web de gestión académica para profesores y estudiantes: cursos, se
 - **Paneles de control** — Paneles específicos por rol (profesor vs. estudiante) con cursos, inscripciones, notas, tareas y una **evolución de la nota final** con gráfico.
 - **PWA** — Progressive Web App con banner de instalación, splash screen, manifest personalizado y service worker servido por Django.
 - **Control de acceso por roles** — Los usuarios pertenecen a grupos de Django (`Student`, `Teacher`, `Admin`). Los superusuarios omiten todas las comprobaciones de permisos.
-- **Verificación de email** — Los registros nuevos nacen **inactivos** hasta activar la cuenta desde el enlace que llega por correo; el email es obligatorio al registrarse. El panel envía correos de confirmación y de cambio de contraseña (todo en español, vía el relay SMTP de **Gmail**; la config del proveedor está fija en `config/email_config.py` y solo la cuenta y la app password van por entorno; `console` en desarrollo).
+- **Verificación de email** — Los registros nuevos nacen **inactivos** hasta activar la cuenta desde el enlace que llega por correo; el email es obligatorio al registrarse. El panel envía correos de confirmación y de cambio de contraseña (todo en español; en producción por la **REST API de Brevo** —HTTPS/443, Render free no lo bloquea— y en dev por el relay SMTP de **Gmail** o el backend `console`; el proveedor activo se elige con una línea en `config/email_config.py`).
 - **Recuperación de contraseña** — Flujo "¿Olvidaste tu contraseña?" con enlace por email y límite de **5 intentos/minuto**. Los superusuarios pueden además **restablecer la contraseña de cualquier usuario** desde el panel de administración (útil para cuentas sin email).
 - **Impersonación de superusuario** — Un superusuario puede **ver la aplicación como otro usuario** (banner de impersonación persistente), para depurar y revisar el sistema desde otras cuentas.
 - **Registro de actividad (auditoría)** — Cada acción relevante (login, impersonación, gestión de cursos/equipos/tareas/notas, cambios en usuarios) genera un **EventLog** con autor, acción, destino y metadatos.
@@ -247,16 +247,25 @@ Pasos que ejecuta:
 | `AUTH_COOKIE_SAMESITE`                             | No                 | `Lax`                                           | `None` solo si frontend y API están en sitios distintos (fuerza Secure)                                                                                      |
 | `REDIS_URL`                                        | No                 | `(LocMemCache)`                                 | Caché en producción. Al desplegar un servicio Redis se obtiene caché compartida entre workers                                                                |
 | `REQUIRE_EMAIL_VERIFICATION`                       | No                 | `True`                                          | `False` desactiva la verificación de email: los registros nacen activos sin enviar correo                                                                   |
-| `EMAIL_HOST_USER`                                 | No                 | —                                               | Cuenta Gmail que envía los correos (usuario del SMTP). Sin credenciales se usa el backend `console` (dev)                                                    |
-| `EMAIL_HOST_PASSWORD`                              | No                 | —                                               | **App password de Google** para `EMAIL_HOST_USER` (generada con 2FA). Sin ella se usa el backend `console` (dev)                                                |
-| `DEFAULT_FROM_EMAIL`                               | No                 | `EduNotas <EMAIL_HOST_USER>`                    | Remitente de los correos de activación / recuperación. Con Gmail la dirección debe ser `EMAIL_HOST_USER`; el nombre mostrado es libre                            |
+| `BREVO_API_KEY`                                    | No                 | —                                               | Clave de API v3 de Brevo (https://api.brevo.com/v3/smtp/email). **Única credencial del proveedor Brevo** (el activo por defecto)                               |
+| `BREVO_SENDER`                                     | No                 | `EduNotas <pevin.kevin@gmail.com>`              | Remitente verificado en Brevo: `"Nombre <email>"`. La dirección debe ser la que verificaste                                                                   |
+| `EMAIL_HOST_USER`                                 | No                 | —                                               | Cuenta Gmail para el SMTP (solo si el proveedor activo es Gmail). Sin credenciales se usa el backend `console` (dev)                                            |
+| `EMAIL_HOST_PASSWORD`                              | No                 | —                                               | **App password de Google** para `EMAIL_HOST_USER` (2FA). Solo si el proveedor activo es Gmail (sin ella → `console`)                                            |
+| `DEFAULT_FROM_EMAIL`                               | No                 | por proveedor                                     | Remitente de los correos. Gmail: `EduNotas <EMAIL_HOST_USER>`; Brevo: `BREVO_SENDER`                                                                         |
 | `CSP_APPLY`                                         | No                 | `True`                                          | Emite `Content-Security-Policy` (modo bloqueo) en producción; `False` para desactivarla                                                                            |
 | `CSP_REPORT_URI`                                   | No                 | —                                               | Emite además `Content-Security-Policy-Report-Only` con la misma política para monitorizar violaciones                                                            |
 | `DJANGO_SUPERUSER_USERNAME` / `EMAIL` / `PASSWORD` | para `createadmin` | `admin` / — / —                                 | Usados por `python manage.py createadmin`                                                                                                                    |
 
 Nunca hagas commit del `.env` real (está en `.gitignore`).
 
-> **Correo:** el proveedor es **Gmail SMTP** y su configuración está fija en `backend/config/email_config.py` (`smtp.gmail.com:587`, TLS). Solo la cuenta (`EMAIL_HOST_USER`), su app password (`EMAIL_HOST_PASSWORD`) y el remitente (`DEFAULT_FROM_EMAIL`) se leen del entorno.
+> **Correo — proveedor elegido en código, con UNA línea:** el conmutador es `backend/config/email_config.py`, que importa el proveedor activo desde `backend/config/providers/`:
+> ```python
+> from config.providers.brevo import *   # REST API de Brevo (HTTPS/443)  [default]
+> # from config.providers.gmail import * # Gmail SMTP (smtp.gmail.com:587)
+> ```
+> - **Brevo (producción):** Render free bloquea SMTP saliente (25/465/587) desde sept/2025, así que Gmail no puede enviar ahí; la API de Brevo viaja por **HTTPS (443)**, que nunca se bloquea. Única credencial: `BREVO_API_KEY`, y el remitente (`BREVO_SENDER`) debe verificarse en Brevo.
+> - **Gmail (dev/SMTP habilitado):** relay `smtp.gmail.com:587` con TLS; credenciales `EMAIL_HOST_USER` + `EMAIL_HOST_PASSWORD` (app password con 2FA).
+> - **Sin credenciales:** backend `console` (dev), cada correo se imprime en la terminal.
 
 ### Frontend (`frontend/.env`)
 
