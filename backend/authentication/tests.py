@@ -6,6 +6,7 @@ from django.contrib.auth.tokens import default_token_generator
 from django.core import mail
 from django.core.cache import cache
 from django.contrib.auth.models import AnonymousUser, Group
+from django.core.mail.backends.base import BaseEmailBackend
 from django.test import RequestFactory, TestCase, override_settings
 from django.utils import timezone
 from rest_framework import status
@@ -1509,3 +1510,132 @@ class AdminResetPasswordTests(BaseAdminTestCase):
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class _FailingEmailBackend(BaseEmailBackend):
+    """Backend de prueba que siempre falla al enviar (simula SMTP caído)."""
+
+    def send_messages(self, email_messages):
+        raise OSError("smtp no disponible: autenticacion fallida")
+
+
+class EmailFailureCaptureTests(APITestCase):
+    """Los fallos del SMTP se capturan en ErrorLog y por el logger.
+
+    Sin shell en el deploy, un fallo del proveedor de correo (p. ej. credenciales
+    Gmail inválidas) debe quedar visible en la consola admin (ErrorLog con
+    traceback) y en los logs del servicio, aunque el endpoint responda como
+    éxito por anti-enumeración.
+    """
+
+    def setUp(self):
+        Group.objects.get_or_create(name="Student")
+        mail.outbox = []
+
+    def test_reset_password_failure_is_logged_and_returns_204(self):
+        User.objects.create_user(
+            username="perdida", email="perdida@example.com", password="OldPass123"
+        )
+
+        with override_settings(EMAIL_BACKEND="authentication.tests._FailingEmailBackend"):
+            response = self.client.post(
+                "/auth/users/reset_password/",
+                {"email": "perdida@example.com"},
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(len(mail.outbox), 0)
+        log = ErrorLog.objects.get(
+            source=ErrorLog.SOURCE_SERVER, kind="builtins.OSError"
+        )
+        self.assertIn("smtp no disponible", log.message)
+        self.assertIn("OSError", log.traceback)
+        self.assertEqual(log.path, "/auth/users/reset_password/")
+
+    def test_resend_activation_failure_is_logged_and_returns_204(self):
+        User.objects.create_user(
+            username="inactivo",
+            email="inactivo@example.com",
+            password="Pass123",
+            is_active=False,
+        )
+
+        with override_settings(EMAIL_BACKEND="authentication.tests._FailingEmailBackend"):
+            response = self.client.post(
+                "/auth/users/resend_activation/",
+                {"email": "inactivo@example.com"},
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(
+            ErrorLog.objects.filter(
+                source=ErrorLog.SOURCE_SERVER, kind="builtins.OSError"
+            ).count(),
+            1,
+        )
+
+    def test_reset_password_does_not_leak_when_user_unknown(self):
+        with override_settings(EMAIL_BACKEND="authentication.tests._FailingEmailBackend"):
+            response = self.client.post(
+                "/auth/users/reset_password/",
+                {"email": "noexiste@example.com"},
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(ErrorLog.objects.count(), 0)
+
+
+class TestEmailEndpointTests(BaseAdminTestCase):
+    """POST /auth/admin/test-email/: diagnóstico del SMTP sin shell."""
+
+    def test_superuser_gets_ok_with_current_config(self):
+        mail.outbox = []
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post("/auth/admin/test-email/", format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["ok"])
+        self.assertEqual(response.data["to"], self.admin.email)
+        self.assertTrue(response.data["from_email"])
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_failure_returns_details_and_persists_error(self):
+        self.client.force_authenticate(self.admin)
+
+        with override_settings(EMAIL_BACKEND="authentication.tests._FailingEmailBackend"):
+            response = self.client.post(
+                "/auth/admin/test-email/",
+                {"to": "destino@example.com"},
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["ok"])
+        self.assertIn("smtp no disponible", response.data["error"])
+        self.assertTrue(response.data["error_id"])
+        log = ErrorLog.objects.get(
+            source=ErrorLog.SOURCE_SERVER, kind="builtins.OSError"
+        )
+        self.assertEqual(log.error_id, response.data["error_id"])
+
+    def test_missing_recipient_rejected(self):
+        self.client.force_authenticate(self.admin)
+        self.admin.email = ""
+        self.admin.save()
+
+        response = self.client.post("/auth/admin/test-email/", format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_non_superuser_forbidden(self):
+        self.client.force_authenticate(self.teacher)
+        response = self.client.post("/auth/admin/test-email/", format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_anonymous_forbidden(self):
+        response = self.client.post("/auth/admin/test-email/", format="json")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)

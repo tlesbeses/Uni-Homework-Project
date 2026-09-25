@@ -1,3 +1,4 @@
+import logging
 from datetime import timedelta
 
 from django.conf import settings
@@ -22,8 +23,11 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
+from djoser.compat import get_user_email
+from djoser.conf import settings as djoser_settings
 from djoser.views import UserViewSet as DjoserUserViewSet
 
+from config.errors import report_exception
 from config.pagination import ListPagination
 from course.permissions import is_teacher
 
@@ -50,6 +54,8 @@ from authentication.models import ErrorLog, EventLog, User
 
 REFRESH_COOKIE_NAME = "refresh_token"
 REFRESH_COOKIE_PATH = "/auth/"
+
+logger = logging.getLogger("edunotas.email")
 
 
 def _get_user_role(user):
@@ -115,6 +121,51 @@ class UsersViewSet(DjoserUserViewSet):
         elif self.action in ("activation", "reset_password_confirm"):
             throttles.append(TokenThrottle())
         return throttles + [throttle() for throttle in self.throttle_classes]
+
+    def _send_djoser_email(self, request, email_kind, user):
+        """Envía el correo de Djoser capturando cualquier fallo del SMTP.
+
+        Un error del proveedor (p. ej. credenciales Gmail inválidas o un app
+        password revocado) se registra en el log del servicio y en ErrorLog
+        (con ``error_id`` visible en la consola admin). El endpoint responde
+        como si el envío hubiera tenido éxito para no revelar si el correo
+        existe (anti-enumeración); el fallo queda visible por otro canal.
+        """
+        context = {"user": user}
+        email_class = (
+            djoser_settings.EMAIL.password_reset
+            if email_kind == "password_reset"
+            else djoser_settings.EMAIL.activation
+        )
+        to = [get_user_email(user)]
+        try:
+            email_class(request, context).send(to)
+        except Exception as exc:
+            logger.exception(
+                "Fallo el envío de correo (%s) para %s",
+                email_kind,
+                getattr(user, "email", "<sin email>"),
+            )
+            error_id = report_exception(exc=exc, request=request)
+            logger.error("Error de correo capturado en ErrorLog con error_id=%s", error_id)
+
+    def reset_password(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.get_user()
+        if user:
+            self._send_djoser_email(request, "password_reset", user)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def resend_activation(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.get_user(is_active=False)
+        if not djoser_settings.SEND_ACTIVATION_EMAIL:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+        if user:
+            self._send_djoser_email(request, "activation", user)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class LoginView(TokenObtainPairView):
@@ -583,3 +634,58 @@ class ErrorLogDetailView(APIView):
         except ErrorLog.DoesNotExist:
             raise NotFound("Error no encontrado.")
         return Response(ErrorLogDetailSerializer(error_log).data)
+
+
+class TestEmailView(APIView):
+    """Diagnóstico del envío de correo (solo superusuario).
+
+    Prueba la conexión SMTP configurada (envío real) y devuelve el detalle
+    exacto del fallo si ocurre, sin necesidad de una shell en el deploy.
+    Siempre responde 200: en caso de error el detalle viaja en el cuerpo y el
+    error se persiste además en ErrorLog (con ``error_id``).
+    """
+
+    permission_classes = [IsSuperuser]
+    throttle_classes = [AdminThrottle]
+
+    def post(self, request):
+        from django.core.mail import EmailMessage, get_connection
+
+        to_email = request.data.get("to") or getattr(request.user, "email", "")
+        if not to_email:
+            raise ValidationError(
+                {"to": "Indica un destinatario o configura un email al superusuario."}
+            )
+
+        payload = {
+            "backend": settings.EMAIL_BACKEND,
+            "host": settings.EMAIL_HOST,
+            "port": settings.EMAIL_PORT,
+            "tls": settings.EMAIL_USE_TLS,
+            "user": settings.EMAIL_HOST_USER,
+            "configured": bool(settings.EMAIL_HOST_USER and settings.EMAIL_HOST_PASSWORD),
+            "from_email": settings.DEFAULT_FROM_EMAIL,
+            "to": to_email,
+            "ok": True,
+            "error_id": "",
+            "error_type": "",
+            "error": "",
+        }
+
+        try:
+            message = EmailMessage(
+                "EduNotas: correo de prueba del SMTP",
+                "Si estás leyendo esto, el SMTP configurado funciona.",
+                settings.DEFAULT_FROM_EMAIL,
+                [to_email],
+            )
+            get_connection().send_messages([message])
+        except Exception as exc:
+            payload["ok"] = False
+            payload["error_type"] = (
+                f"{type(exc).__module__}.{type(exc).__name__}"
+            )
+            payload["error"] = str(exc)[:2000]
+            payload["error_id"] = report_exception(exc=exc, request=request)
+
+        return Response(payload)
