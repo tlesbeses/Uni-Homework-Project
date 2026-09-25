@@ -27,6 +27,14 @@ EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 
+# Timeout (segundos) por fase de la conexión SMTP. Sin él, un proveedor que
+# "absorbe" la conexión sin responder (p. ej. Google bloqueando una IP de
+# datacenter) deja colgado al worker de gunicorn y Render responde con su
+# propia página "Internal Server Error". Con timeout el fallo se convierte en
+# una excepción capturable (socket.timeout) que el endpoint de diagnóstico
+# devuelve como JSON con error_type/error_id.
+EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "20"))
+
 # Credenciales dinámicas: la cuenta Gmail y su app password.
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
