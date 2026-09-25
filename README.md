@@ -252,6 +252,9 @@ Pasos que ejecuta:
 | `EMAIL_HOST_USER`                                 | No                 | —                                               | Cuenta Gmail para el SMTP (solo si el proveedor activo es Gmail). Sin credenciales se usa el backend `console` (dev)                                            |
 | `EMAIL_HOST_PASSWORD`                              | No                 | —                                               | **App password de Google** para `EMAIL_HOST_USER` (2FA). Solo si el proveedor activo es Gmail (sin ella → `console`)                                            |
 | `DEFAULT_FROM_EMAIL`                               | No                 | por proveedor                                     | Remitente de los correos. Gmail: `EduNotas <EMAIL_HOST_USER>`; Brevo: `BREVO_SENDER`                                                                         |
+| `DJOSER_DOMAIN`                                    | No                 | `localhost:8000` (dev) / `uni-homework-project.onrender.com` (prod) | Dominio de los links de activación y de reset en los correos. Solo definirlo si se usa un dominio propio                          |
+| `DJOSER_PROTOCOL`                                  | No                 | `http` (dev) / `https` (prod)                     | Protocolo de los links de activación y de reset en los correos                                                                                                |
+| `DJOSER_SITE_NAME`                                 | No                 | `EduNotas`                                        | Nombre del sitio que aparece en los correos (saludos y firma)                                                                                                  |
 | `CSP_APPLY`                                         | No                 | `True`                                          | Emite `Content-Security-Policy` (modo bloqueo) en producción; `False` para desactivarla                                                                            |
 | `CSP_REPORT_URI`                                   | No                 | —                                               | Emite además `Content-Security-Policy-Report-Only` con la misma política para monitorizar violaciones                                                            |
 | `DJANGO_SUPERUSER_USERNAME` / `EMAIL` / `PASSWORD` | para `createadmin` | `admin` / — / —                                 | Usados por `python manage.py createadmin`                                                                                                                    |
@@ -263,9 +266,11 @@ Nunca hagas commit del `.env` real (está en `.gitignore`).
 > from config.providers.brevo import *   # REST API de Brevo (HTTPS/443)  [default]
 > # from config.providers.gmail import * # Gmail SMTP (smtp.gmail.com:587)
 > ```
-> - **Brevo (producción):** Render free bloquea SMTP saliente (25/465/587) desde sept/2025, así que Gmail no puede enviar ahí; la API de Brevo viaja por **HTTPS (443)**, que nunca se bloquea. Única credencial: `BREVO_API_KEY`, y el remitente (`BREVO_SENDER`) debe verificarse en Brevo.
+> - **Brevo (producción):** Render free bloquea SMTP saliente (25/465/587) desde sept/2025, así que Gmail no puede enviar ahí; la API de Brevo viaja por **HTTPS (443)**, que nunca se bloquea. Única credencial: `BREVO_API_KEY`, y el remitente (`BREVO_SENDER`) debe verificarse en Brevo. En Brevo, **no** restringir la API key por IP (Security → Authorized IPs): Render free usa IPs de salida **dinámicas/compartidas** por región; autorizar una IP puntual rompe el envío cuando Render rote. Usar **autorización automática** o dejar el bloqueo de IPs desactivado.
 > - **Gmail (dev/SMTP habilitado):** relay `smtp.gmail.com:587` con TLS; credenciales `EMAIL_HOST_USER` + `EMAIL_HOST_PASSWORD` (app password con 2FA).
 > - **Sin credenciales:** backend `console` (dev), cada correo se imprime en la terminal.
+>
+> Los links que Djoser incrusta en los correos (activación y reset de contraseña) se arman con **`EMAIL_FRONTEND_DOMAIN`/`PROTOCOL`/`SITE_NAME`** (settings `DJOSER` en `config/settings.py`): en producción apuntan a `https://uni-homework-project.onrender.com` y en dev a `http://localhost:8000`, derivados de `DEBUG` (override por `DJOSER_*`, ver tabla). Sin esto los correos llevarían un link a `localhost:8000` inútil en producción.
 
 ### Frontend (`frontend/.env`)
 
@@ -384,7 +389,7 @@ Reglas de negocio clave:
 - **CSRF double-submit:** token en la cookie `csrftoken` + cabecera `X-CSRFToken`. El token también se devuelve en el cuerpo de `/auth/csrf/`, login y refresh para soporte cross-origin.
 - **Djoser** gestiona registro/`me`/`set_password`/activación, **verificación de email** y **recuperación de contraseña** (correos en español). El registro exige email y crea la cuenta **inactiva** hasta activarla desde el enlace; si `REQUIRE_EMAIL_VERIFICATION=False` los registros nacen activos sin enviar correo.
 - **Recuperación de contraseña:** `POST /auth/users/reset_password/` (siempre responde 204 para no revelar qué correos existen) seguido de `reset_password_confirm/` con `uid` + `token`. El enlace lleva al SPA (`/password/reset/confirm/:uid/:token`) con la nueva contraseña. Throttling de **5 intentos/minuto** (`ResetThrottle`).
-- **Reenvío de activación:** el registro con email ya usado devuelve 400 sin revelar si la cuenta existe; hay endpoint `resend_activation/` para reenviar el enlace a una cuenta inactiva.
+- **Reenvío de activación:** el registro con email ya usado devuelve 400 sin revelar si la cuenta existe; hay endpoint `resend_activation/` (5/min) que reenvía el enlace **solo a cuentas que nunca activaron** (`User.activated_at` NULL, seteado por la señal `djoser.user_activated`). Un usuario que ya activó y luego fue **deshabilitado por un admin no recibe reenvío**: un token nuevo le permitiría re-activarse solo. El frontend expone el reenvío desde **Login** y desde **ActivatePage** cuando el enlace falla.
 - **Restauración de sesión:** la cookie de refresh genera un nuevo access token y se recarga `/auth/users/me/` al recargar la página.
 - **Roles:** grupos de Django (`Student`, `Teacher`, `Admin`). Los nuevos usuarios se asignan automáticamente al grupo `Student` (signal post-save). `User.me` devuelve `roles` y `permissions`.
 - **Throttling:** `LoginThrottle` (5/min), `AuthThrottle` (10/min), `ResetThrottle` (5/min, envíos de correo: `reset_password` y `resend_activation`), `TokenThrottle` (10/min, `activation` y `reset_password_confirm`), `AdminThrottle` (20/min) y throttles globales anónimos/autenticados (10/50 por min). El frontend maneja los errores `429` con UI dedicada.
@@ -473,11 +478,11 @@ Por defecto el despliegue es same-origin (Django sirve `frontend/dist`). Si el f
 ## Tests
 
 ```bash
-# Backend (400 tests)
+# Backend (419 tests)
 cd backend
 python manage.py test
 
-# Frontend (229 tests)
+# Frontend (232 tests)
 cd frontend
 npm run test
 npm run lint
