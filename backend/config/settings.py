@@ -57,18 +57,23 @@ ALLOWED_HOSTS = os.getenv(
 
 AUTH_USER_MODEL = "authentication.User"
 
-# Proveedor de correo (Gmail SMTP): toda la configuración vive en
-# config/email_config.py; del entorno solo se leen la cuenta
-# (EMAIL_HOST_USER) y la app password (EMAIL_HOST_PASSWORD). Este import
-# va antes del override de tests (EMAIL_BACKEND = locmem) que aparece más
-# abajo.
+# Proveedor de correo: la configuración (Gmail SMTP o Brevo API) vive por
+# completo en config/email_config.py, que importa el proveedor activo desde
+# config/providers/ y delega en él el backend elegido. Del entorno solo se
+# leen las credenciales (EMAIL_HOST_USER/PASSWORD o BREVO_API_KEY). Este
+# import va antes del override de tests (EMAIL_BACKEND = locmem) que aparece
+# más abajo.
 from config.email_config import (
+    BREVO_API_KEY,
+    BREVO_SENDER,
     DEFAULT_FROM_EMAIL,
     EMAIL_BACKEND,
+    EMAIL_CONFIGURED,
     EMAIL_HOST,
     EMAIL_HOST_PASSWORD,
     EMAIL_HOST_USER,
     EMAIL_PORT,
+    EMAIL_PROVIDER_NAME,
     EMAIL_TIMEOUT,
     EMAIL_USE_TLS,
 )
@@ -385,9 +390,9 @@ if _CSP_APPLY or _csp_report_uri:
         CSP_REPORT_ONLY = _CSP_POLICY
 
 # Envío de correo (activación de cuenta, confirmación y recuperación de
-# contraseña). La configuración del proveedor (Gmail SMTP) se importó arriba
-# desde config/email_config.py; allí conviven los valores fijos del relay
-# SMTP y solo la cuenta y la app password se leen del entorno.
+# contraseña). La configuración del proveedor ACTIVO (Brevo API o Gmail SMTP)
+# se importó arriba desde config/email_config.py -> config/providers/; solo
+# las credenciales se leen del entorno.
 
 # Objetos útiles para el email backend: esperar a que un email "del sitio"
 # que el usuario recibió sea válido (verificación de cuenta) o no sea

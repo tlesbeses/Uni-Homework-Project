@@ -1576,6 +1576,32 @@ class EmailFailureCaptureTests(APITestCase):
             1,
         )
 
+    def test_register_failure_is_logged_but_user_created(self):
+        with override_settings(
+            EMAIL_BACKEND="authentication.tests._FailingEmailBackend"
+        ):
+            response = self.client.post(
+                "/auth/users/",
+                {
+                    "username": "nuevo_fallo",
+                    "email": "nuevofallo@example.com",
+                    "first_name": "Nuevo",
+                    "last_name": "Fallo",
+                    "password": "StrongPass123",
+                },
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        user = User.objects.get(username="nuevo_fallo")
+        self.assertFalse(user.is_active)
+        self.assertEqual(
+            ErrorLog.objects.filter(
+                source=ErrorLog.SOURCE_SERVER, kind="builtins.OSError"
+            ).count(),
+            1,
+        )
+
     def test_reset_password_does_not_leak_when_user_unknown(self):
         with override_settings(EMAIL_BACKEND="authentication.tests._FailingEmailBackend"):
             response = self.client.post(

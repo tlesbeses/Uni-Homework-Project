@@ -26,6 +26,7 @@ from rest_framework_simplejwt.views import (
 )
 from djoser.compat import get_user_email
 from djoser.conf import settings as djoser_settings
+from djoser import signals
 from djoser.views import UserViewSet as DjoserUserViewSet
 
 from config.errors import report_exception
@@ -152,6 +153,28 @@ class UsersViewSet(DjoserUserViewSet):
             throttles.append(TokenThrottle())
         return throttles + [throttle() for throttle in self.throttle_classes]
 
+    def perform_create(self, serializer, *args, **kwargs):
+        """Registro + correo de activación/confirmación.
+
+        Replica la perform_create de Djoser PERO enruta el correo por
+        ``_send_djoser_email`` para capturar los fallos del proveedor.
+        Sin esto, un fallo del backend de correo (p. ej. Render free
+        bloqueando SMTP) revienta el registro con un 500 y el usuario queda
+        inactivo sin correo ni rastro en ErrorLog. Así el registro responde
+        201 igualmente, el fallo queda en ErrorLog y en el log del servicio.
+        """
+        user = serializer.save(*args, **kwargs)
+        signals.user_registered.send(
+            sender=self.__class__, user=user, request=self.request
+        )
+        if djoser_settings.SEND_ACTIVATION_EMAIL and not user.is_active:
+            self._send_djoser_email(self.request, "activation", user)
+        elif (
+            djoser_settings.SEND_CONFIRMATION_EMAIL
+            and user.is_active
+        ):
+            self._send_djoser_email(self.request, "confirmation", user)
+
     def _send_djoser_email(self, request, email_kind, user):
         """Envía el correo de Djoser capturando cualquier fallo del SMTP.
 
@@ -165,11 +188,10 @@ class UsersViewSet(DjoserUserViewSet):
         cuando el envío falla, o ``None`` si terminó con éxito.
         """
         context = {"user": user}
-        email_class = (
-            djoser_settings.EMAIL.password_reset
-            if email_kind == "password_reset"
-            else djoser_settings.EMAIL.activation
-        )
+        email_class = {
+            "password_reset": djoser_settings.EMAIL.password_reset,
+            "confirmation": djoser_settings.EMAIL.confirmation,
+        }.get(email_kind, djoser_settings.EMAIL.activation)
         to = [get_user_email(user)]
         try:
             email_class(request, context).send(to)
@@ -717,12 +739,13 @@ class TestEmailView(APIView):
             )
 
         payload = {
+            "provider": settings.EMAIL_PROVIDER_NAME,
             "backend": settings.EMAIL_BACKEND,
             "host": settings.EMAIL_HOST,
             "port": settings.EMAIL_PORT,
             "tls": settings.EMAIL_USE_TLS,
             "user": settings.EMAIL_HOST_USER,
-            "configured": bool(settings.EMAIL_HOST_USER and settings.EMAIL_HOST_PASSWORD),
+            "configured": settings.EMAIL_CONFIGURED,
             "from_email": settings.DEFAULT_FROM_EMAIL,
             "to": to_email,
             "ok": True,

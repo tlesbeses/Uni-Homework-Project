@@ -106,12 +106,13 @@ export const AdminErrorLogsPage = () => {
 
                         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
                             {[
+                                ["Proveedor", result.provider],
                                 ["Configurado", result.configured ? "Sí" : "No"],
                                 ["Backend", result.backend],
                                 ["Host", result.host],
                                 ["Puerto", String(result.port)],
                                 ["TLS", result.tls ? "Sí" : "No"],
-                                ["Usuario SMTP", result.user],
+                                ["Usuario", result.user],
                                 ["Remitente", result.from_email],
                                 ["Destinatario", result.to],
                             ].map(([label, value]) => (
