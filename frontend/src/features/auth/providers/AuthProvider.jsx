@@ -125,6 +125,10 @@ export function AuthProvider({ children }) {
             tokenStorage.setAccessToken(adminAccessToken);
         }
         invalidateCache();
+        // Evita filtrar datos de la sesión de prueba al volver al admin
+        // (p. ej. courses/notas cacheadas del docente impersonado), incluso
+        // si cambiara el comportamiento de la navegación con recarga.
+        queryClient.clear();
         setUser(adminProfile);
         setImpersonatedUser(null);
         // Si se termina la vista estando en una ruta con guard (p. ej.
@@ -132,7 +136,7 @@ export function AuthProvider({ children }) {
         // Llevar al dashboard del admin de forma explícita y, al recargar,
         // limpiar cualquier caché/estado residual de la sesión de prueba.
         window.location.assign("/dashboard");
-    }, []);
+    }, [queryClient]);
 
     const stopImpersonation = useCallback(() => {
         restoreAdminSession();
@@ -164,6 +168,10 @@ export function AuthProvider({ children }) {
             });
             tokenStorage.setAccessToken(access);
             invalidateCache();
+            // La app pasa a actuar como otro usuario SIN recargar: vaciar todo
+            // el caché de TanStack para que los datos del perfil anterior
+            // (admin o docente A) no se muestren bajo la nueva identidad (B).
+            queryClient.clear();
             const profile = await getUserProfile();
             setUser(profile);
             setImpersonatedUser(targetUser);
@@ -173,7 +181,7 @@ export function AuthProvider({ children }) {
             toast.error(getErrorMessage(err));
             return false;
         }
-    }, [user]);
+    }, [user, queryClient]);
 
     const value = useMemo(() => ({
         user,
