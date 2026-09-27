@@ -37,6 +37,7 @@ function Probe() {
                 {auth.isAdmin ? "admin" : ""}
             </span>
             <span data-testid="loading">{String(auth.isLoading)}</span>
+            <span data-testid="impersonating">{String(auth.isImpersonating)}</span>
             <button
                 data-testid="login"
                 onClick={() => auth.login({ username: "pepe", password: "x" })}
@@ -45,6 +46,18 @@ function Probe() {
             </button>
             <button data-testid="logout" onClick={auth.logout}>
                 logout
+            </button>
+            <button
+                data-testid="start"
+                onClick={() =>
+                    auth.startImpersonation({
+                        id: 7,
+                        username: "profe",
+                        roles: ["Teacher"],
+                    })
+                }
+            >
+                start
             </button>
             <button data-testid="stop" onClick={auth.stopImpersonation}>
                 stop
@@ -57,13 +70,14 @@ function renderAuth() {
     const queryClient = new QueryClient({
         defaultOptions: { queries: { retry: false } },
     });
-    return render(
+    const result = render(
         <QueryClientProvider client={queryClient}>
             <AuthProvider>
                 <Probe />
             </AuthProvider>
         </QueryClientProvider>
     );
+    return { ...result, queryClient };
 }
 
 describe("AuthProvider", () => {
@@ -210,6 +224,48 @@ describe("AuthProvider", () => {
             expect(screen.getByTestId("user")).toHaveTextContent("root")
         );
         expect(tokenStorage.getAccessToken()).toBe("token-admin");
+        expect(window.location.assign).toHaveBeenCalledWith("/dashboard");
+    });
+
+    it("limpia el queryClient al iniciar y al terminar la impersonación", async () => {
+        authService.ensureCsrfToken.mockResolvedValue();
+        refreshSession.mockImplementation(async () => {
+            tokenStorage.setAccessToken("access-token");
+            return "access-token";
+        });
+        authService.impersonateUser.mockResolvedValue({
+            access: "token-impersonado",
+        });
+        authService.getUserProfile.mockImplementation(async () => {
+            return tokenStorage.getAccessToken() === "token-impersonado"
+                ? { username: "profe", roles: ["Teacher"], is_superuser: false }
+                : { username: "root", roles: [], is_superuser: true };
+        });
+
+        const { queryClient } = renderAuth();
+        await waitFor(() =>
+            expect(screen.getByTestId("user")).toHaveTextContent("root")
+        );
+
+        const clearSpy = vi.spyOn(queryClient, "clear");
+        const user = userEvent.setup();
+
+        await user.click(screen.getByTestId("start"));
+        await waitFor(() =>
+            expect(screen.getByTestId("user")).toHaveTextContent("profe")
+        );
+        await waitFor(() =>
+            expect(screen.getByTestId("impersonating")).toHaveTextContent("true")
+        );
+        expect(tokenStorage.getAccessToken()).toBe("token-impersonado");
+        expect(clearSpy).toHaveBeenCalledTimes(1);
+
+        await user.click(screen.getByTestId("stop"));
+        await waitFor(() =>
+            expect(screen.getByTestId("user")).toHaveTextContent("root")
+        );
+        expect(tokenStorage.getAccessToken()).toBe("access-token");
+        expect(clearSpy).toHaveBeenCalledTimes(2);
         expect(window.location.assign).toHaveBeenCalledWith("/dashboard");
     });
 });
