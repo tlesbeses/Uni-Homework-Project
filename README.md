@@ -347,6 +347,8 @@ En desarrollo el proxy de Vite elimina la necesidad de esta variable.
 | Método | Ruta                                   | Propósito                        |
 | ------ | -------------------------------------- | -------------------------------- |
 | GET    | `/api/grades/`                         | Lista de notas (acotada por rol) |
+| GET    | `/api/grades/{id}/history/`            | Historial de cambios de una nota |
+| GET    | `/api/grades/evolution/?course=&student=` | Evolución de la nota final (curso obligatorio; `student` obligatorio para el profesor) |
 | POST   | `/api/assignments/{id}/grade-team/`    | Calificar a todo un equipo       |
 | POST   | `/api/assignments/{id}/grade-student/` | Calificar a un estudiante        |
 
