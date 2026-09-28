@@ -98,12 +98,37 @@ def create_enrollment(*, section, student, actor):
 
 
 def approve_enrollment(*, enrollment, actor):
-    """Approve an enrollment, notifying the student and auditing the change."""
-    if enrollment.status == Status.APPROVED:
-        raise EnrollmentInvalidStateError("Enrollment is already approved.")
+    """Approve an enrollment, notifying the student and auditing the change.
 
-    enrollment.status = Status.APPROVED
-    enrollment.save()
+    A student cannot hold more than one approved enrollment in the same
+    course. Approving is refused when the student already has another
+    approved enrollment in that course, even if the target enrollment is a
+    rejected one (so a teacher can still re-admit a student whose only
+    request for the course was rejected).
+    """
+    with transaction.atomic():
+        # Serialize concurrent approvals on the same course, so the check
+        # below sees the committed row instead of racing the UPDATE.
+        Course.objects.select_for_update().get(pk=enrollment.section.course_id)
+
+        if enrollment.status == Status.APPROVED:
+            raise EnrollmentInvalidStateError(
+                "Enrollment is already approved."
+            )
+
+        other_approved = Enrollment.objects.filter(
+            section__course_id=enrollment.section.course_id,
+            student=enrollment.student,
+            status=Status.APPROVED,
+        ).exclude(pk=enrollment.pk)
+        if other_approved.exists():
+            raise EnrollmentInvalidStateError(
+                "This student already has an approved enrollment "
+                "in this course."
+            )
+
+        enrollment.status = Status.APPROVED
+        enrollment.save()
 
     notify_enrollment_approved(enrollment=enrollment)
 

@@ -544,6 +544,70 @@ class EnrollmentTests(BaseCourseTestCase):
             "Enrollment is already approved.",
         )
 
+    def test_cannot_approve_both_enrollments_of_same_student(self):
+        self.client.force_authenticate(self.student)
+        first = self.client.post(
+            f"/api/courses/{self.course.id}/enroll/",
+            {"section": self.section.id},
+        )
+        self.assertEqual(first.status_code, status.HTTP_201_CREATED)
+        first_id = first.data["id"]
+
+        self.client.force_authenticate(self.teacher)
+        rejected = self.client.post(
+            f"/api/enrollments/{first_id}/reject/"
+        )
+        self.assertEqual(rejected.status_code, status.HTTP_200_OK)
+        self.assertEqual(rejected.data["status"], Status.REJECTED)
+
+        self.client.force_authenticate(self.student)
+        second = self.client.post(
+            f"/api/courses/{self.course.id}/enroll/",
+            {"section": self.section2.id},
+        )
+        self.assertEqual(second.status_code, status.HTTP_201_CREATED)
+        second_id = second.data["id"]
+
+        self.client.force_authenticate(self.teacher)
+        approved = self.client.post(
+            f"/api/enrollments/{second_id}/approve/"
+        )
+        self.assertEqual(approved.status_code, status.HTTP_200_OK)
+        self.assertEqual(approved.data["status"], Status.APPROVED)
+
+        double = self.client.post(
+            f"/api/enrollments/{first_id}/approve/"
+        )
+        self.assertEqual(double.status_code, status.HTTP_400_BAD_REQUEST)
+
+        approved_count = Enrollment.objects.filter(
+            section__course=self.course,
+            student=self.student,
+            status=Status.APPROVED,
+        ).count()
+        self.assertEqual(approved_count, 1)
+
+    def test_teacher_can_reapprove_single_rejected_enrollment(self):
+        self.client.force_authenticate(self.student)
+        request = self.client.post(
+            f"/api/courses/{self.course.id}/enroll/",
+            {"section": self.section.id},
+        )
+        self.assertEqual(request.status_code, status.HTTP_201_CREATED)
+        enrollment_id = request.data["id"]
+
+        self.client.force_authenticate(self.teacher)
+        rejected = self.client.post(
+            f"/api/enrollments/{enrollment_id}/reject/"
+        )
+        self.assertEqual(rejected.status_code, status.HTTP_200_OK)
+
+        reapproved = self.client.post(
+            f"/api/enrollments/{enrollment_id}/approve/"
+        )
+        self.assertEqual(reapproved.status_code, status.HTTP_200_OK)
+        self.assertEqual(reapproved.data["status"], Status.APPROVED)
+
     def test_enroll_respects_auto_accept(self):
         self.course.settings.auto_accept_students = True
         self.course.settings.save()
@@ -1491,6 +1555,71 @@ class EnrollmentServiceTests(BaseCourseTestCase):
         approve_enrollment(enrollment=enrollment, actor=self.teacher)
         with self.assertRaises(EnrollmentInvalidStateError):
             approve_enrollment(enrollment=enrollment, actor=self.teacher)
+
+    def test_approve_enrollment_rejected_alone_can_be_approved(self):
+        enrollment = Enrollment.objects.create(
+            section=self.section,
+            student=self.student,
+            status=Status.REJECTED,
+        )
+        approve_enrollment(enrollment=enrollment, actor=self.teacher)
+        enrollment.refresh_from_db()
+        self.assertEqual(enrollment.status, Status.APPROVED)
+        self.assertIsNotNone(enrollment.approved_at)
+
+    def test_approve_enrollment_rejected_with_approved_sibling_raises(self):
+        Enrollment.objects.create(
+            section=self.section,
+            student=self.student,
+            status=Status.APPROVED,
+        )
+        rejected = Enrollment.objects.create(
+            section=self.section2,
+            student=self.student,
+            status=Status.REJECTED,
+        )
+        with self.assertRaises(EnrollmentInvalidStateError):
+            approve_enrollment(enrollment=rejected, actor=self.teacher)
+        rejected.refresh_from_db()
+        self.assertEqual(rejected.status, Status.REJECTED)
+
+    def test_approve_any_single_section_after_two_rejections(self):
+        rejected_a = Enrollment.objects.create(
+            section=self.section,
+            student=self.student,
+            status=Status.REJECTED,
+        )
+        rejected_b = Enrollment.objects.create(
+            section=self.section2,
+            student=self.student,
+            status=Status.REJECTED,
+        )
+        approve_enrollment(enrollment=rejected_b, actor=self.teacher)
+        rejected_b.refresh_from_db()
+        self.assertEqual(rejected_b.status, Status.APPROVED)
+        with self.assertRaises(EnrollmentInvalidStateError):
+            approve_enrollment(enrollment=rejected_a, actor=self.teacher)
+        approved_count = Enrollment.objects.filter(
+            section__course=self.course,
+            student=self.student,
+            status=Status.APPROVED,
+        ).count()
+        self.assertEqual(approved_count, 1)
+
+    def test_approve_pending_after_old_rejected_succeeds(self):
+        Enrollment.objects.create(
+            section=self.section,
+            student=self.student,
+            status=Status.REJECTED,
+        )
+        pending = Enrollment.objects.create(
+            section=self.section2,
+            student=self.student,
+            status=Status.PENDING,
+        )
+        approve_enrollment(enrollment=pending, actor=self.teacher)
+        pending.refresh_from_db()
+        self.assertEqual(pending.status, Status.APPROVED)
 
     def test_reject_enrollment_from_approved_detaches_from_teams(self):
         CourseSettings.objects.update_or_create(

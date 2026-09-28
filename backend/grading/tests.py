@@ -1429,10 +1429,14 @@ class FinalScoreSnapshotTests(GradingAPITestCase):
         self.grade_student(self.foreign_assignment, self.student2, "80.00", self.other_teacher)
         self.authenticate(self.teacher)
 
-        response = self.client.get(reverse("grade-evolution"))
+        response = self.client.get(
+            reverse("grade-evolution"),
+            {"course": self.course.id, "student": self.student.id},
+        )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["course"]["id"], self.course.id)
+        self.assertEqual(response.data["student"]["id"], self.student.id)
         self.assertEqual(len(response.data["points"]), 1)
         self.assertEqual(response.data["points"][0]["score"], "70.00")
 
@@ -1461,6 +1465,162 @@ class FinalScoreSnapshotTests(GradingAPITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("course", response.data)
+
+    def test_teacher_without_student_param_is_rejected(self):
+        self.grade_student(self.assignment, self.student, "70.00", self.teacher)
+        self.authenticate(self.teacher)
+
+        response = self.client.get(
+            reverse("grade-evolution"), {"course": self.course.id}
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("student", response.data)
+
+    def test_evolution_requires_course_param(self):
+        self.grade_student(self.assignment, self.student, "70.00", self.teacher)
+        self.authenticate(self.student)
+
+        response = self.client.get(reverse("grade-evolution"))
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("course", response.data)
+
+    def test_teacher_without_any_param_is_rejected(self):
+        self.grade_student(self.assignment, self.student, "70.00", self.teacher)
+        self.authenticate(self.teacher)
+
+        response = self.client.get(reverse("grade-evolution"))
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("course", response.data)
+
+    def test_evolution_rejects_empty_course_param(self):
+        self.grade_student(self.assignment, self.student, "70.00", self.teacher)
+        self.authenticate(self.teacher)
+
+        response = self.client.get(
+            reverse("grade-evolution"),
+            {"course": "", "student": self.student.id},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("course", response.data)
+
+    def test_evolution_rejects_invalid_student_param_with_400(self):
+        self.grade_student(self.assignment, self.student, "70.00", self.teacher)
+        self.authenticate(self.teacher)
+
+        response = self.client.get(
+            reverse("grade-evolution"),
+            {"course": self.course.id, "student": "abc"},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("student", response.data)
+
+    def test_teacher_series_never_mixes_students(self):
+        self.grade_student(self.assignment, self.student, "70.00", self.teacher)
+        self.grade_student(self.assignment, self.student, "90.00", self.teacher)
+        self.grade_student(self.assignment, self.student2, "40.00", self.teacher)
+        self.grade_student(self.assignment, self.student2, "50.00", self.teacher)
+        self.authenticate(self.teacher)
+
+        response = self.client.get(
+            reverse("grade-evolution"),
+            {"course": self.course.id, "student": self.student2.id},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["student"]["id"], self.student2.id)
+        self.assertEqual(
+            [point["score"] for point in response.data["points"]],
+            ["40.00", "50.00"],
+        )
+
+    def test_teacher_series_never_mixes_courses(self):
+        second_course = Course.objects.create(
+            title="Chemistry 201", teacher=self.teacher
+        )
+        second_assignment = Assignment.objects.create(
+            course=second_course,
+            title="Homework 2",
+            max_score="100.00",
+            is_published=True,
+        )
+        self.grade_student(self.assignment, self.student, "70.00", self.teacher)
+        self.grade_student(second_assignment, self.student, "35.00", self.teacher)
+        self.authenticate(self.teacher)
+
+        response = self.client.get(
+            reverse("grade-evolution"),
+            {"course": self.course.id, "student": self.student.id},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["course"]["id"], self.course.id)
+        self.assertEqual(
+            [point["score"] for point in response.data["points"]], ["70.00"]
+        )
+
+    def test_student_cannot_request_another_student_series(self):
+        self.grade_student(self.assignment, self.student2, "40.00", self.teacher)
+        self.authenticate(self.student)
+
+        response = self.client.get(
+            reverse("grade-evolution"),
+            {"course": self.course.id, "student": self.student2.id},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("student", response.data)
+
+    def test_student_can_pass_own_id_explicitly(self):
+        self.grade_student(self.assignment, self.student, "70.00", self.teacher)
+        self.authenticate(self.student)
+
+        response = self.client.get(
+            reverse("grade-evolution"),
+            {"course": self.course.id, "student": self.student.id},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["student"]["id"], self.student.id)
+        self.assertEqual(
+            [point["score"] for point in response.data["points"]], ["70.00"]
+        )
+
+    def test_evolution_caps_at_30_points_of_the_requested_student(self):
+        FinalScoreSnapshot.objects.bulk_create(
+            [
+                FinalScoreSnapshot(
+                    course=self.course,
+                    student=self.student,
+                    score=Decimal(f"{index:2d}.00"),
+                )
+                for index in range(1, 32)
+            ]
+            + [
+                FinalScoreSnapshot(
+                    course=self.course,
+                    student=self.student2,
+                    score="99.00",
+                )
+            ]
+        )
+        self.authenticate(self.teacher)
+
+        response = self.client.get(
+            reverse("grade-evolution"),
+            {"course": self.course.id, "student": self.student.id},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["points"]), 30)
+        scores = [point["score"] for point in response.data["points"]]
+        self.assertEqual(scores[0], "2.00")
+        self.assertEqual(scores[-1], "31.00")
+        self.assertNotIn("99.00", scores)
 
 
 class BatchFinalGradeTests(TransactionTestCase):

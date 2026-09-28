@@ -67,7 +67,18 @@ jobs:
           path: backend/coverage.json
 
       - name: Audit Python dependencies
-        run: pip-audit -r requirements.txt
+        run: |
+          # social-auth-core==4.9.1 (transitiva de djoser 2.3.4 vía
+          # social-auth-app-django==5.9.0) reporta 5 GHSA en pip-audit.
+          # No se usa login social en la app; el arreglo (>5.0.0) exige
+          # social-auth-app-django 6.x que djoser 2.3.4 bloquea (<6.0.0).
+          # Re-evaluar cuando djoser libere versión compatible.
+          pip-audit -r requirements.txt \
+            --ignore-vuln GHSA-3c93-f73f-qc9h \
+            --ignore-vuln GHSA-fp7w-m676-w7gc \
+            --ignore-vuln GHSA-vq6g-g6c7-5f2j \
+            --ignore-vuln GHSA-vqg6-3fw6-j9jg \
+            --ignore-vuln GHSA-x7qq-23vw-7pfg
 
   frontend:
     name: Frontend (lint + tests + coverage + build)

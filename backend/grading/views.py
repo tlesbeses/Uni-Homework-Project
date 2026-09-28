@@ -26,6 +26,14 @@ from grading.serializers import (
 from grading.services import grade_student, grade_team
 
 
+def _clean_int_param(value, field):
+    """Convierte un query param a entero o responde 400 si no lo es."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        raise ValidationError({field: "Debe ser un número entero."})
+
+
 def _get_gradeable_assignment(request, assignment_id):
     """Resolve an assignment and require the requesting teacher to own it."""
     assignment = get_object_or_404(Assignment, pk=assignment_id)
@@ -170,22 +178,37 @@ class GradeViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=False, methods=["get"])
     def evolution(self, request):
-        """Time series of a student's final grade for one of their courses.
+        """Time series of a student's final grade in one of their courses.
 
-        Teachers may query ``?course=<id>`` for any of their own courses;
-        students always get their own series (optionally filtered the same
-        way). The last 30 points are returned in ascending order.
+        ``?course=<id>`` is always required, and teachers must also pass
+        ``?student=<id>``: the payload describes a single (course, student)
+        pair, so a request that does not pin both would mix students. Students
+        always get their own series and cannot ask for somebody else's. The
+        last 30 points of that pair are returned in ascending order.
         """
-        snapshots = self._evolution_queryset()
+        user = request.user
+
         course_id = request.query_params.get("course")
-        if course_id:
-            try:
-                course_id = int(course_id)
-            except (TypeError, ValueError):
+        if course_id in (None, ""):
+            raise ValidationError({"course": "Este parámetro es obligatorio."})
+        snapshots = self._evolution_queryset().filter(
+            course_id=_clean_int_param(course_id, "course")
+        )
+
+        requested_student = request.query_params.get("student")
+        if is_teacher(user):
+            if requested_student in (None, ""):
                 raise ValidationError(
-                    {"course": "Debe ser un número entero."}
+                    {"student": "Los profesores deben indicar un estudiante."}
                 )
-            snapshots = snapshots.filter(course_id=course_id)
+            snapshots = snapshots.filter(
+                student_id=_clean_int_param(requested_student, "student")
+            )
+        elif requested_student not in (None, ""):
+            if _clean_int_param(requested_student, "student") != user.id:
+                raise ValidationError(
+                    {"student": "Solo puedes consultar tu propia evolución."}
+                )
 
         rows = list(
             snapshots.order_by("-created_at")[:30]
