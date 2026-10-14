@@ -4,6 +4,11 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 
+// Destino del proxy de desarrollo. En local apunta al runserver de Django en
+// 127.0.0.1:8000; dentro de un contenedor (podman-compose) el servicio backend
+// se resuelve por nombre de red, así que se sobreescribe con VITE_PROXY_TARGET.
+const proxyTarget = process.env.VITE_PROXY_TARGET || "http://127.0.0.1:8000"
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
@@ -46,16 +51,16 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: "http://127.0.0.1:8000",
+        target: proxyTarget,
         changeOrigin: true,
       },
       "/auth": {
-        target: "http://127.0.0.1:8000",
+        target: proxyTarget,
         changeOrigin: true,
       },
       // El panel de Django (sin tocar la ruta /admin de React).
       "/django-admin": {
-        target: "http://127.0.0.1:8000",
+        target: proxyTarget,
         changeOrigin: true,
       },
     },

@@ -1,0 +1,112 @@
+# Pila de desarrollo: Postgres + Django + Vite.
+#
+#   podman-compose up -d          (o `podman compose up -d`, mismo archivo)
+#   podman-compose logs -f backend
+#   podman-compose down           (conserva los volumenes)
+#   podman-compose down -v        (borra tambien la base de datos)
+#
+# Nota sobre `env_file`: NO se usa a proposito. podman-compose lo traduce a
+# `-e VAR` (heredar del entorno del host) en vez de inyectar los valores del
+# archivo, asi que no funcionaria. Todo el env va en `environment:`.
+# La interpolacion ${...} si lee el `.env` de la raiz (ver .env.example).
+#
+# Rootless: este host no tiene SELinux activo, por eso los bind mounts no
+# llevan `:Z`. Los archivos que se creen dentro de los montajes (p. ej.
+# frontend/dist) quedan a nombre del usuario del host, no de root.
+
+services:
+  db:
+    image: postgres:17
+    container_name: edunotas-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: edunotas
+      POSTGRES_USER: edunotas
+      POSTGRES_PASSWORD: edunotas_dev
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U edunotas -d edunotas"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    image: python:3.14-slim
+    container_name: edunotas-backend
+    working_dir: /app
+    volumes:
+      - ./backend:/app
+      # El SPA compilado (frontend/dist) para que Django lo sirva en :8000.
+      # Se monta la carpeta completa, no solo dist/, para no crear un dist/
+      # propiedad de root en el host en un clon limpio. settings.py fija
+      # FRONTEND_DIR = BASE_DIR.parent / "frontend" / "dist", que con este
+      # layout (BASE_DIR=/app) resuelve a /frontend/dist. No se pasa por env.
+      - ./frontend:/frontend:ro
+    ports:
+      - "8000:8000"
+    environment:
+      # Sin esto settings.py:26 aborta con SECRET_KEY=None.
+      # Solo desarrollo: para cualquier otro caso, generar uno de verdad.
+      SECRET_KEY: ${SECRET_KEY:-edunotas-dev-insecure-no-usar-en-produccion}
+
+      # Sin esto settings.py:303 activa SECURE_SSL_REDIRECT y todo el API
+      # responde 301 a https, inservible sobre http://localhost:8000.
+      DEBUG: "True"
+
+      # "backend" es obligatorio: el proxy de Vite reescribe la cabecera Host a
+      # backend:8000 (changeOrigin), y Django rechazaria el request con
+      # DisallowedHost si no esta aqui.
+      ALLOWED_HOSTS: localhost,127.0.0.1,[::1],backend
+
+      # config/settings.py:176 usa dj_database_url, que solo lee DATABASE_URL.
+      # Las variables DB_* / POSTGRES_* no las lee nadie.
+      DATABASE_URL: postgres://edunotas:edunotas_dev@db:5432/edunotas
+
+      # createadmin (authentication/management/commands/createadmin.py) exige
+      # email y password; sin ellos aborta con un ERROR.
+      DJANGO_SUPERUSER_USERNAME: admin
+      DJANGO_SUPERUSER_EMAIL: admin@edunotas.local
+      DJANGO_SUPERUSER_PASSWORD: ${ADMIN_PASSWORD:-admin}
+    depends_on:
+      - db
+    # Sin `restart`: en desarrollo un error de configuracion debe verse en los
+    # logs, no convertirse en un bucle de reinicios silencioso.
+    command: >
+      sh -c "pip install --no-cache-dir -r requirements.txt &&
+             python manage.py wait_for_db &&
+             python manage.py migrate &&
+             python manage.py createadmin &&
+             python manage.py runserver 0.0.0.0:8000"
+
+  frontend:
+    image: node:22
+    container_name: edunotas-frontend
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      # volumen nombrado para no usar el node_modules del host, que puede
+      # tener binarios de otra plataforma
+      - edunotas_node_modules:/app/node_modules
+    ports:
+      - "5173:5173"
+    environment:
+      # 127.0.0.1 dentro de este contenedor es el mismo contenedor, no Django.
+      # El nombre de red del servicio es lo que resuelve al backend.
+      # vite.config.js lee esta variable (fallback 127.0.0.1 para uso local).
+      VITE_PROXY_TARGET: http://backend:8000
+    depends_on:
+      - backend
+    # `npm install` y no `npm ci`: con el volumen nombrado persistente es un
+    # no-op de ~2s en cada arranque, mientras `npm ci` borra y reinstala los
+    # ~400 MB de node_modules cada vez. `npm ci` queda para CI y para builds.
+    # `npm run build` deja frontend/dist listo para que Django lo sirva en :8000.
+    # `--no-clearScreen`: sin eso el logger ANSI limpia la pantalla y el banner
+    # de arranque se repite en `podman-compose logs`.
+    command: sh -c "npm install && npm run build && npm run dev -- --host 0.0.0.0 --no-clearScreen"
+
+volumes:
+  pgdata:
+  edunotas_node_modules:
