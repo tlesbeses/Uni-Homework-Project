@@ -23,6 +23,9 @@ export const useRegister = () => {
         try {
             const payload = { ...data };
             delete payload.confirmPassword;
+            // El backend exige aceptar los términos; se envía como accept_terms.
+            delete payload.acceptTerms;
+            payload.accept_terms = true;
             await registerUser(payload);
             setRegistered(true);
             toast.success(
