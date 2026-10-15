@@ -1,4 +1,6 @@
+import { Link } from "react-router-dom";
 import { InputField } from "@/shared/components/ui/InputField";
+import { Checkbox } from "@/shared/components/ui/Checkbox";
 import { Button } from "@/shared/components/ui/Button";
 import { useRegister } from "../hooks/useRegister";
 
@@ -71,6 +73,35 @@ export const RegisterForm = () => {
                 register={register}
                 error={errors.confirmPassword?.message}
                 placeholder="••••••••"
+            />
+
+            <Checkbox
+                name="acceptTerms"
+                register={register}
+                error={errors.acceptTerms?.message}
+                label={
+                    <>
+                        He leído y acepto los{" "}
+                        <Link
+                            to="/terms"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="font-medium text-indigo-600 hover:underline"
+                        >
+                            Términos y Condiciones
+                        </Link>{" "}
+                        y la{" "}
+                        <Link
+                            to="/privacy"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="font-medium text-indigo-600 hover:underline"
+                        >
+                            Política de Privacidad
+                        </Link>
+                        .
+                    </>
+                }
             />
 
             <Button

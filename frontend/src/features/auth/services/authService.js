@@ -59,6 +59,13 @@ export const updateUserProfile = async (userData) => {
     return response.data;
 };
 
+// Sella la aceptación de la versión vigente de los Términos y Condiciones
+// (para usuarios ya registrados cuando se publica una versión nueva).
+export const acceptTerms = async () => {
+    const response = await api.post("/auth/users/accept-terms/");
+    return response.data;
+};
+
 export const changeUserPassword = async (passwordData) => {
     const response = await api.post("/auth/users/set_password/", passwordData);
     return response.data;

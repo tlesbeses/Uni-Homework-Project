@@ -8,6 +8,7 @@ export const ACTION_LABELS = {
     create: "Creación",
     delete: "Eliminación",
     login: "Inicio de sesión",
+    terms_accepted: "Términos aceptados",
 };
 
 export const ACTION_STYLES = {
@@ -16,6 +17,7 @@ export const ACTION_STYLES = {
     create: "bg-emerald-100 text-emerald-700",
     delete: "bg-red-100 text-red-700",
     login: "bg-amber-100 text-amber-700",
+    terms_accepted: "bg-teal-100 text-teal-700",
 };
 
 export const ENTITY_TYPE_LABELS = {
@@ -122,6 +124,10 @@ export function activityDetailLines(log) {
         if (log?.action === "impersonate") {
             if (meta.admin_id !== undefined && meta.admin_id !== null) {
                 lines.push(`Admin #${meta.admin_id}`);
+            }
+        } else if (log?.action === "terms_accepted") {
+            if (meta.version) {
+                lines.push(`Versión: ${meta.version}`);
             }
         } else {
             lines.push(...changeLines(meta.changes));

@@ -34,6 +34,8 @@ const AdminErrorLogDetailPage = lazyPage(() => import("@/features/admin/pages/Ad
 const SnapshotsPage = lazyPage(() => import("@/features/snapshots/pages/SnapshotsPage"), "SnapshotsPage");
 const SnapshotDetailPage = lazyPage(() => import("@/features/snapshots/pages/SnapshotDetailPage"), "SnapshotDetailPage");
 const NotificationsPage = lazyPage(() => import("@/features/notifications/pages/NotificationsPage"), "NotificationsPage");
+const TermsPage = lazyPage(() => import("@/features/legal/pages/TermsPage"), "TermsPage");
+const PrivacyPage = lazyPage(() => import("@/features/legal/pages/PrivacyPage"), "PrivacyPage");
 
 export const router = createBrowserRouter([
   {
@@ -60,6 +62,24 @@ export const router = createBrowserRouter([
     element: (
       <SuspenseWrapper>
         <ForbiddenPage />
+      </SuspenseWrapper>
+    ),
+  },
+  {
+    errorElement: <RouteErrorScreen />,
+    path: "/terms",
+    element: (
+      <SuspenseWrapper>
+        <TermsPage />
+      </SuspenseWrapper>
+    ),
+  },
+  {
+    errorElement: <RouteErrorScreen />,
+    path: "/privacy",
+    element: (
+      <SuspenseWrapper>
+        <PrivacyPage />
       </SuspenseWrapper>
     ),
   },

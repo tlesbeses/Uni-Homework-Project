@@ -34,6 +34,7 @@ Copia `.env.example` como punto de partida. Nunca hagas commit del `.env` real.
 | `DATABASE_URL`  | No          | SQLite local          | En producción, la URL Postgres que expone Render                          |
 | `CORS_ALLOWED_ORIGINS` | No   | orígenes Vite locales | Frontends autorizados (CORS con credenciales), separados por comas        |
 | `AUTH_COOKIE_SAMESITE` | No   | `Lax`                 | `None` solo si frontend y API están en sitios distintos (fuerza Secure)   |
+| `TERMS_VERSION` | No   | `1.0`                 | Versión vigente de los Términos y Condiciones; al subirla se pide re-aceptar al ingresar |
 
 ### Frontend en otro origen
 

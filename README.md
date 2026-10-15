@@ -54,6 +54,7 @@ Aplicación web de gestión académica para profesores y estudiantes: cursos, se
 - **Control de acceso por roles** — Los usuarios pertenecen a grupos de Django (`Student`, `Teacher`, `Admin`). Los superusuarios omiten todas las comprobaciones de permisos.
 - **Verificación de email** — Los registros nuevos nacen **inactivos** hasta activar la cuenta desde el enlace que llega por correo; el email es obligatorio al registrarse. El panel envía correos de confirmación y de cambio de contraseña (todo en español; en producción por la **REST API de Brevo** —HTTPS/443, Render free no lo bloquea— y en dev por el relay SMTP de **Gmail** o el backend `console`; el proveedor activo se elige con una línea en `config/email_config.py`).
 - **Recuperación de contraseña** — Flujo "¿Olvidaste tu contraseña?" con enlace por email y límite de **5 intentos/minuto**. Los superusuarios pueden además **restablecer la contraseña de cualquier usuario** desde el panel de administración (útil para cuentas sin email).
+- **Términos y Condiciones y Privacidad** — El registro exige **aceptar** los Términos y Condiciones y la Política de Privacidad (páginas públicas `/terms` y `/privacy`). La aceptación se guarda con **fecha y versión** (`TERMS_VERSION`) y, si se publica una versión nueva, se pide **re-aceptar** al iniciar sesión (modal bloqueante; los superusuarios con cuenta de sistema quedan exentos).
 - **Impersonación de superusuario** — Un superusuario puede **ver la aplicación como otro usuario** (banner de impersonación persistente), para depurar y revisar el sistema desde otras cuentas.
 - **Registro de actividad (auditoría)** — Cada acción relevante (login, impersonación, gestión de cursos/equipos/tareas/notas, cambios en usuarios) genera un **EventLog** con autor, acción, destino y metadatos.
 - **Panel de administración** — Los superusuarios gestionan usuarios (activar/desactivar, asignar roles) y revisan el **historial de actividad** con filtros.
@@ -247,6 +248,7 @@ Pasos que ejecuta:
 | `AUTH_COOKIE_SAMESITE`                             | No                 | `Lax`                                           | `None` solo si frontend y API están en sitios distintos (fuerza Secure)                                                                                      |
 | `REDIS_URL`                                        | No                 | `(LocMemCache)`                                 | Caché en producción. Al desplegar un servicio Redis se obtiene caché compartida entre workers                                                                |
 | `REQUIRE_EMAIL_VERIFICATION`                       | No                 | `True`                                          | `False` desactiva la verificación de email: los registros nacen activos sin enviar correo                                                                   |
+| `TERMS_VERSION`                                    | No                 | `1.0`                                           | Versión vigente de los Términos y Condiciones. Subirla obliga a **re-aceptar** en el siguiente ingreso; el registro exige aceptar los términos siempre         |
 | `BREVO_API_KEY`                                    | No                 | —                                               | Clave de API v3 de Brevo (https://api.brevo.com/v3/smtp/email). **Única credencial del proveedor Brevo** (el activo por defecto)                               |
 | `BREVO_SENDER`                                     | No                 | `EduNotas <pevin.kevin@gmail.com>`              | Remitente verificado en Brevo: `"Nombre <email>"`. La dirección debe ser la que verificaste                                                                   |
 | `EMAIL_HOST_USER`                                 | No                 | —                                               | Cuenta Gmail para el SMTP (solo si el proveedor activo es Gmail). Sin credenciales se usa el backend `console` (dev)                                            |
@@ -295,6 +297,7 @@ En desarrollo el proxy de Vite elimina la necesidad de esta variable.
 | POST              | `/auth/users/reset_password/`         | Solicitar enlace de recuperación por email          |
 | POST              | `/auth/users/reset_password_confirm/` | Confirmar nueva contraseña con uid + token          |
 | POST              | `/auth/users/resend_activation/`      | Reenviar el correo de activación                    |
+| POST              | `/auth/users/accept-terms/`           | Aceptar/re-aceptar la versión vigente de los Términos y Condiciones |
 | GET               | `/auth/csrf/`                         | Obtener token CSRF (cuerpo + cookie)                |
 | POST              | `/auth/jwt/refresh/`                  | Refrescar access token (lee cookie HttpOnly)        |
 | POST              | `/auth/jwt/blacklist/`                | Logout (invalida refresh, limpia cookies)           |
@@ -365,7 +368,7 @@ En desarrollo el proxy de Vite elimina la necesidad de esta variable.
 
 | Modelo             | App            | Campos clave                                                                                                |
 | ------------------ | -------------- | ----------------------------------------------------------------------------------------------------------- |
-| **User**           | authentication | extiende `AbstractUser`; `email` único opcional                                                             |
+| **User**           | authentication | extiende `AbstractUser`; `email` único opcional; `terms_accepted_at` / `terms_version` (aceptación de los Términos y Condiciones)                                             |
 | **Course**         | course         | `title`, `description`, `teacher`, `join_code` (único, 8 chars), `visibility` (PRIVATE/PUBLIC), `is_active` |
 | **Section**        | course         | `course`, `name` (único por curso)                                                                          |
 | **Enrollment**     | course         | `section`, `student`, `status` (PENDING/APPROVED/REJECTED), `approved_at`                                   |
@@ -390,6 +393,7 @@ Reglas de negocio clave:
 - **Refresh en cookie HttpOnly** llamada `refresh_token`, acotada a `/auth/`. El **access token solo vive en memoria** del frontend (no en localStorage), evitando exfiltración por XSS.
 - **CSRF double-submit:** token en la cookie `csrftoken` + cabecera `X-CSRFToken`. El token también se devuelve en el cuerpo de `/auth/csrf/`, login y refresh para soporte cross-origin.
 - **Djoser** gestiona registro/`me`/`set_password`/activación, **verificación de email** y **recuperación de contraseña** (correos en español). El registro exige email y crea la cuenta **inactiva** hasta activarla desde el enlace; si `REQUIRE_EMAIL_VERIFICATION=False` los registros nacen activos sin enviar correo.
+- **Términos y Condiciones:** el registro exige `accept_terms=True` y sella `terms_accepted_at` + `terms_version` (`TERMS_VERSION`); la aceptación es **read-only** (no se puede falsificar por `PATCH /me/`). `POST /auth/users/accept-terms/` re-sella la versión vigente y se registra en `EventLog` (`terms_accepted`). El perfil (`me`/login) expone `terms_version` y `terms_current_version` para que el frontend detecte la re-aceptación.
 - **Recuperación de contraseña:** `POST /auth/users/reset_password/` (siempre responde 204 para no revelar qué correos existen) seguido de `reset_password_confirm/` con `uid` + `token`. El enlace lleva al SPA (`/password/reset/confirm/:uid/:token`) con la nueva contraseña. Throttling de **5 intentos/minuto** (`ResetThrottle`).
 - **Reenvío de activación:** el registro con email ya usado devuelve 400 sin revelar si la cuenta existe; hay endpoint `resend_activation/` (5/min) que reenvía el enlace **solo a cuentas que nunca activaron** (`User.activated_at` NULL, seteado por la señal `djoser.user_activated`). Un usuario que ya activó y luego fue **deshabilitado por un admin no recibe reenvío**: un token nuevo le permitiría re-activarse solo. El frontend expone el reenvío desde **Login** y desde **ActivatePage** cuando el enlace falla.
 - **Restauración de sesión:** la cookie de refresh genera un nuevo access token y se recarga `/auth/users/me/` al recargar la página.
@@ -480,11 +484,11 @@ Por defecto el despliegue es same-origin (Django sirve `frontend/dist`). Si el f
 ## Tests
 
 ```bash
-# Backend (419 tests)
+# Backend (444 tests)
 cd backend
 python manage.py test
 
-# Frontend (232 tests)
+# Frontend (251 tests)
 cd frontend
 npm run test
 npm run lint
