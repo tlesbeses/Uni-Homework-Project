@@ -15,7 +15,7 @@ describe("páginas legales", () => {
         expect(
             screen.getByRole("heading", { level: 1, name: "Términos y Condiciones" })
         ).toBeInTheDocument();
-        expect(screen.getByText(/Versión 1\.0/)).toBeInTheDocument();
+        expect(screen.getByText(/Versión 1\.1/)).toBeInTheDocument();
     });
 
     it("la política de privacidad describe las cookies necesarias", () => {
@@ -31,8 +31,36 @@ describe("páginas legales", () => {
     it("la página de términos enlaza a la política de privacidad", () => {
         renderPage(<TermsPage />);
 
+        const links = screen.getAllByRole("link", {
+            name: "Política de Privacidad",
+        });
+        expect(links.length).toBeGreaterThan(0);
+        links.forEach((link) => {
+            expect(link).toHaveAttribute("href", "/privacy");
+        });
+    });
+
+    it("los términos cubren el cierre de cuentas", () => {
+        renderPage(<TermsPage />);
+
         expect(
-            screen.getByRole("link", { name: "Política de Privacidad" })
-        ).toHaveAttribute("href", "/privacy");
+            screen.getByRole("heading", {
+                name: "8. Suspensión y cierre de cuentas",
+            })
+        ).toBeInTheDocument();
+    });
+
+    it("la política de privacidad cubre proveedores, desactivación y seguridad", () => {
+        renderPage(<PrivacyPage />);
+
+        expect(
+            screen.getByRole("heading", { name: "5. Proveedores y transferencias" })
+        ).toBeInTheDocument();
+        expect(
+            screen.getByRole("heading", { name: "7. Eliminación y desactivación" })
+        ).toBeInTheDocument();
+        expect(
+            screen.getByRole("heading", { name: "10. Seguridad" })
+        ).toBeInTheDocument();
     });
 });
