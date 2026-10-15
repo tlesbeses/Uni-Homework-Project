@@ -2,6 +2,7 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from djoser.serializers import UserCreateSerializer as DjoserUserCreateSerializer, UserSerializer as DjoserUserSerializer
 
 from authentication.models import ErrorLog, EventLog
@@ -12,6 +13,7 @@ class LoginUserSerializer(serializers.ModelSerializer):
     roles = serializers.SerializerMethodField()
     permissions = serializers.SerializerMethodField()
     admin_panel_enabled = serializers.SerializerMethodField()
+    terms_current_version = serializers.SerializerMethodField()
 
     class Meta:
         model = get_user_model()
@@ -27,8 +29,17 @@ class LoginUserSerializer(serializers.ModelSerializer):
             "roles",
             "permissions",
             "admin_panel_enabled",
+            "terms_accepted_at",
+            "terms_version",
+            "terms_current_version",
         )
-        read_only_fields = ("is_staff", "is_superuser", "is_active")
+        read_only_fields = (
+            "is_staff",
+            "is_superuser",
+            "is_active",
+            "terms_accepted_at",
+            "terms_version",
+        )
 
     def get_roles(self, obj):
         return [group.name for group in obj.groups.all()]
@@ -38,6 +49,9 @@ class LoginUserSerializer(serializers.ModelSerializer):
 
     def get_admin_panel_enabled(self, obj):
         return getattr(settings, "ADMIN_PANEL_ENABLED", True)
+
+    def get_terms_current_version(self, obj):
+        return getattr(settings, "TERMS_VERSION", "")
 
 class LoginSerializer(TokenObtainPairSerializer):
 
@@ -53,10 +67,36 @@ class LoginSerializer(TokenObtainPairSerializer):
         return data
     
 class UserCreateSerializer(DjoserUserCreateSerializer):
+    # Campo de solo entrada: no es una columna del modelo. El usuario debe
+    # aceptar explícitamente los Términos y Condiciones y la Política de
+    # Privacidad para poder registrarse; la aceptación se sella con fecha y
+    # versión (settings.TERMS_VERSION) al crear la cuenta.
+    accept_terms = serializers.BooleanField(
+        write_only=True,
+        error_messages={
+            "required": (
+                "Debés aceptar los Términos y Condiciones y la Política de "
+                "Privacidad."
+            ),
+            "invalid": (
+                "Debés aceptar los Términos y Condiciones y la Política de "
+                "Privacidad."
+            ),
+        },
+    )
+
     class Meta(DjoserUserCreateSerializer.Meta):
         model = User
         # Agregamos first_name y last_name para que Djoser los capture del JSON
-        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'password')
+        fields = (
+            'id',
+            'username',
+            'email',
+            'first_name',
+            'last_name',
+            'password',
+            'accept_terms',
+        )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -67,29 +107,67 @@ class UserCreateSerializer(DjoserUserCreateSerializer):
             self.fields["email"].required = True
             self.fields["email"].allow_blank = False
 
+    def validate(self, attrs):
+        # Djoser construye ``User(**attrs)`` dentro de su validate, así que
+        # ``accept_terms`` (campo que no existe en el modelo) debe quitarse
+        # antes de delegar. Se guarda para crear la aceptación en perform_create.
+        self._accept_terms = attrs.pop("accept_terms", False)
+        if not self._accept_terms:
+            raise serializers.ValidationError(
+                {
+                    "accept_terms": (
+                        "Debés aceptar los Términos y Condiciones y la "
+                        "Política de Privacidad."
+                    )
+                }
+            )
+        return super().validate(attrs)
+
     def perform_create(self, validated_data):
         # Guarda el usuario usando la lógica nativa de Django.
         # Con verificación de email obligatoria (REQUIRE_EMAIL_VERIFICATION)
         # el usuario nace inactivo y solo puede iniciar sesión tras activar
         # su cuenta desde el correo. Los superusuarios existentes no se ven
         # afectados (no pasan por acá).
-        from django.conf import settings
+        from django.conf import settings as django_settings
 
-        if getattr(settings, "REQUIRE_EMAIL_VERIFICATION", True):
+        if getattr(self, "_accept_terms", False):
+            validated_data["terms_accepted_at"] = timezone.now()
+            validated_data["terms_version"] = getattr(
+                django_settings, "TERMS_VERSION", ""
+            )
+
+        if getattr(django_settings, "REQUIRE_EMAIL_VERIFICATION", True):
             user = User.objects.create_user(is_active=False, **validated_data)
         else:
             user = User.objects.create_user(**validated_data)
+        return user
+
+
+class AcceptTermsSerializer(serializers.Serializer):
+    """Sella la aceptación de la versión vigente de los Términos y Condiciones.
+
+    Se usa en el endpoint ``POST /auth/users/accept-terms/`` para los usuarios
+    ya registrados cuando se publica una versión nueva de los términos.
+    """
+
+    def save(self, **kwargs):
+        user = self.context["request"].user
+        user.terms_accepted_at = timezone.now()
+        user.terms_version = getattr(settings, "TERMS_VERSION", "")
+        user.save(update_fields=["terms_accepted_at", "terms_version"])
         return user
 
 class UserSerializer(DjoserUserSerializer):
     roles = serializers.SerializerMethodField()
     permissions = serializers.SerializerMethodField()
     admin_panel_enabled = serializers.SerializerMethodField()
+    terms_current_version = serializers.SerializerMethodField()
 
     class Meta(DjoserUserSerializer.Meta):
         model = User
-        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'is_staff', 'is_superuser', 'is_active', 'roles', 'permissions', 'admin_panel_enabled')
-        read_only_fields = ('is_staff', 'is_superuser', 'is_active',)
+        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'is_staff', 'is_superuser', 'is_active', 'roles', 'permissions', 'admin_panel_enabled', 'terms_accepted_at', 'terms_version', 'terms_current_version')
+        read_only_fields = ('is_staff', 'is_superuser', 'is_active', 'terms_accepted_at', 'terms_version',)
 
     def get_roles(self, obj):
         return [group.name for group in obj.groups.all()]
@@ -99,6 +177,9 @@ class UserSerializer(DjoserUserSerializer):
 
     def get_admin_panel_enabled(self, obj):
         return getattr(settings, "ADMIN_PANEL_ENABLED", True)
+
+    def get_terms_current_version(self, obj):
+        return getattr(settings, "TERMS_VERSION", "")
 
 
 class AdminUserSerializer(serializers.ModelSerializer):

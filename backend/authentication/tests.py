@@ -1096,6 +1096,7 @@ class AccountFlowTests(APITestCase):
             "first_name": "Nuevo",
             "last_name": "Estudiante",
             "password": "StrongPass123",
+            "accept_terms": True,
         }
         payload.update(overrides)
         return self.client.post("/auth/users/", payload, format="json")
@@ -1221,6 +1222,126 @@ class AccountFlowTests(APITestCase):
         self.assertTrue(user.check_password("oldPass1"))
 
 
+class TermsAcceptanceTests(APITestCase):
+    """Aceptación de los Términos y Condiciones y la Política de Privacidad.
+
+    El registro exige ``accept_terms=True`` y sella fecha + versión
+    (``settings.TERMS_VERSION``). ``POST /auth/users/accept-terms/`` permite
+    re-aceptar cuando se publica una versión nueva.
+    """
+
+    def setUp(self):
+        self.student_group = Group.objects.get_or_create(name="Student")[0]
+        mail.outbox = []
+
+    def _register(self, **overrides):
+        payload = {
+            "username": "nuevo",
+            "email": "nuevo@example.com",
+            "first_name": "Nuevo",
+            "last_name": "Estudiante",
+            "password": "StrongPass123",
+            "accept_terms": True,
+        }
+        payload.update(overrides)
+        return self.client.post("/auth/users/", payload, format="json")
+
+    def test_register_without_accept_terms_is_rejected(self):
+        payload = {
+            "username": "sin_terminos",
+            "email": "sint@example.com",
+            "first_name": "Sin",
+            "last_name": "Terminos",
+            "password": "StrongPass123",
+        }
+        response = self.client.post("/auth/users/", payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("accept_terms", response.data)
+        self.assertFalse(User.objects.filter(username="sin_terminos").exists())
+
+    def test_register_with_accept_terms_false_is_rejected(self):
+        response = self._register(accept_terms=False)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("accept_terms", response.data)
+        self.assertFalse(User.objects.filter(username="nuevo").exists())
+
+    def test_register_records_terms_timestamp_and_version(self):
+        response = self._register()
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        user = User.objects.get(username="nuevo")
+        self.assertIsNotNone(user.terms_accepted_at)
+        self.assertEqual(user.terms_version, settings.TERMS_VERSION)
+
+    def test_accept_terms_requires_authentication(self):
+        response = self.client.post("/auth/users/accept-terms/", format="json")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_accept_terms_updates_version_for_existing_user(self):
+        user = User.objects.create_user(
+            username="viejo", email="viejo@example.com", password="pass"
+        )
+        self.client.force_authenticate(user)
+
+        with override_settings(TERMS_VERSION="2.0"):
+            response = self.client.post(
+                "/auth/users/accept-terms/", format="json"
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        user.refresh_from_db()
+        self.assertIsNotNone(user.terms_accepted_at)
+        self.assertEqual(user.terms_version, "2.0")
+        self.assertEqual(response.data["terms_version"], "2.0")
+        self.assertEqual(response.data["terms_current_version"], "2.0")
+
+    def test_me_exposes_terms_status(self):
+        user = User.objects.create_user(
+            username="perfil", email="perfil@example.com", password="pass"
+        )
+        self.client.force_authenticate(user)
+
+        response = self.client.get("/auth/users/me/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["terms_version"], "")
+        self.assertEqual(
+            response.data["terms_current_version"], settings.TERMS_VERSION
+        )
+
+    def test_profile_update_cannot_forge_terms_acceptance(self):
+        user = User.objects.create_user(
+            username="falsifica", email="falsifica@example.com", password="pass"
+        )
+        self.client.force_authenticate(user)
+
+        self.client.patch(
+            "/auth/users/me/",
+            {"terms_version": "9.9", "terms_accepted_at": "2020-01-01T00:00:00Z"},
+            format="json",
+        )
+
+        user.refresh_from_db()
+        self.assertEqual(user.terms_version, "")
+        self.assertIsNone(user.terms_accepted_at)
+
+    def test_accept_terms_logs_event(self):
+        user = User.objects.create_user(
+            username="logterms", email="logterms@example.com", password="pass"
+        )
+        self.client.force_authenticate(user)
+
+        self.client.post("/auth/users/accept-terms/", format="json")
+
+        self.assertTrue(
+            EventLog.objects.filter(
+                action=EventLog.ACTION_TERMS_ACCEPTED, actor=user
+            ).exists()
+        )
+
+
 class AccountActivationTests(APITestCase):
     """Verificación de email obligatoria en los registros nuevos.
 
@@ -1239,6 +1360,7 @@ class AccountActivationTests(APITestCase):
             "first_name": "Nuevo",
             "last_name": "Estudiante",
             "password": "StrongPass123",
+            "accept_terms": True,
         }
         payload.update(overrides)
         return self.client.post("/auth/users/", payload, format="json")
@@ -1514,6 +1636,7 @@ class RequireVerificationDisabledTests(APITestCase):
                 "first_name": "Directo",
                 "last_name": "Usuario",
                 "password": "StrongPass123",
+                "accept_terms": True,
             },
             format="json",
         )
@@ -1681,6 +1804,7 @@ class EmailFailureCaptureTests(APITestCase):
                     "first_name": "Nuevo",
                     "last_name": "Fallo",
                     "password": "StrongPass123",
+                    "accept_terms": True,
                 },
                 format="json",
             )
@@ -1715,6 +1839,7 @@ class EmailFailureCaptureTests(APITestCase):
                 "first_name": "Activa",
                 "last_name": "Fallo",
                 "password": "StrongPass123",
+                "accept_terms": True,
             },
             format="json",
         )

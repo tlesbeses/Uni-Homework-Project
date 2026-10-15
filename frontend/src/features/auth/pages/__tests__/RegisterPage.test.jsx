@@ -53,6 +53,7 @@ async function fillForm(user) {
         screen.getByLabelText("Confirmar contraseña"),
         validValues.confirmPassword
     );
+    await user.click(screen.getByRole("checkbox"));
 }
 
 describe("RegisterPage", () => {
@@ -73,6 +74,46 @@ describe("RegisterPage", () => {
         ).toHaveAttribute("href", "/login");
     });
 
+    it("exige aceptar los terminos para registrarse", async () => {
+        const user = userEvent.setup();
+        renderPage();
+
+        await user.type(
+            screen.getByLabelText("Nombre de usuario"),
+            validValues.username
+        );
+        await user.type(screen.getByLabelText("Nombre"), validValues.first_name);
+        await user.type(screen.getByLabelText("Apellido"), validValues.last_name);
+        await user.type(
+            screen.getByLabelText("Correo electrónico"),
+            validValues.email
+        );
+        await user.type(screen.getByLabelText("Contraseña"), validValues.password);
+        await user.type(
+            screen.getByLabelText("Confirmar contraseña"),
+            validValues.confirmPassword
+        );
+        await user.click(screen.getByRole("button", { name: "Registrarse" }));
+
+        expect(
+            await screen.findByText(
+                "Debés aceptar los Términos y Condiciones y la Política de Privacidad"
+            )
+        ).toBeInTheDocument();
+        expect(registerUser).not.toHaveBeenCalled();
+    });
+
+    it("enlaza a Terminos y Privacidad desde la casilla", () => {
+        renderPage();
+
+        expect(
+            screen.getByRole("link", { name: "Términos y Condiciones" })
+        ).toHaveAttribute("href", "/terms");
+        expect(
+            screen.getByRole("link", { name: "Política de Privacidad" })
+        ).toHaveAttribute("href", "/privacy");
+    });
+
     it("registra al usuario sin confirmPassword y muestra el aviso de verificación", async () => {
         registerUser.mockResolvedValue({});
         const user = userEvent.setup();
@@ -88,6 +129,7 @@ describe("RegisterPage", () => {
                 last_name: "Perez",
                 email: "pepe@example.com",
                 password: "clave123",
+                accept_terms: true,
             })
         );
         expect(toastMock.success).toHaveBeenCalledWith(

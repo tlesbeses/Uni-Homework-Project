@@ -41,6 +41,16 @@ export const LandingPage = () => {
                         Registrarme
                     </Link>
                 </div>
+
+                <div className="mt-10 flex items-center gap-4 text-xs text-indigo-200/70">
+                    <Link to="/terms" className="hover:text-white hover:underline">
+                        Términos y Condiciones
+                    </Link>
+                    <span aria-hidden="true">·</span>
+                    <Link to="/privacy" className="hover:text-white hover:underline">
+                        Política de Privacidad
+                    </Link>
+                </div>
             </div>
         </div>
     );

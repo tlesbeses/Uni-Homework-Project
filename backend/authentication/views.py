@@ -36,12 +36,14 @@ from course.permissions import is_teacher
 from .csrf import CSRF_COOKIE_NAME, assert_csrf, auth_cookie_secure, set_csrf_cookie
 from .permissions import IsSuperuser
 from .serializers import (
+    AcceptTermsSerializer,
     AdminUserSerializer,
     ClientErrorSerializer,
     ErrorLogDetailSerializer,
     ErrorLogSerializer,
     EventLogSerializer,
     LoginSerializer,
+    UserSerializer,
 )
 from .services import log_event
 from .throttle import (
@@ -211,6 +213,25 @@ class UsersViewSet(DjoserUserViewSet):
                 error_info["error_type"],
             )
             return {"error_id": error_id, **error_info}
+
+    def accept_terms(self, request, *args, **kwargs):
+        """Sella la aceptación de la versión vigente de los Términos.
+
+        Para usuarios ya registrados cuando se publica una versión nueva de los
+        Términos y Condiciones (``TERMS_VERSION``). Requiere autenticación
+        (permiso ``user`` por defecto de Djoser).
+        """
+        serializer = AcceptTermsSerializer(context={"request": request})
+        user = serializer.save()
+        log_event(
+            actor=user,
+            action=EventLog.ACTION_TERMS_ACCEPTED,
+            entity_type="user",
+            entity_id=user.id,
+            target=user,
+            metadata={"version": user.terms_version},
+        )
+        return Response(UserSerializer(user).data, status=status.HTTP_200_OK)
 
     def reset_password(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)

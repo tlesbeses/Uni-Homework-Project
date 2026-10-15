@@ -18,6 +18,23 @@ class User(AbstractUser):
             "NULL = nunca activó (puede pedir reenvío)."
         ),
     )
+    terms_accepted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=(
+            "Momento en el que el usuario aceptó los Términos y Condiciones "
+            "y la Política de Privacidad. NULL = nunca aceptó."
+        ),
+    )
+    terms_version = models.CharField(
+        max_length=20,
+        blank=True,
+        default="",
+        help_text=(
+            "Versión de los Términos y Condiciones aceptada por el usuario "
+            "(ver settings.TERMS_VERSION)."
+        ),
+    )
 
     def save(self, *args, **kwargs):
         if not self.email:
@@ -39,6 +56,7 @@ class EventLog(models.Model):
     ACTION_UPDATE = "update"
     ACTION_DELETE = "delete"
     ACTION_PASSWORD_RESET = "password_reset"
+    ACTION_TERMS_ACCEPTED = "terms_accepted"
 
     actor = models.ForeignKey(
         "authentication.User",

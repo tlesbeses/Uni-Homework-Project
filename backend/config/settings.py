@@ -39,6 +39,11 @@ ADMIN_PANEL_ENABLED = os.getenv("ADMIN_PANEL_ENABLED", "True").lower() in (
     "yes",
 )
 
+# Versión vigente de los Términos y Condiciones y la Política de Privacidad.
+# Se sella junto a la aceptación del usuario (terms_version) al registrarse o
+# al aceptar un cambio; subirla obliga a re-aceptar en el siguiente ingreso.
+TERMS_VERSION = os.getenv("TERMS_VERSION", "1.0")
+
 # Política SameSite para las cookies de autenticación (refresh token y CSRF).
 # "Lax" cubre el despliegue actual (SPA servida por Django) y el desarrollo
 # con proxy. Usar "None" solo si frontend y API viven en sitios distintos;
