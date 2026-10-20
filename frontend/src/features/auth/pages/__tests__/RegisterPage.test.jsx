@@ -106,12 +106,21 @@ describe("RegisterPage", () => {
     it("enlaza a Terminos y Privacidad desde la casilla", () => {
         renderPage();
 
-        expect(
-            screen.getByRole("link", { name: "Términos y Condiciones" })
-        ).toHaveAttribute("href", "/terms");
-        expect(
-            screen.getByRole("link", { name: "Política de Privacidad" })
-        ).toHaveAttribute("href", "/privacy");
+        const termsLink = screen.getByRole("link", {
+            name: "Términos y Condiciones",
+        });
+        const privacyLink = screen.getByRole("link", {
+            name: "Política de Privacidad",
+        });
+
+        expect(termsLink).toHaveAttribute("href", "/terms");
+        expect(privacyLink).toHaveAttribute("href", "/privacy");
+        // target=_blank conserva el formulario; rel=opener deja que la pestaña
+        // legal devuelva el foco y se cierre con el botón "Volver".
+        expect(termsLink).toHaveAttribute("target", "_blank");
+        expect(privacyLink).toHaveAttribute("target", "_blank");
+        expect(termsLink).toHaveAttribute("rel", "opener");
+        expect(privacyLink).toHaveAttribute("rel", "opener");
     });
 
     it("registra al usuario sin confirmPassword y muestra el aviso de verificación", async () => {

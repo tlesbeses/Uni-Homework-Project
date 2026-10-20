@@ -85,7 +85,7 @@ export const RegisterForm = () => {
                         <Link
                             to="/terms"
                             target="_blank"
-                            rel="noreferrer"
+                            rel="opener"
                             className="font-medium text-indigo-600 hover:underline"
                         >
                             Términos y Condiciones
@@ -94,7 +94,7 @@ export const RegisterForm = () => {
                         <Link
                             to="/privacy"
                             target="_blank"
-                            rel="noreferrer"
+                            rel="opener"
                             className="font-medium text-indigo-600 hover:underline"
                         >
                             Política de Privacidad
