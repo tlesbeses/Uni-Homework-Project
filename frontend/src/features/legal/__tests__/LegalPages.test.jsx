@@ -1,12 +1,28 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { TermsPage } from "@/features/legal/pages/TermsPage";
 import { PrivacyPage } from "@/features/legal/pages/PrivacyPage";
 
 function renderPage(ui) {
     return render(<MemoryRouter>{ui}</MemoryRouter>);
 }
+
+/** Simula la presencia (o ausencia) de window.opener en jsdom. */
+function setOpener(value) {
+    Object.defineProperty(window, "opener", {
+        value,
+        configurable: true,
+        writable: true,
+    });
+}
+
+/** Muestra la ruta actual del router, para assertions de navegación. */
+const LocationDisplay = () => {
+    const location = useLocation();
+    return <div data-testid="location">{location.pathname}</div>;
+};
 
 describe("páginas legales", () => {
     it("la página de términos muestra el título y la versión", () => {
@@ -62,5 +78,60 @@ describe("páginas legales", () => {
         expect(
             screen.getByRole("heading", { name: "10. Seguridad" })
         ).toBeInTheDocument();
+    });
+});
+
+describe("botón Volver de los documentos legales", () => {
+    afterEach(() => {
+        setOpener(null);
+        vi.restoreAllMocks();
+    });
+
+    it("cierra la pestaña y devuelve el foco cuando se abrió desde la app", async () => {
+        const focus = vi.fn();
+        setOpener({ focus, closed: false });
+        const closeSpy = vi.spyOn(window, "close").mockImplementation(() => {});
+        const user = userEvent.setup();
+
+        renderPage(<TermsPage />);
+
+        await user.click(screen.getByRole("button", { name: /volver/i }));
+
+        expect(closeSpy).toHaveBeenCalledTimes(1);
+        expect(focus).toHaveBeenCalledTimes(1);
+        expect(
+            screen.queryByRole("link", { name: /volver al inicio/i })
+        ).not.toBeInTheDocument();
+    });
+
+    it("muestra el enlace al inicio en visitas directas (sin opener)", () => {
+        setOpener(null);
+
+        renderPage(<PrivacyPage />);
+
+        const link = screen.getByRole("link", { name: /volver al inicio/i });
+        expect(link).toHaveAttribute("href", "/");
+        expect(
+            screen.queryByRole("button", { name: /volver/i })
+        ).not.toBeInTheDocument();
+    });
+
+    it("navega al inicio si el navegador bloquea el cierre", async () => {
+        setOpener({ focus: vi.fn(), closed: false });
+        // close() sin efecto: window.closed sigue en false, como cuando el
+        // navegador bloquea el cierre de la pestaña.
+        vi.spyOn(window, "close").mockImplementation(() => {});
+        const user = userEvent.setup();
+
+        render(
+            <MemoryRouter initialEntries={["/terms"]}>
+                <LocationDisplay />
+                <TermsPage />
+            </MemoryRouter>
+        );
+
+        await user.click(screen.getByRole("button", { name: /volver/i }));
+
+        expect(await screen.findByTestId("location")).toHaveTextContent("/");
     });
 });
