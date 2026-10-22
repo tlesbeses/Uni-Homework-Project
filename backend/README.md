@@ -35,6 +35,7 @@ Copia `.env.example` como punto de partida. Nunca hagas commit del `.env` real.
 | `CORS_ALLOWED_ORIGINS` | No   | orígenes Vite locales | Frontends autorizados (CORS con credenciales), separados por comas        |
 | `AUTH_COOKIE_SAMESITE` | No   | `Lax`                 | `None` solo si frontend y API están en sitios distintos (fuerza Secure)   |
 | `TERMS_VERSION` | No   | `1.1`                 | Versión vigente de los Términos y Condiciones; al subirla se pide re-aceptar al ingresar |
+| `EVENTLOG_LOGIN_RETENTION_DAYS` | No | *(vacío = no purgar)* | Días de retención de los eventos de login en `EventLog`. Vacío o `0`: se conserva todo el historial (útil para análisis de datos). Un entero > 0 reactiva la limpieza perezosa al consultar `/auth/admin/login-stats/` |
 
 ### Frontend en otro origen
 
@@ -65,3 +66,17 @@ Sin `SECRET_KEY`, el proceso falla al arrancar.
 ```bash
 python manage.py test
 ```
+
+## Historial de eventos y exportación (data analysis)
+
+`EventLog` (login, create, update, delete, impersonate, password_reset,
+terms_accepted) y `ErrorLog` **no se purgan nunca**; solo los eventos de
+login tienen retención configurable (ver `EVENTLOG_LOGIN_RETENTION_DAYS` y
+`DATOS.md` en la raíz del repo). Para llevarse el historial a pandas/Excel:
+
+- **Endpoint web** (superuser): `GET /auth/admin/export-events/`
+  acepta `file_format=csv|json` (default `csv`) y los mismos filtros del
+  listado de actividad (`action`, `entity_type`, `user_id`, `from`, `to`).
+  Devuelve todo el resultado sin paginar, como descarga.
+- **Terminal**: `python manage.py export_events --format csv --output eventos.csv`
+  (o `--format json --action login --from 2026-01-01`; ver `--help`).

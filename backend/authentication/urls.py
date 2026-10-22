@@ -37,6 +37,7 @@ urlpatterns = [
     ),
     path("admin/impersonate/", views.ImpersonateView.as_view(), name="admin-impersonate"),
     path("admin/activity/", views.AdminActivityView.as_view(), name="admin-activity"),
+    path("admin/export-events/", views.ExportEventsView.as_view(), name="admin-export-events"),
     path("admin/login-stats/", views.LoginStatsView.as_view(), name="admin-login-stats"),
     path("admin/test-email/", views.TestEmailView.as_view(), name="admin-test-email"),
 ]

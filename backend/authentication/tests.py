@@ -1,4 +1,8 @@
+import json
+import os
+import tempfile
 from datetime import timedelta
+from io import StringIO
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -8,6 +12,8 @@ from django.core import mail
 from django.core.cache import cache
 from django.contrib.auth.models import AnonymousUser, Group
 from django.core.mail.backends.base import BaseEmailBackend
+from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.test import RequestFactory, TestCase, override_settings
 from django.utils import timezone
 from rest_framework import status
@@ -626,8 +632,10 @@ class LoginStatsTests(APITestCase):
     """`GET /auth/admin/login-stats/` agrega logins por día (adopción).
 
     Solo superusuarios. Devuelve logins y usuarios únicos por día para los
-    últimos N días (default 7) y limpia perezosamente los eventos de login
-    más viejos que la retención (30 días).
+    últimos N días (default 7) y expone la retención vigente
+    (``retention_days``). La purga perezosa de logins viejos solo corre si
+    ``EVENTLOG_LOGIN_RETENTION_DAYS`` está configurado; con el default no se
+    borra nada (historial completo para análisis — ver DATOS.md).
     """
 
     def setUp(self):
@@ -709,7 +717,8 @@ class LoginStatsTests(APITestCase):
         response = self.client.get("/auth/admin/login-stats/")
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-    def test_old_login_events_are_cleaned_up(self):
+    def test_old_login_events_are_kept_by_default(self):
+        """Sin EVENTLOG_LOGIN_RETENTION_DAYS no se purga nada (DATOS.md)."""
         stale = self._login_event(self.student)
         EventLog.objects.filter(pk=stale.pk).update(
             created_at=timezone.now() - timedelta(days=40)
@@ -718,10 +727,221 @@ class LoginStatsTests(APITestCase):
         self.client.force_authenticate(self.admin)
         response = self.client.get("/auth/admin/login-stats/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIsNone(response.data["retention_days"])
+        # El evento viejo sigue existiendo (queda fuera de la ventana de
+        # días que agrega totals, pero no se borró).
+        self.assertTrue(
+            EventLog.objects.filter(action=EventLog.ACTION_LOGIN).exists()
+        )
+
+    @override_settings(EVENTLOG_LOGIN_RETENTION_DAYS=30)
+    def test_old_login_events_are_cleaned_up_when_retention_set(self):
+        """Con retención configurada, el sweep borra los logins viejos."""
+        stale = self._login_event(self.student)
+        EventLog.objects.filter(pk=stale.pk).update(
+            created_at=timezone.now() - timedelta(days=40)
+        )
+
+        self.client.force_authenticate(self.admin)
+        response = self.client.get("/auth/admin/login-stats/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["retention_days"], 30)
         self.assertEqual(response.data["totals"]["logins"], 0)
         self.assertFalse(
             EventLog.objects.filter(action=EventLog.ACTION_LOGIN).exists()
         )
+
+    @override_settings(EVENTLOG_LOGIN_RETENTION_DAYS=30)
+    def test_recent_login_events_survive_the_sweep(self):
+        """El sweep solo toca los eventos más viejos que la retención."""
+        self._login_event(self.student)
+
+        self.client.force_authenticate(self.admin)
+        response = self.client.get("/auth/admin/login-stats/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["totals"]["logins"], 1)
+
+
+class ExportEventsTests(APITestCase):
+    """`GET /auth/admin/export-events/` descarga EventLog completo (CSV/JSON).
+
+    Mismos filtros que el listado de actividad (sin ``action`` se excluyen
+    los logins) pero sin paginar: devuelve todo el historial de una sola vez
+    para análisis de datos (ver DATOS.md). Solo superusuarios.
+    """
+
+    def setUp(self):
+        self.admin = User.objects.create_superuser(
+            username="admin", email="admin@example.com", password="pass"
+        )
+        self.student = User.objects.create_user(
+            username="student", email="student@example.com", password="pass"
+        )
+        EventLog.objects.create(
+            actor=self.student,
+            target=self.student,
+            action=EventLog.ACTION_LOGIN,
+            entity_type="user",
+            entity_id=self.student.id,
+            metadata={"roles": ["Student"]},
+        )
+        EventLog.objects.create(
+            actor=self.admin,
+            action=EventLog.ACTION_UPDATE,
+            entity_type="course",
+            entity_id=7,
+            metadata={"changes": {"name": {"from": "A", "to": "B"}}},
+        )
+
+    def test_csv_download_excludes_logins_by_default(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.get("/auth/admin/export-events/", {"file_format": "csv"})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("text/csv", response["Content-Type"])
+        self.assertIn(
+            'attachment; filename="eventlog-',
+            response["Content-Disposition"],
+        )
+
+        lines = response.content.decode("utf-8").strip().splitlines()
+        self.assertEqual(
+            lines[0],
+            "id,created_at,action,entity_type,entity_id,actor_id,"
+            "actor_username,target_id,target_username,metadata",
+        )
+        self.assertEqual(len(lines), 2)  # header + evento update
+        self.assertIn("update", lines[1])
+        self.assertNotIn("login", "\n".join(lines[1:]))
+
+    def test_json_download_includes_logins_with_action_filter(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.get(
+            "/auth/admin/export-events/", {"file_format": "json", "action": "login"}
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("application/json", response["Content-Type"])
+
+        data = json.loads(response.content.decode("utf-8"))
+        self.assertEqual(len(data), 1)
+        row = data[0]
+        self.assertEqual(row["action"], "login")
+        self.assertEqual(row["actor_username"], "student")
+        self.assertEqual(row["target_username"], "student")
+        self.assertEqual(row["metadata"]["roles"], ["Student"])
+
+    def test_user_filter_applies(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.get(
+            "/auth/admin/export-events/",
+            {"file_format": "json", "action": "update", "user_id": str(self.student.id)},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # El evento update pertenece al admin, no al student.
+        self.assertEqual(json.loads(response.content.decode("utf-8")), [])
+
+    def test_invalid_format_rejected(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.get("/auth/admin/export-events/", {"file_format": "xml"})
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_non_superuser_forbidden(self):
+        user = User.objects.create_user(
+            username="pepe", email="pepe@example.com", password="pass"
+        )
+        self.client.force_authenticate(user)
+        response = self.client.get("/auth/admin/export-events/")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_anonymous_unauthorized(self):
+        response = self.client.get("/auth/admin/export-events/")
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_csv_escapes_formula_like_usernames(self):
+        """Un usuario '+profe' no debe ejecutarse como fórmula en Excel."""
+        weird = User.objects.create_user(
+            username="+profe", email="profe@example.com", password="pass"
+        )
+        EventLog.objects.create(
+            actor=weird, action=EventLog.ACTION_UPDATE, entity_type="course"
+        )
+
+        self.client.force_authenticate(self.admin)
+        response = self.client.get("/auth/admin/export-events/", {"file_format": "csv"})
+        body = response.content.decode("utf-8")
+
+        self.assertIn("'+profe", body)
+        self.assertNotIn(",+profe", body)
+
+
+class ExportEventsCommandTests(TestCase):
+    """`manage.py export_events` vuelca EventLog a CSV/JSON (ver DATOS.md)."""
+
+    def setUp(self):
+        self.student = User.objects.create_user(
+            username="student", email="student@example.com", password="pass"
+        )
+        EventLog.objects.create(
+            actor=self.student,
+            action=EventLog.ACTION_LOGIN,
+            entity_type="user",
+            entity_id=self.student.id,
+            metadata={"roles": ["Student"]},
+        )
+        EventLog.objects.create(
+            actor=self.student,
+            action=EventLog.ACTION_UPDATE,
+            entity_type="course",
+            entity_id=7,
+        )
+
+    def test_csv_to_stdout_excludes_logins_by_default(self):
+        out = StringIO()
+        call_command("export_events", stdout=out)
+
+        lines = out.getvalue().strip().splitlines()
+        self.assertEqual(len(lines), 2)  # header + evento update
+        self.assertIn("id,created_at,action", lines[0])
+        self.assertIn("update", lines[1])
+
+    def test_json_with_action_login(self):
+        out = StringIO()
+        call_command(
+            "export_events", "--format", "json", "--action", "login", stdout=out
+        )
+
+        data = json.loads(out.getvalue())
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]["action"], "login")
+        self.assertEqual(data[0]["actor_username"], "student")
+
+    def test_output_file_infers_json_from_extension(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "eventos.json")
+            out = StringIO()
+            call_command("export_events", "--output", path, stdout=out)
+
+            with open(path, encoding="utf-8") as handle:
+                data = json.load(handle)
+
+            self.assertEqual(len(data), 1)  # sin --action se excluye el login
+            self.assertEqual(data[0]["action"], "update")
+            self.assertIn("Exportados 1 eventos", out.getvalue())
+
+    def test_invalid_from_date_raises_command_error(self):
+        with self.assertRaises(CommandError):
+            call_command(
+                "export_events",
+                "--from",
+                "no-es-fecha",
+                stdout=StringIO(),
+                stderr=StringIO(),
+            )
 
 
 class LoginThrottleToggleTests(APITestCase):

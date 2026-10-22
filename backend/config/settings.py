@@ -44,6 +44,25 @@ ADMIN_PANEL_ENABLED = os.getenv("ADMIN_PANEL_ENABLED", "True").lower() in (
 # al aceptar un cambio; subirla obliga a re-aceptar en el siguiente ingreso.
 TERMS_VERSION = os.getenv("TERMS_VERSION", "1.1")
 
+# Retención de los eventos de login en EventLog (días).
+# Por defecto vacío: NO se purga nada y el historial completo queda disponible
+# para estudios de data analysis (ver DATOS.md). Definir un entero mayor a 0
+# reactiva la limpieza perezosa de eventos de login más viejos que ese plazo
+# (la ejecuta GET /auth/admin/login-stats/ cada vez que un admin abre el
+# dashboard de métricas).
+_retention_raw = os.getenv("EVENTLOG_LOGIN_RETENTION_DAYS", "").strip()
+if _retention_raw:
+    try:
+        _retention_days = int(_retention_raw)
+    except ValueError:
+        raise ImproperlyConfigured(
+            "EVENTLOG_LOGIN_RETENTION_DAYS debe ser un número de días "
+            "entero o quedar vacío para no purgar (conservar todo)."
+        )
+    EVENTLOG_LOGIN_RETENTION_DAYS = _retention_days if _retention_days > 0 else None
+else:
+    EVENTLOG_LOGIN_RETENTION_DAYS = None
+
 # Política SameSite para las cookies de autenticación (refresh token y CSRF).
 # "Lax" cubre el despliegue actual (SPA servida por Django) y el desarrollo
 # con proxy. Usar "None" solo si frontend y API viven en sitios distintos;

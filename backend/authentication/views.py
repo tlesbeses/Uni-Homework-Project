@@ -6,8 +6,9 @@ from django.conf import settings
 from django.contrib.auth.models import Group
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.db.models import Count, Q
+from django.db.models import Count
 from django.db.models.functions import TruncDate
+from django.http import HttpResponse
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from rest_framework import status, viewsets
@@ -45,7 +46,12 @@ from .serializers import (
     LoginSerializer,
     UserSerializer,
 )
-from .services import log_event
+from .services import (
+    export_events_csv,
+    export_events_json,
+    filter_event_logs,
+    log_event,
+)
 from .throttle import (
     AdminThrottle,
     AuthThrottle,
@@ -578,8 +584,9 @@ class AdminActivityView(APIView):
 
     Solo superusuarios. Filtros opcionales: action, entity_type, user_id
     (actor o target) y rango de fechas (from/to en ISO). Por defecto excluye
-    los eventos de login (métricas efímeras, se purgan a los 30 días); se
-    incluyen explícitamente pasando ``action=login``.
+    los eventos de login (métricas efímeras); se incluyen explícitamente
+    pasando ``action=login``. La retención de logins la define
+    ``settings.EVENTLOG_LOGIN_RETENTION_DAYS`` (ver DATOS.md).
     """
 
     permission_classes = [IsSuperuser]
@@ -587,33 +594,19 @@ class AdminActivityView(APIView):
     throttle_classes = [AdminThrottle]
 
     def get(self, request):
-        qs = EventLog.objects.select_related(
-            "actor", "target"
-        ).prefetch_related("actor__groups", "target__groups")
-
         action = request.query_params.get("action")
-        if action:
-            qs = qs.filter(action=action)
-        else:
-            qs = qs.exclude(action=EventLog.ACTION_LOGIN)
-
         entity_type = request.query_params.get("entity_type")
-        if entity_type:
-            qs = qs.filter(entity_type=entity_type)
-
         user_id = _clean_int_param(request.query_params.get("user_id"), "user_id")
-        if user_id is not None:
-            qs = qs.filter(Q(actor_id=user_id) | Q(target_id=user_id))
-
         date_from = _clean_date_param(request.query_params.get("from"), "from")
-        if date_from is not None:
-            qs = qs.filter(created_at__date__gte=date_from)
-
         date_to = _clean_date_param(request.query_params.get("to"), "to")
-        if date_to is not None:
-            qs = qs.filter(created_at__date__lte=date_to)
 
-        qs = qs.order_by("-created_at")
+        qs = filter_event_logs(
+            action=action,
+            entity_type=entity_type,
+            user_id=user_id,
+            date_from=date_from,
+            date_to=date_to,
+        ).prefetch_related("actor__groups", "target__groups")
 
         paginator = ListPagination()
         page = paginator.paginate_queryset(qs, request)
@@ -621,17 +614,74 @@ class AdminActivityView(APIView):
         return paginator.get_paginated_response(payload)
 
 
+class ExportEventsView(APIView):
+    """Exporta EventLog completo (sin paginar) como CSV o JSON.
+
+    Mismos filtros que ``AdminActivityView`` (``action``, ``entity_type``,
+    ``user_id``, ``from``, ``to``) y misma semántica: sin ``action`` se
+    excluyen los logins, como en el listado de actividad. Devuelve el
+    historial completo de una sola vez pensado para descargarlo y analizarlo
+    con pandas/Excel (ver DATOS.md). Solo superusuarios.
+
+    El formato va en ``file_format`` (no ``format``): DRF reserva ``format``
+    como override de renderer y respondería 404 para formatos que no estén
+    en su mapa, antes de llegar a este handler.
+
+    ``GET /auth/admin/export-events/?file_format=csv|json&action=&...``
+    """
+
+    permission_classes = [IsSuperuser]
+    throttle_classes = [AdminThrottle]
+
+    def get(self, request):
+        fmt = (request.query_params.get("file_format") or "csv").lower()
+        if fmt not in ("csv", "json"):
+            raise ValidationError({"file_format": "Debe ser 'csv' o 'json'."})
+
+        action = request.query_params.get("action")
+        entity_type = request.query_params.get("entity_type")
+        user_id = _clean_int_param(request.query_params.get("user_id"), "user_id")
+        date_from = _clean_date_param(request.query_params.get("from"), "from")
+        date_to = _clean_date_param(request.query_params.get("to"), "to")
+
+        events = filter_event_logs(
+            action=action,
+            entity_type=entity_type,
+            user_id=user_id,
+            date_from=date_from,
+            date_to=date_to,
+        )
+
+        if fmt == "csv":
+            body = export_events_csv(events)
+            content_type = "text/csv; charset=utf-8"
+        else:
+            body = export_events_json(events)
+            content_type = "application/json; charset=utf-8"
+
+        stamp = timezone.now().strftime("%Y%m%d-%H%M%S")
+        response = HttpResponse(body, content_type=content_type)
+        response["Content-Disposition"] = (
+            f'attachment; filename="eventlog-{stamp}.{fmt}"'
+        )
+        return response
+
+
 class LoginStatsView(APIView):
     """Métricas de acceso (adopción) para la consola de administración.
 
     Agrega por día los logins registrados en EventLog: cantidad total de
     logins y usuarios únicos por día, para responder "¿están entrando los
-    usuarios (y sobre todo los estudiantes)?". Solo superusuarios. De paso
-    limpia perezosamente los eventos de login más viejos que
-    ``LOGIN_RETENTION_DAYS`` para que EventLog no crezca sin límite.
+    usuarios (y sobre todo los estudiantes)?". Solo superusuarios.
+
+    De paso, si ``settings.EVENTLOG_LOGIN_RETENTION_DAYS`` define una
+    retención (> 0 días), limpia perezosamente los eventos de login más
+    viejos que ese plazo. Con el default (None) **no se purga nada** y el
+    historial completo queda disponible para análisis de datos (ver DATOS.md).
+    La retención vigente se expone en ``retention_days`` para que el
+    frontend muestre el texto correcto.
     """
 
-    LOGIN_RETENTION_DAYS = 30
     DEFAULT_DAYS = 7
     MAX_DAYS = 90
 
@@ -645,11 +695,13 @@ class LoginStatsView(APIView):
             days = self.DEFAULT_DAYS
         days = max(1, min(days, self.MAX_DAYS))
 
-        cutoff = timezone.now() - timedelta(days=self.LOGIN_RETENTION_DAYS)
-        EventLog.objects.filter(
-            action=EventLog.ACTION_LOGIN,
-            created_at__lt=cutoff,
-        ).delete()
+        retention_days = getattr(settings, "EVENTLOG_LOGIN_RETENTION_DAYS", None)
+        if retention_days:
+            cutoff = timezone.now() - timedelta(days=retention_days)
+            EventLog.objects.filter(
+                action=EventLog.ACTION_LOGIN,
+                created_at__lt=cutoff,
+            ).delete()
 
         since = (timezone.now() - timedelta(days=days - 1)).date()
         rows = (
@@ -690,6 +742,7 @@ class LoginStatsView(APIView):
         return Response(
             {
                 "days": days,
+                "retention_days": retention_days,
                 "totals": totals,
                 "per_day": per_day,
             }
