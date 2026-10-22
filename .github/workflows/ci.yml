@@ -102,16 +102,30 @@ jobs:
         run: npm ci
 
       - name: Audit npm dependencies
-        # El endpoint de auditoría de npm devuelve 503 con frecuencia
-        # (registry.npmjs.org/-/npm/v1/security/audits/quick). Se reintenta
-        # para no tumbar el build por una caída de un servicio externo; si
-        # hay advisories reales, falla igual tras los intentos.
-        uses: nick-fields/retry@v3
-        with:
-          timeout_minutes: 5
-          max_attempts: 3
-          retry_wait_seconds: 30
-          command: npm audit --audit-level=high
+        # El endpoint de auditoría de npm (registry.npmjs.org/-/npm/v1/
+        # security/audits/quick) devuelve 503 con frecuencia y tumbaba el
+        # build por una caída ajena al repo. Reintentamos SOLO los fallos de
+        # red; un advisory real falla al primer intento. Se usa un loop en
+        # vez de una action de terceros porque este step depende del
+        # defaults.run.working-directory del job (frontend/), que una
+        # `uses:` no hereda.
+        run: |
+          for i in 1 2 3; do
+            if output=$(npm audit --audit-level=high 2>&1); then
+              echo "$output"
+              exit 0
+            fi
+            echo "$output"
+            if echo "$output" | grep -qE "503|Service Unavailable|audit endpoint"; then
+              echo "Fallo de red del registry (intento $i); reintentando en 30s..."
+              sleep 30
+            else
+              echo "Fallo real de auditoría; no se reintenta."
+              exit 1
+            fi
+          done
+          echo "Se agotaron los reintentos por caídas del registry de npm."
+          exit 1
 
       - name: Lint
         run: npm run lint
