@@ -25,17 +25,27 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 5
     groups:
+      # psycopg y psycopg-binary comparten ABI: si se desincronizan, la
+      # conexión a Postgres falla con "wait_c() got an unexpected keyword
+      # argument 'timeout'". Deben subir siempre en el mismo PR.
+      psycopg:
+        patterns:
+          - "psycopg"
+          - "psycopg-binary"
       django:
         patterns:
           - "django"
           - "djangorestframework*"
-          - "djoser"
           - "django-filter"
+      # djoser condiciona qué social-auth-app-django se puede instalar:
+      # 2.3.4 exige <6.0.0 y 2.3.5 permite <8.0.0. Van juntos para que el
+      # grupo no quede bloqueado por un pin incompatible.
       auth:
         patterns:
           - "PyJWT"
           - "cryptography"
           - "social-auth-*"
+          - "djoser"
 
   - package-ecosystem: "github-actions"
     directory: "/"
