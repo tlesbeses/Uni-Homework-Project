@@ -17,7 +17,7 @@ Resumen del estado y las acciones pendientes sobre la seguridad de la aplicació
 | 9 | **Redis** | Infraestructura | ⚠️ Sí | 🟡 Solo si 2+ instancias | Configurar `REDIS_URL` |
 | 10 | **Escalar instancias** | Infraestructura | ⚠️ Sí | 🟡 Solo si creces | Plan/instancias Render |
 | 11 | **WAF/Cloudflare** | Infraestructura | ⚠️ Sí | 🔵 Opcional | Solo si crece mucho |
-| 12 | **EventLog / auditoría** | Código | ❌ No | ✅ Hecho | Impersonación + calificaciones + cursos (CRUD/settings/inscripciones) + usuarios/roles |
+| 12 | **EventLog / auditoría** | Código | ❌ No | ✅ Hecho | Impersonación + calificaciones + cursos (CRUD/settings/inscripciones) + usuarios/roles + logins. Retención de logins **configurable** (`EVENTLOG_LOGIN_RETENTION_DAYS`; default = conservar todo) y exportación CSV/JSON (`/auth/admin/export-events/` + `manage.py export_events`). Ver `DATOS.md` |
 | 13 | **Secretos** | Config | ❌ No | ✅ Hecho | — |
 
 ---

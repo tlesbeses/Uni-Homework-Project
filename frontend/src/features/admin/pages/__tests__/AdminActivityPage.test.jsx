@@ -1,7 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { render, screen, fireEvent, within, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { AdminActivityPage } from "@/features/admin/pages/AdminActivityPage";
+
+const { exportMock, toastMock } = vi.hoisted(() => ({
+    exportMock: vi.fn(),
+    toastMock: { success: vi.fn(), error: vi.fn() },
+}));
+
+vi.mock("@/features/admin/services/adminService", () => ({
+    exportActivityLogs: exportMock,
+}));
+
+vi.mock("react-toastify", () => ({ toast: toastMock }));
 
 const { activityMock } = vi.hoisted(() => ({
     activityMock: {
@@ -56,6 +67,10 @@ describe("AdminActivityPage", () => {
         loginStatsMock.stats = null;
         loginStatsMock.loading = false;
         loginStatsMock.error = "";
+        exportMock.mockReset();
+        exportMock.mockResolvedValue({});
+        toastMock.success.mockReset();
+        toastMock.error.mockReset();
     });
 
     it("muestra la tarjeta de accesos con logins y usuarios unicos por dia en la pestana Accesos", () => {
@@ -235,5 +250,144 @@ describe("AdminActivityPage", () => {
         expect(within(card).getByText("@ana")).toBeInTheDocument();
         expect(within(card).getByText("Estudiante")).toBeInTheDocument();
         expect(within(card).getByText("Administrador")).toBeInTheDocument();
+    });
+
+    it("exporta CSV con los filtros activos de la pestaña Actividad", async () => {
+        renderPage();
+
+        fireEvent.change(screen.getByLabelText("Filtrar por acción"), {
+            target: { value: "update" },
+        });
+        fireEvent.change(screen.getByLabelText("Desde"), {
+            target: { value: "2026-01-01" },
+        });
+        fireEvent.click(screen.getByRole("button", { name: "Exportar CSV" }));
+
+        await waitFor(() =>
+            expect(exportMock).toHaveBeenCalledWith({
+                fileFormat: "csv",
+                action: "update",
+                entityType: "",
+                userId: "",
+                from: "2026-01-01",
+                to: "",
+                includeLogins: false,
+            })
+        );
+        await waitFor(() =>
+            expect(toastMock.success).toHaveBeenCalledWith(
+                "Exportación CSV lista."
+            )
+        );
+    });
+
+    it("exporta todo (incluye logins) en CSV desde la pestaña Actividad", async () => {
+        renderPage();
+
+        fireEvent.click(screen.getByRole("button", { name: "Todo CSV" }));
+
+        await waitFor(() =>
+            expect(exportMock).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    fileFormat: "csv",
+                    includeLogins: true,
+                })
+            )
+        );
+    });
+
+    it("exporta todo (incluye logins) en JSON desde la pestaña Actividad", async () => {
+        renderPage();
+
+        fireEvent.click(screen.getByRole("button", { name: "Todo JSON" }));
+
+        await waitFor(() =>
+            expect(exportMock).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    fileFormat: "json",
+                    includeLogins: true,
+                })
+            )
+        );
+    });
+
+    it("aclara que los logins se exportan en Accesos", () => {
+        renderPage();
+
+        expect(
+            screen.getByText(/Los inicios de sesión se ven y se exportan en la/)
+        ).toBeInTheDocument();
+    });
+
+    it("en la pestaña Accesos exporta solo los logins", async () => {
+        renderPage();
+        goToLogins();
+
+        fireEvent.click(screen.getByRole("button", { name: "Exportar JSON" }));
+
+        await waitFor(() =>
+            expect(exportMock).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    fileFormat: "json",
+                    action: "login",
+                    entityType: "",
+                })
+            )
+        );
+    });
+
+    it("no ofrece la exportación 'todo' en la pestaña Accesos", () => {
+        renderPage();
+        goToLogins();
+
+        expect(
+            screen.queryByRole("button", { name: "Todo CSV" })
+        ).not.toBeInTheDocument();
+        expect(
+            screen.queryByRole("button", { name: "Todo JSON" })
+        ).not.toBeInTheDocument();
+    });
+
+    it("muestra un error si la exportación falla", async () => {
+        exportMock.mockRejectedValue(new Error("boom"));
+
+        renderPage();
+        fireEvent.click(screen.getByRole("button", { name: "Exportar CSV" }));
+
+        await waitFor(() =>
+            expect(toastMock.error).toHaveBeenCalled()
+        );
+    });
+
+    it("muestra la retención indefinida cuando el backend no fija días", () => {
+        loginStatsMock.stats = {
+            days: 7,
+            retention_days: null,
+            totals: { logins: 0, unique_users: 0 },
+            per_day: [],
+        };
+
+        renderPage();
+        goToLogins();
+
+        expect(
+            screen.getByText("Los logins se conservan por tiempo indefinido")
+        ).toBeInTheDocument();
+    });
+
+    it("muestra la retención en días cuando el backend la configura", () => {
+        loginStatsMock.stats = {
+            days: 7,
+            retention_days: 30,
+            totals: { logins: 0, unique_users: 0 },
+            per_day: [],
+        };
+
+        renderPage();
+        goToLogins();
+
+        expect(
+            screen.getByText("Los logins se conservan 30 días")
+        ).toBeInTheDocument();
     });
 });
