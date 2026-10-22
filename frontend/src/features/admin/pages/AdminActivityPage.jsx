@@ -120,8 +120,8 @@ export const AdminActivityPage = () => {
         setPage(1);
     };
 
-    const handleExport = async (fileFormat) => {
-        setExporting(fileFormat);
+    const handleExport = async (fileFormat, includeLogins = false) => {
+        setExporting(includeLogins ? "all" : fileFormat);
         try {
             await exportActivityLogs({
                 fileFormat,
@@ -131,6 +131,7 @@ export const AdminActivityPage = () => {
                 userId: debouncedUser,
                 from,
                 to,
+                includeLogins,
             });
             toast.success(`Exportación ${fileFormat.toUpperCase()} lista.`);
         } catch (err) {
@@ -280,6 +281,13 @@ export const AdminActivityPage = () => {
                         Historial de eventos del sistema: impersonaciones,
                         calificaciones y cambios en cursos, grupos y tareas.
                     </p>
+                    {!loginsOnly && (
+                        <p className="text-xs text-gray-400 mt-1">
+                            Los inicios de sesión se ven y se exportan en la
+                            pestaña Accesos. Usá «Exportar todo» para
+                            descargarlos junto con estos eventos.
+                        </p>
+                    )}
                 </div>
                 <div className="inline-flex rounded-lg border border-gray-300 bg-white p-0.5 self-start">
                     {TABS.map((tab) => (
@@ -466,6 +474,18 @@ export const AdminActivityPage = () => {
                     <span />
                 )}
                 <div className="flex items-center gap-2">
+                    {!loginsOnly && (
+                        <button
+                            type="button"
+                            onClick={() => handleExport("csv", true)}
+                            disabled={exporting !== null}
+                            className="px-3 py-1.5 rounded-lg border border-indigo-300 bg-indigo-50 text-sm font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {exporting === "all"
+                                ? "Exportando..."
+                                : "Exportar todo"}
+                        </button>
+                    )}
                     <button
                         type="button"
                         onClick={() => handleExport("csv")}

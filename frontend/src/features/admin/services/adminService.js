@@ -108,10 +108,18 @@ function triggerBlobDownload(blob, filename) {
  * que el archivo se trae como blob (queryApi, sin cache GET) y se dispara la
  * descarga en el cliente. Mismos filtros que la tabla de actividad; sin
  * `action` el backend excluye los logins, como en el listado (ver DATOS.md).
+ * Con `includeLogins` se incluyen también los logins (exportación "todo").
  */
 export const exportActivityLogs = async (params) => {
-    const { fileFormat = "csv", action, entityType, userId, from, to } =
-        params ?? {};
+    const {
+        fileFormat = "csv",
+        action,
+        entityType,
+        userId,
+        from,
+        to,
+        includeLogins = false,
+    } = params ?? {};
     const query = { file_format: fileFormat };
     if (action) {
         query.action = action;
@@ -127,6 +135,9 @@ export const exportActivityLogs = async (params) => {
     }
     if (to) {
         query.to = to;
+    }
+    if (includeLogins) {
+        query.include_logins = "true";
     }
 
     const response = await queryApi.get("/auth/admin/export-events/", {

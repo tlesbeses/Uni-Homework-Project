@@ -271,6 +271,7 @@ describe("AdminActivityPage", () => {
                 userId: "",
                 from: "2026-01-01",
                 to: "",
+                includeLogins: false,
             })
         );
         await waitFor(() =>
@@ -278,6 +279,29 @@ describe("AdminActivityPage", () => {
                 "Exportación CSV lista."
             )
         );
+    });
+
+    it("exporta todo (incluye logins) desde la pestaña Actividad", async () => {
+        renderPage();
+
+        fireEvent.click(screen.getByRole("button", { name: "Exportar todo" }));
+
+        await waitFor(() =>
+            expect(exportMock).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    fileFormat: "csv",
+                    includeLogins: true,
+                })
+            )
+        );
+    });
+
+    it("aclara que los logins se exportan en Accesos", () => {
+        renderPage();
+
+        expect(
+            screen.getByText(/Los inicios de sesión se ven y se exportan en la/)
+        ).toBeInTheDocument();
     });
 
     it("en la pestaña Accesos exporta solo los logins", async () => {
@@ -295,6 +319,15 @@ describe("AdminActivityPage", () => {
                 })
             )
         );
+    });
+
+    it("no ofrece 'Exportar todo' en la pestaña Accesos", () => {
+        renderPage();
+        goToLogins();
+
+        expect(
+            screen.queryByRole("button", { name: "Exportar todo" })
+        ).not.toBeInTheDocument();
     });
 
     it("muestra un error si la exportación falla", async () => {
