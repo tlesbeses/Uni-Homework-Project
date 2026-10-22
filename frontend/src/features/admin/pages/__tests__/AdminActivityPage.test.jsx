@@ -281,15 +281,30 @@ describe("AdminActivityPage", () => {
         );
     });
 
-    it("exporta todo (incluye logins) desde la pestaña Actividad", async () => {
+    it("exporta todo (incluye logins) en CSV desde la pestaña Actividad", async () => {
         renderPage();
 
-        fireEvent.click(screen.getByRole("button", { name: "Exportar todo" }));
+        fireEvent.click(screen.getByRole("button", { name: "Todo CSV" }));
 
         await waitFor(() =>
             expect(exportMock).toHaveBeenCalledWith(
                 expect.objectContaining({
                     fileFormat: "csv",
+                    includeLogins: true,
+                })
+            )
+        );
+    });
+
+    it("exporta todo (incluye logins) en JSON desde la pestaña Actividad", async () => {
+        renderPage();
+
+        fireEvent.click(screen.getByRole("button", { name: "Todo JSON" }));
+
+        await waitFor(() =>
+            expect(exportMock).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    fileFormat: "json",
                     includeLogins: true,
                 })
             )
@@ -321,12 +336,15 @@ describe("AdminActivityPage", () => {
         );
     });
 
-    it("no ofrece 'Exportar todo' en la pestaña Accesos", () => {
+    it("no ofrece la exportación 'todo' en la pestaña Accesos", () => {
         renderPage();
         goToLogins();
 
         expect(
-            screen.queryByRole("button", { name: "Exportar todo" })
+            screen.queryByRole("button", { name: "Todo CSV" })
+        ).not.toBeInTheDocument();
+        expect(
+            screen.queryByRole("button", { name: "Todo JSON" })
         ).not.toBeInTheDocument();
     });
 

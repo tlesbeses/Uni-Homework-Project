@@ -76,7 +76,7 @@ login tienen retención configurable (ver `EVENTLOG_LOGIN_RETENTION_DAYS` y
 
 - **Endpoint web** (superuser): `GET /auth/admin/export-events/`
   acepta `file_format=csv|json` (default `csv`), `include_logins=true` para
-  incluir también los logins (botón "Exportar todo"), y los mismos filtros
+  incluir también los logins (botones "Todo CSV" / "Todo JSON"), y los mismos filtros
   del listado de actividad (`action`, `entity_type`, `user_id`, `from`,
   `to`). Devuelve todo el resultado sin paginar, como descarga.
 - **Terminal**: `python manage.py export_events --format csv --output eventos.csv`

@@ -88,7 +88,7 @@ historia porque una cuenta se dé de baja.
 | --- | --- | --- |
 | `file_format` | `csv` (default) / `json` | Formato de salida |
 | `action` | p. ej. `login`, `update` | Filtra por acción. **Sin este param se excluyen los logins**, igual que el listado de actividad |
-| `include_logins` | `true` / *(vacío)* | Incluye también los logins en la exportación (equivale al botón **"Exportar todo"**) |
+| `include_logins` | `true` / *(vacío)* | Incluye también los logins en la exportación (equivale a los botones **"Todo CSV" / "Todo JSON"**) |
 | `entity_type` | p. ej. `course`, `grade` | Filtra por entidad |
 | `user_id` | entero | Eventos donde el usuario es `actor` **o** `target` |
 | `from` / `to` | `AAAA-MM-DD` | Rango de fechas inclusive |
@@ -98,9 +98,9 @@ El frontend expone en `AdminActivityPage`:
 - **"Exportar CSV" / "Exportar JSON"**: exportan **lo que se ve** en la
   pestaña activa (Actividad = cambios del sistema, sin logins; Accesos =
   solo `action=login`).
-- **"Exportar todo"** (solo en Actividad): un único CSV con **todos** los
-  eventos, incluyendo logins (`include_logins=true`). Pensado para análisis
-  de datos, sin mezclar los logins en la tabla.
+- **"Todo CSV" / "Todo JSON"** (solo en Actividad): un único archivo con
+  **todos** los eventos, incluyendo logins (`include_logins=true`). Pensado
+  para análisis de datos, sin mezclar los logins en la tabla.
 
 > El param se llama `file_format` y **no** `format` porque DRF reserva
 > `format` como override de renderer.

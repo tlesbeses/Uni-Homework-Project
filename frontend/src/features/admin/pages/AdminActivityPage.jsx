@@ -121,7 +121,9 @@ export const AdminActivityPage = () => {
     };
 
     const handleExport = async (fileFormat, includeLogins = false) => {
-        setExporting(includeLogins ? "all" : fileFormat);
+        setExporting(
+            includeLogins ? `all-${fileFormat}` : fileFormat
+        );
         try {
             await exportActivityLogs({
                 fileFormat,
@@ -284,7 +286,7 @@ export const AdminActivityPage = () => {
                     {!loginsOnly && (
                         <p className="text-xs text-gray-400 mt-1">
                             Los inicios de sesión se ven y se exportan en la
-                            pestaña Accesos. Usá «Exportar todo» para
+                            pestaña Accesos. Usá «Todo CSV» o «Todo JSON» para
                             descargarlos junto con estos eventos.
                         </p>
                     )}
@@ -475,16 +477,28 @@ export const AdminActivityPage = () => {
                 )}
                 <div className="flex items-center gap-2">
                     {!loginsOnly && (
-                        <button
-                            type="button"
-                            onClick={() => handleExport("csv", true)}
-                            disabled={exporting !== null}
-                            className="px-3 py-1.5 rounded-lg border border-indigo-300 bg-indigo-50 text-sm font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {exporting === "all"
-                                ? "Exportando..."
-                                : "Exportar todo"}
-                        </button>
+                        <>
+                            <button
+                                type="button"
+                                onClick={() => handleExport("csv", true)}
+                                disabled={exporting !== null}
+                                className="px-3 py-1.5 rounded-lg border border-indigo-300 bg-indigo-50 text-sm font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {exporting === "all-csv"
+                                    ? "Exportando..."
+                                    : "Todo CSV"}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handleExport("json", true)}
+                                disabled={exporting !== null}
+                                className="px-3 py-1.5 rounded-lg border border-indigo-300 bg-indigo-50 text-sm font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {exporting === "all-json"
+                                    ? "Exportando..."
+                                    : "Todo JSON"}
+                            </button>
+                        </>
                     )}
                     <button
                         type="button"
