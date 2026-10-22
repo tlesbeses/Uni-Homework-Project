@@ -814,6 +814,19 @@ class ExportEventsTests(APITestCase):
         self.assertIn("update", lines[1])
         self.assertNotIn("login", "\n".join(lines[1:]))
 
+    def test_include_logins_flag_exports_everything(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.get(
+            "/auth/admin/export-events/",
+            {"file_format": "json", "include_logins": "true"},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = json.loads(response.content.decode("utf-8"))
+        actions = {row["action"] for row in data}
+        # La exportación "todo" mezcla cambios del sistema y logins.
+        self.assertEqual(actions, {"login", "update"})
+
     def test_json_download_includes_logins_with_action_filter(self):
         self.client.force_authenticate(self.admin)
         response = self.client.get(

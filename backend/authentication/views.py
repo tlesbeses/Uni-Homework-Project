@@ -619,15 +619,16 @@ class ExportEventsView(APIView):
 
     Mismos filtros que ``AdminActivityView`` (``action``, ``entity_type``,
     ``user_id``, ``from``, ``to``) y misma semántica: sin ``action`` se
-    excluyen los logins, como en el listado de actividad. Devuelve el
-    historial completo de una sola vez pensado para descargarlo y analizarlo
-    con pandas/Excel (ver DATOS.md). Solo superusuarios.
+    excluyen los logins, como en el listado de actividad. Con
+    ``include_logins=true`` se incluyen también (exportación "todo").
+    Devuelve el historial completo de una sola vez pensado para descargarlo
+    y analizarlo con pandas/Excel (ver DATOS.md). Solo superusuarios.
 
     El formato va en ``file_format`` (no ``format``): DRF reserva ``format``
     como override de renderer y respondería 404 para formatos que no estén
     en su mapa, antes de llegar a este handler.
 
-    ``GET /auth/admin/export-events/?file_format=csv|json&action=&...``
+    ``GET /auth/admin/export-events/?file_format=csv|json&action=&...&include_logins=true``
     """
 
     permission_classes = [IsSuperuser]
@@ -643,6 +644,11 @@ class ExportEventsView(APIView):
         user_id = _clean_int_param(request.query_params.get("user_id"), "user_id")
         date_from = _clean_date_param(request.query_params.get("from"), "from")
         date_to = _clean_date_param(request.query_params.get("to"), "to")
+        include_logins = request.query_params.get("include_logins", "").lower() in (
+            "1",
+            "true",
+            "yes",
+        )
 
         events = filter_event_logs(
             action=action,
@@ -650,6 +656,7 @@ class ExportEventsView(APIView):
             user_id=user_id,
             date_from=date_from,
             date_to=date_to,
+            include_logins=include_logins,
         )
 
         if fmt == "csv":

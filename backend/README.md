@@ -75,8 +75,9 @@ login tienen retención configurable (ver `EVENTLOG_LOGIN_RETENTION_DAYS` y
 `DATOS.md` en la raíz del repo). Para llevarse el historial a pandas/Excel:
 
 - **Endpoint web** (superuser): `GET /auth/admin/export-events/`
-  acepta `file_format=csv|json` (default `csv`) y los mismos filtros del
-  listado de actividad (`action`, `entity_type`, `user_id`, `from`, `to`).
-  Devuelve todo el resultado sin paginar, como descarga.
+  acepta `file_format=csv|json` (default `csv`), `include_logins=true` para
+  incluir también los logins (botón "Exportar todo"), y los mismos filtros
+  del listado de actividad (`action`, `entity_type`, `user_id`, `from`,
+  `to`). Devuelve todo el resultado sin paginar, como descarga.
 - **Terminal**: `python manage.py export_events --format csv --output eventos.csv`
   (o `--format json --action login --from 2026-01-01`; ver `--help`).

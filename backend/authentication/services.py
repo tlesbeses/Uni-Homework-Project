@@ -26,19 +26,28 @@ def log_event(*, actor=None, action, entity_type="", entity_id=None, target=None
         pass
 
 
-def filter_event_logs(*, action=None, entity_type=None, user_id=None, date_from=None, date_to=None):
+def filter_event_logs(
+    *,
+    action=None,
+    entity_type=None,
+    user_id=None,
+    date_from=None,
+    date_to=None,
+    include_logins=False,
+):
     """Queryset de EventLog con los filtros comunes de la consola admin.
 
     Compartido por ``AdminActivityView``, ``ExportEventsView`` y el comando
     ``export_events`` para que lo que se ve en pantalla, lo que se exporta y
     lo que se vuelca desde la terminal coincidan. Sin ``action`` explícito
-    excluye los eventos de login (como en el listado de actividad).
+    excluye los eventos de login (como en el listado de actividad); con
+    ``include_logins=True`` los incluye (p. ej. la exportación "todo").
     """
     qs = EventLog.objects.select_related("actor", "target")
 
     if action:
         qs = qs.filter(action=action)
-    else:
+    elif not include_logins:
         qs = qs.exclude(action=EventLog.ACTION_LOGIN)
 
     if entity_type:
