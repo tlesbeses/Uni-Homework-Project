@@ -1,7 +1,10 @@
 import { useState } from "react";
+import { toast } from "react-toastify";
 import { useActivityLogs } from "@/features/admin/hooks/useActivityLogs";
 import { useLoginStats } from "@/features/admin/hooks/useLoginStats";
+import { exportActivityLogs } from "@/features/admin/services/adminService";
 import { useDebouncedValue } from "@/shared/hooks/useDebouncedValue";
+import { getErrorMessage } from "@/shared/utils/getErrorMessage";
 import {
     actionLabel,
     actionStyle,
@@ -71,6 +74,7 @@ export const AdminActivityPage = () => {
     const [userId, setUserId] = useState("");
     const [from, setFrom] = useState("");
     const [to, setTo] = useState("");
+    const [exporting, setExporting] = useState(null);
 
     const debouncedUser = useDebouncedValue(userId);
 
@@ -114,6 +118,26 @@ export const AdminActivityPage = () => {
     const switchTab = (tab) => {
         setActiveTab(tab);
         setPage(1);
+    };
+
+    const handleExport = async (fileFormat) => {
+        setExporting(fileFormat);
+        try {
+            await exportActivityLogs({
+                fileFormat,
+                // En "Accesos" se exporta solo logins (como la tabla).
+                action: loginsOnly ? "login" : action,
+                entityType: loginsOnly ? "" : entityType,
+                userId: debouncedUser,
+                from,
+                to,
+            });
+            toast.success(`Exportación ${fileFormat.toUpperCase()} lista.`);
+        } catch (err) {
+            toast.error(getErrorMessage(err));
+        } finally {
+            setExporting(null);
+        }
     };
 
     const loginsColumns = [
@@ -168,6 +192,12 @@ export const AdminActivityPage = () => {
             ),
         },
     ];
+
+    const retentionText =
+        loginStats?.retention_days === null ||
+        loginStats?.retention_days === undefined
+            ? "Los logins se conservan por tiempo indefinido"
+            : `Los logins se conservan ${loginStats.retention_days} días`;
 
     const activityColumns = [
         {
@@ -277,7 +307,7 @@ export const AdminActivityPage = () => {
                             Accesos (últimos {loginStats?.days ?? 7} días)
                         </h2>
                         <span className="text-xs text-gray-400">
-                            Los logins se conservan 30 días
+                            {retentionText}
                         </span>
                     </div>
 
@@ -423,15 +453,37 @@ export const AdminActivityPage = () => {
                 />
             </div>
 
-            {hasFilters && (
-                <button
-                    type="button"
-                    onClick={clearFilters}
-                    className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
-                >
-                    Limpiar filtros
-                </button>
-            )}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                {hasFilters ? (
+                    <button
+                        type="button"
+                        onClick={clearFilters}
+                        className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
+                    >
+                        Limpiar filtros
+                    </button>
+                ) : (
+                    <span />
+                )}
+                <div className="flex items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() => handleExport("csv")}
+                        disabled={exporting !== null}
+                        className="px-3 py-1.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {exporting === "csv" ? "Exportando..." : "Exportar CSV"}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => handleExport("json")}
+                        disabled={exporting !== null}
+                        className="px-3 py-1.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {exporting === "json" ? "Exportando..." : "Exportar JSON"}
+                    </button>
+                </div>
+            </div>
 
             {error && (
                 <p className="text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg px-4 py-3">
