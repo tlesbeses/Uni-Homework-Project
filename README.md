@@ -90,41 +90,41 @@ En producción Django sirve el build del SPA (`frontend/dist`) same-origin: las 
 
 | Tecnología           | Versión | Uso                        |
 | -------------------- | ------- | -------------------------- |
-| React                | ^19.2.7 | UI                         |
-| react-dom            | ^19.2.7 | Renderizado DOM            |
-| react-router-dom     | ^7.18.1 | Enrutado                   |
+| React                | ^19.3.0 | UI                         |
+| react-dom            | ^19.3.0 | Renderizado DOM            |
+| react-router-dom     | ^7.18.4 | Enrutado                   |
 | react-hook-form      | ^7.83.0 | Gestión de formularios     |
-| @hookform/resolvers  | ^5.5.7  | Validación react-hook-form |
-| zod                  | ^4.4.3  | Validación de esquemas     |
-| axios                | ^1.18.1 | Cliente HTTP               |
-| @tanstack/react-query| ^5.x   | Fetching / caché de datos   |
+| @hookform/resolvers  | ^5.9.1  | Validación react-hook-form |
+| zod                  | ^4.5.4  | Validación de esquemas     |
+| axios                | ^1.20.0 | Cliente HTTP               |
+| @tanstack/react-query| ^5.102.8 | Fetching / caché de datos |
 | react-toastify       | ^11.1.0 | Notificaciones             |
 | tailwindcss          | ^4.3.3  | CSS utility-first          |
 | @tailwindcss/vite    | ^4.3.3  | Plugin Tailwind para Vite  |
-| @vitejs/plugin-react | ^6.0.3  | Plugin React para Vite     |
-| vite                 | ^8.1.1  | Build / dev server         |
+| @vitejs/plugin-react | ^6.1.1  | Plugin React para Vite     |
+| vite                 | ^8.3.5  | Build / dev server         |
 | vite-plugin-pwa      | ^1.3.0  | Soporte PWA                |
-| oxlint               | ^1.71.0 | Linter                     |
+| oxlint               | 1.88.0  | Linter                     |
 
 ### Backend
 
 | Tecnología                    | Versión | Uso                         |
 | ----------------------------- | ------- | --------------------------- |
-| Django                        | 6.0.7   | Framework web               |
-| djangorestframework           | 3.17.1  | API REST                    |
+| Django                        | 6.1.1   | Framework web               |
+| djangorestframework           | 3.18.1  | API REST                    |
 | djangorestframework_simplejwt | 5.5.1   | Autenticación JWT           |
-| djoser                        | 2.3.3   | Registro / auth de usuarios |
+| djoser                        | 2.3.5   | Registro / auth de usuarios |
 | django-filter                 | 26.1    | Filtrado de consultas       |
 | django-cors-headers           | 4.9.0   | CORS                        |
 | dj-database-url               | 3.1.2   | Parsing de `DATABASE_URL`   |
 | python-dotenv                 | 1.2.3   | Carga de `.env`             |
-| psycopg / psycopg-binary      | 3.3.4   | Driver PostgreSQL           |
-| gunicorn                      | 26.0.0  | Servidor WSGI de producción |
+| psycopg / psycopg-binary      | 3.3.6   | Driver PostgreSQL           |
+| gunicorn                      | 26.2.0  | Servidor WSGI de producción |
 | whitenoise                    | 6.12.0  | Servir estáticos            |
 | openpyxl                      | 3.1.5   | Exportación Excel (.xlsx)   |
 | redis                         | 6.2.0   | Caché en producción         |
-| PyJWT                         | 2.13.0  | Soporte JWT                 |
-| tzdata                        | 2026.3  | Datos de zona horaria       |
+| PyJWT                         | 2.15.1  | Soporte JWT                 |
+| tzdata                        | 2026.5  | Datos de zona horaria       |
 
 **Python:** 3.14
 
@@ -504,12 +504,10 @@ npm run build
 
 ### Actualizaciones revisadas y diferidas
 
-Durante el cierre se revisaron todas las propuestas de Dependabot. Estas se cerraron a propósito (cambios mayores que exigirían revalidación completa) y pueden reintentarse en el futuro:
+El core de Django, djoser y social-auth ya se actualizó. Queda pendiente:
 
 | Paquete(s) | Propuesta | Motivo del retraso |
 | --- | --- | --- |
-| django, djangorestframework, djoser | 6.0.8 → 6.1.1 · 3.17.2 → 3.18.1 · 2.3.3 → 2.3.4 | Bump del core; requiere revalidar los 370 tests y el flujo de auth. |
-| social-auth-app-django, social-auth-core | majors (5 → 6 · 4 → 5) | Librerías no usadas en el código. |
 | redis | 6.2.0 → 8.1.0 | Redis en modo latente (sin `REDIS_URL` en producción). |
 
 ---

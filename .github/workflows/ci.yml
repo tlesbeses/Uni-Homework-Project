@@ -67,21 +67,9 @@ jobs:
           path: backend/coverage.json
 
       - name: Audit Python dependencies
-        run: |
-          # social-auth-core==4.9.1 queda con 6 advisories (5 en 5.0.0 y
-          # CVE-2026-62322 en 5.0.2). La app NO usa login social; la
-          # dependencia entra por djoser (social-auth-app-django) y el
-          # arreglo exige social-auth-app-django 6.x, que djoser 2.3.4/2.3.5
-          # sigue bloqueando (<6.0.0). Re-evaluar al subir djoser, o evaluar
-          # sacar social-auth por completo. El resto de las dependencias
-          # (PyJWT, urllib3, certifi, oauthlib) se bumpearon y quedaron limpias.
-          pip-audit -r requirements.txt \
-            --ignore-vuln PYSEC-2026-4165 \
-            --ignore-vuln PYSEC-2026-4166 \
-            --ignore-vuln PYSEC-2026-4167 \
-            --ignore-vuln PYSEC-2026-4168 \
-            --ignore-vuln PYSEC-2026-4169 \
-            --ignore-vuln CVE-2026-62322
+        # Sin ignores: djoser 2.3.5 permite social-auth-app-django 7.1.0,
+        # que ya no arrastra los advisories de social-auth-core 4.9.1.
+        run: pip-audit -r requirements.txt
 
   frontend:
     name: Frontend (lint + tests + coverage + build)
